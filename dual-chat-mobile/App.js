@@ -17,6 +17,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Clipboard from 'expo-clipboard';
 import Constants from 'expo-constants';
 import { PLATFORMS, hasLink, isInternalUrl, parseTargets } from './src/links';
+import { FIT_POPUPS_JS } from './src/fitPopups';
 
 const STORE_KEY = 'dualchat:settings';
 const RELEASE_BASE = 'https://github.com/Hasantunaozdmr/Canzade-ToastyStat/releases/latest/download';
@@ -370,7 +371,7 @@ function ChatView({ k, url, zoom, onRef }) {
       containerStyle={styles.webview}
       userAgent={USER_AGENT}
       injectedJavaScriptBeforeContentLoaded={VIEWPORT_JS}
-      injectedJavaScript={zoomJs(zoom)}
+      injectedJavaScript={zoomJs(zoom) + FIT_POPUPS_JS}
       onShouldStartLoadWithRequest={onShouldStart}
       // Girişlerin kalıcı olması için
       sharedCookiesEnabled

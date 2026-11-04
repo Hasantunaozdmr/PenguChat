@@ -1,5 +1,8 @@
 const { app, BrowserWindow, ipcMain, shell, session, net } = require('electron');
 const path = require('path');
+const fs = require('fs');
+
+const FIT_POPUPS_JS = fs.readFileSync(path.join(__dirname, 'fit-popups.js'), 'utf8');
 
 // Twitch / Kick bazen "Electron" içeren tarayıcıları engelleyebiliyor,
 // bu yüzden normal bir Chrome kimliği kullanıyoruz.
@@ -61,6 +64,10 @@ function createWindow() {
 app.on('web-contents-created', (_e, contents) => {
   if (contents.getType() === 'webview') {
     contents.setUserAgent(CHROME_UA);
+    // Kullanıcı kartı gibi pencereler dar panelde taşmasın
+    contents.on('dom-ready', () => {
+      contents.executeJavaScript(FIT_POPUPS_JS).catch(() => {});
+    });
 
     contents.setWindowOpenHandler(({ url }) => {
       if (isInternal(url)) {
