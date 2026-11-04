@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+  <title>Dual Chat — Twitch + Kick</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="toolbar">
+    <div class="brand">Dual<span>Chat</span></div>
+
+    <form id="channelForm" class="channels">
+      <label class="field twitch">
+        <span class="dot"></span>
+        <input id="twitchInput" placeholder="Twitch kanalı" spellcheck="false" autocomplete="off" />
+      </label>
+      <label class="field kick">
+        <span class="dot"></span>
+        <input id="kickInput" placeholder="Kick kanalı" spellcheck="false" autocomplete="off" />
+      </label>
+      <button type="submit" class="btn primary">Aç</button>
+    </form>
+
+    <div class="spacer"></div>
+
+    <div class="group">
+      <button id="toggleTwitch" class="btn chip twitch active" title="Twitch panelini göster/gizle">Twitch</button>
+      <button id="toggleKick" class="btn chip kick active" title="Kick panelini göster/gizle">Kick</button>
+    </div>
+    <div class="group">
+      <button id="layoutBtn" class="btn icon" title="Yan yana / Alt alta">⇆</button>
+      <button id="swapBtn" class="btn icon" title="Panellerin yerini değiştir">⇄</button>
+      <button id="pinBtn" class="btn icon" title="Her zaman üstte">📌</button>
+      <input id="opacity" type="range" min="30" max="100" value="100" title="Pencere saydamlığı" />
+      <button id="menuBtn" class="btn icon" title="Diğer">⋯</button>
+    </div>
+
+    <div id="menu" class="menu hidden">
+      <button data-action="reload-all">Her iki chat'i yenile <kbd>F5</kbd></button>
+      <button data-action="reset-split">Bölmeyi ortala</button>
+      <button data-action="logout">Tüm hesaplardan çıkış yap</button>
+    </div>
+  </header>
+
+  <main id="panes" class="panes horizontal">
+    <section class="pane" id="pane-twitch" data-platform="twitch">
+      <div class="pane-head">
+        <span class="dot"></span>
+        <strong>Twitch</strong>
+        <span class="chan"></span>
+        <span class="status"></span>
+        <div class="spacer"></div>
+        <button class="btn mini" data-act="login" title="Hesaba giriş yap (moderatör araçları için)">Giriş</button>
+        <button class="btn mini" data-act="chat" title="Chat'e geri dön / yenile">⟳</button>
+        <button class="btn mini" data-act="zoom-out" title="Yazıyı küçült">A−</button>
+        <button class="btn mini" data-act="zoom-in" title="Yazıyı büyüt">A+</button>
+        <button class="btn mini" data-act="external" title="Kanalı tarayıcıda aç">↗</button>
+      </div>
+      <div class="pane-body">
+        <div class="placeholder">Yukarıdan bir Twitch kanalı gir.</div>
+      </div>
+    </section>
+
+    <div id="splitter" class="splitter" title="Sürükle: boyutlandır · Çift tık: ortala"></div>
+
+    <section class="pane" id="pane-kick" data-platform="kick">
+      <div class="pane-head">
+        <span class="dot"></span>
+        <strong>Kick</strong>
+        <span class="chan"></span>
+        <span class="status"></span>
+        <div class="spacer"></div>
+        <button class="btn mini" data-act="login" title="Hesaba giriş yap (moderatör araçları için)">Giriş</button>
+        <button class="btn mini" data-act="chat" title="Chat'e geri dön / yenile">⟳</button>
+        <button class="btn mini" data-act="zoom-out" title="Yazıyı küçült">A−</button>
+        <button class="btn mini" data-act="zoom-in" title="Yazıyı büyüt">A+</button>
+        <button class="btn mini" data-act="external" title="Kanalı tarayıcıda aç">↗</button>
+      </div>
+      <div class="pane-body">
+        <div class="placeholder">Yukarıdan bir Kick kanalı gir.</div>
+      </div>
+    </section>
+  </main>
+
+  <div id="dragShield" class="drag-shield hidden"></div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

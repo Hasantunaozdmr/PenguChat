@@ -1,0 +1,26 @@
+{
+  "name": "dual-chat",
+  "productName": "Dual Chat",
+  "version": "1.0.0",
+  "description": "Twitch ve Kick chat'ini tek pencerede yan yana açan masaüstü uygulaması",
+  "main": "src/main.js",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist:win": "electron-builder --win portable nsis --publish never",
+    "dist:mac": "electron-builder --mac dmg",
+    "dist:linux": "electron-builder --linux AppImage"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.dualchat.app",
+    "productName": "Dual Chat",
+    "files": ["src/**/*", "package.json"],
+    "win": { "artifactName": "DualChat-${version}-${arch}-${target}.${ext}" },
+    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true },
+    "portable": { "artifactName": "DualChat-${version}-portable.${ext}" }
+  }
+}
