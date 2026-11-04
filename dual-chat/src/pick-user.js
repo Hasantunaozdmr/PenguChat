@@ -8,9 +8,7 @@
 
   function send(name, fromRestream) {
     if (!name) return;
-    const msg = '__PENGU_PICK__' + JSON.stringify({ name: name.replace(/^@/, '').toLowerCase(), restream: !!fromRestream });
-    if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(msg);
-    else console.log(msg);
+    post('__PENGU_PICK__' + JSON.stringify({ name: name.replace(/^@/, '').toLowerCase(), restream: !!fromRestream }));
   }
 
   // Restream ile Kick'e aktarılan mesajlarda gerçek yazan: "[Twitch: kullanici] mesaj"
@@ -53,8 +51,12 @@
     return text;
   }
 
-  // Chat yazı kutusunu bulup odaklar ve içini temizler (komut yazılmadan önce)
-  window.__penguFocusInput = () => {
+  function post(msg) {
+    if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(msg);
+    else console.log(msg);
+  }
+
+  function findInput() {
     const candidates = [
       ...document.querySelectorAll('[data-a-target="chat-input"], #message-input, [data-input="true"], textarea, [contenteditable="true"]'),
     ].filter((el) => {
@@ -62,10 +64,12 @@
       return r.width > 40 && r.height > 10 && getComputedStyle(el).visibility !== 'hidden';
     });
     // Ekranın en altındaki kutu genelde mesaj kutusudur
-    const input = candidates.sort((a, b) => b.getBoundingClientRect().bottom - a.getBoundingClientRect().bottom)[0];
-    if (!input) return false;
+    return candidates.sort((a, b) => b.getBoundingClientRect().bottom - a.getBoundingClientRect().bottom)[0] || null;
+  }
+
+  function focusAndClear(input) {
     input.focus();
-    if ('value' in input && input.tagName === 'TEXTAREA') {
+    if (input.tagName === 'TEXTAREA') {
       input.select();
     } else {
       const sel = window.getSelection();
@@ -75,7 +79,46 @@
       sel.addRange(range);
     }
     document.execCommand('delete');
+  }
+
+  const inputText = (el) => (el.tagName === 'TEXTAREA' ? el.value : el.textContent || '').trim();
+
+  // Masaüstü: kutuyu odaklar, metni uygulama klavye olarak yazar
+  window.__penguFocusInput = () => {
+    const input = findInput();
+    if (!input) return false;
+    focusAndClear(input);
     return true;
+  };
+
+  // Telefon: komutu sayfanın içinden yazar ve gönderir, sonucu uygulamaya bildirir
+  window.__penguSendCommand = (cmd, id) => {
+    const report = (ok, err) => post('__PENGU_SENT__' + JSON.stringify({ id, ok, err: err || null }));
+    const input = findInput();
+    if (!input) return report(false, 'mesaj kutusu bulunamadı (giriş yapılı mı?)');
+    focusAndClear(input);
+    if (input.tagName === 'TEXTAREA') {
+      const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set;
+      setter.call(input, cmd);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    } else {
+      document.execCommand('insertText', false, cmd);
+    }
+    setTimeout(() => {
+      const opts = { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true };
+      input.dispatchEvent(new KeyboardEvent('keydown', opts));
+      input.dispatchEvent(new KeyboardEvent('keyup', opts));
+      setTimeout(() => {
+        // Enter işe yaramadıysa gönder düğmesine bas
+        if (inputText(input)) {
+          const btn =
+            document.querySelector('[data-a-target="chat-send-button"], #send-message-button') ||
+            [...document.querySelectorAll('button')].find((b) => /^(gönder|send|chat|sohbet)$/i.test((b.textContent || '').trim()));
+          if (btn) btn.click();
+        }
+        setTimeout(() => (inputText(input) ? report(false, 'gönderilemedi') : report(true)), 300);
+      }, 250);
+    }, 150);
   };
 
   document.addEventListener(

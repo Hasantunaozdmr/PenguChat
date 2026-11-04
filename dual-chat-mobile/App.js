@@ -16,8 +16,8 @@ import { WebView } from 'react-native-webview';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Clipboard from 'expo-clipboard';
 import Constants from 'expo-constants';
-import { PLATFORMS, hasLink, isInternalUrl, parseTargets } from './src/links';
-import { FIT_POPUPS_JS } from './src/fitPopups';
+import { PLATFORMS, cleanChannel, hasLink, isInternalUrl, parseTargets } from './src/links';
+import { FIT_POPUPS_JS, PICK_USER_JS } from './src/injected';
 
 const STORE_KEY = 'dualchat:settings';
 const RELEASE_BASE = 'https://github.com/Hasantunaozdmr/Canzade-ToastyStat/releases/latest/download';
@@ -47,6 +47,7 @@ const DEFAULTS = {
   layout: 'split', // split = iki chat aynı ekranda, tabs = sekmeli
   tab: 'twitch',
   zoom: { twitch: 1, kick: 1 },
+  timeoutSecs: 919824,
 };
 
 // Chat sayfalarının telefonda mobil siteye yönlenmemesi için masaüstü tarayıcı kimliği.
@@ -193,6 +194,77 @@ function PenguChat() {
     }
   };
 
+  // ---- Hızlı ceza çubuğu ----
+  // Chat'te bir ada dokununca kullanıcı seçilir, ⏱ / ⛔ ile komut o chat'e yazılıp gönderilir
+  const [mod, setMod] = useState({ open: false, user: '', twitch: false, kick: false });
+  const [secsText, setSecsText] = useState(null);
+  const pending = useRef({});
+
+  const onWebMessage = (k, data) => {
+    if (typeof data !== 'string') return;
+    if (data.startsWith('__PENGU_PICK__')) {
+      try {
+        const { name, restream } = JSON.parse(data.slice(14));
+        const p = restream ? 'twitch' : k; // Restream mesajının sahibi Twitch'te
+        setMod({ open: true, user: name, twitch: p === 'twitch', kick: p === 'kick' });
+      } catch {}
+    } else if (data.startsWith('__PENGU_SENT__')) {
+      try {
+        const r = JSON.parse(data.slice(14));
+        pending.current[r.id]?.(r);
+        delete pending.current[r.id];
+      } catch {}
+    }
+  };
+
+  const sendCommand = (k, cmd) =>
+    new Promise((resolve) => {
+      const wv = views.current[k];
+      if (!wv || !s[k]) return resolve({ ok: false, err: 'chat açık değil' });
+      const id = `${k}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      pending.current[id] = resolve;
+      setTimeout(() => {
+        if (pending.current[id]) {
+          delete pending.current[id];
+          resolve({ ok: false, err: 'yanıt yok' });
+        }
+      }, 5000);
+      wv.injectJavaScript(
+        `window.__penguSendCommand ? window.__penguSendCommand(${JSON.stringify(cmd)}, ${JSON.stringify(id)}) : window.ReactNativeWebView.postMessage('__PENGU_SENT__' + JSON.stringify({ id: ${JSON.stringify(id)}, ok: false, err: 'sayfa hazır değil' })); true;`
+      );
+    });
+
+  const buildCommand = (k, action, user) => {
+    if (action === 'ban') return `/ban ${user}`;
+    // Twitch saniye, Kick dakika ister
+    if (k === 'twitch') return `/timeout ${user} ${s.timeoutSecs}`;
+    return `/timeout ${user} ${Math.max(1, Math.ceil(s.timeoutSecs / 60))}`;
+  };
+
+  const runPunish = async (action, user, list) => {
+    const results = [];
+    for (const k of list) {
+      const r = await sendCommand(k, buildCommand(k, action, user));
+      results.push(`${PLATFORMS[k].label} ${r.ok ? '✓' : '✗ ' + r.err}`);
+    }
+    showHint(`${user} ${action === 'ban' ? 'ban' : 'timeout'}: ${results.join(' · ')}`, !results.some((x) => x.includes('✗')));
+  };
+
+  const punish = (action) => {
+    const user = cleanChannel(mod.user);
+    const list = KEYS.filter((k) => mod[k]);
+    if (!user || !list.length) return;
+    if (action === 'ban') {
+      const names = list.map((k) => PLATFORMS[k].label).join(' + ');
+      Alert.alert('Ban', `${user} ${names}'te banlansın mı?`, [
+        { text: 'Vazgeç', style: 'cancel' },
+        { text: 'Banla', style: 'destructive', onPress: () => runPunish('ban', user, list) },
+      ]);
+    } else {
+      runPunish('timeout', user, list);
+    }
+  };
+
   const horizontal = landscape; // yatay telefon = yan yana, dikey = alt alta
 
   if (!ready) return <View style={styles.root} />;
@@ -223,6 +295,13 @@ function PenguChat() {
           </Pressable>
         </View>
         <Pressable
+          style={[styles.iconBtn, mod.open && styles.iconBtnActive]}
+          onPress={() => setMod((m) => ({ ...m, open: !m.open }))}
+          accessibilityLabel="Hızlı ceza çubuğu"
+        >
+          <Text style={styles.iconText}>👤</Text>
+        </Pressable>
+        <Pressable
           style={styles.iconBtn}
           onPress={() => update({ layout: tabs ? 'split' : 'tabs' })}
           accessibilityLabel="Görünümü değiştir"
@@ -237,6 +316,57 @@ function PenguChat() {
             <Text style={styles.updateClose}>✕</Text>
           </Pressable>
         </Pressable>
+      )}
+      {mod.open && (
+        <View style={styles.modBar}>
+          <View style={styles.modRow}>
+            <TextInput
+              style={[styles.modInput, { flex: 1 }]}
+              value={mod.user}
+              onChangeText={(t) =>
+                setMod((m) => ({
+                  ...m,
+                  user: t,
+                  ...(!m.twitch && !m.kick ? { twitch: !!s.twitch, kick: !!s.kick } : {}),
+                }))
+              }
+              placeholder="Chat'te bir ada dokun"
+              placeholderTextColor="#a9e3de"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            {KEYS.map((k) => (
+              <Pressable
+                key={k}
+                style={[styles.chip, { borderColor: PLATFORMS[k].color }, mod[k] && { backgroundColor: PLATFORMS[k].color }]}
+                onPress={() => setMod((m) => ({ ...m, [k]: !m[k] }))}
+              >
+                <Text style={[styles.chipText, mod[k] && k === 'kick' && { color: '#062f2d' }]}>{PLATFORMS[k].label}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <View style={styles.modRow}>
+            <Pressable style={[styles.modBtn, !(mod.user && (mod.twitch || mod.kick)) && styles.disabled]} onPress={() => punish('timeout')}>
+              <Text style={styles.modBtnText}>⏱ Timeout</Text>
+            </Pressable>
+            <TextInput
+              style={[styles.modInput, { width: 84 }]}
+              value={secsText ?? String(s.timeoutSecs)}
+              onChangeText={setSecsText}
+              onEndEditing={() => {
+                const v = Math.round(Number(secsText));
+                if (secsText != null) update({ timeoutSecs: v > 0 ? Math.min(1209600, v) : 919824 });
+                setSecsText(null);
+              }}
+              keyboardType="number-pad"
+            />
+            <Text style={styles.modUnit}>sn</Text>
+            <View style={{ flex: 1 }} />
+            <Pressable style={[styles.modBtn, styles.banBtn, !(mod.user && (mod.twitch || mod.kick)) && styles.disabled]} onPress={() => punish('ban')}>
+              <Text style={styles.modBtnText}>⛔ Ban</Text>
+            </Pressable>
+          </View>
+        </View>
       )}
       {hint && (
         <Text style={[styles.hint, { color: hint.ok ? PLATFORMS.kick.color : '#ff6b6b' }]} numberOfLines={1}>
@@ -283,6 +413,7 @@ function PenguChat() {
                     k={k}
                     url={urls[k]}
                     zoom={s.zoom[k]}
+                    onMessage={(data) => onWebMessage(k, data)}
                     onRef={(r) => {
                       views.current[k] = r;
                     }}
@@ -340,7 +471,7 @@ function PaneButtons({ k, onAction }) {
   );
 }
 
-function ChatView({ k, url, zoom, onRef }) {
+function ChatView({ k, url, zoom, onRef, onMessage }) {
   const inner = useRef(null);
   const setRef = useCallback(
     (r) => {
@@ -367,7 +498,8 @@ function ChatView({ k, url, zoom, onRef }) {
       containerStyle={styles.webview}
       userAgent={USER_AGENT}
       injectedJavaScriptBeforeContentLoaded={VIEWPORT_JS}
-      injectedJavaScript={zoomJs(zoom) + FIT_POPUPS_JS}
+      injectedJavaScript={zoomJs(zoom) + FIT_POPUPS_JS + PICK_USER_JS + '\ntrue;'}
+      onMessage={(e) => onMessage(e.nativeEvent.data)}
       onShouldStartLoadWithRequest={onShouldStart}
       // Girişlerin kalıcı olması için
       sharedCookiesEnabled
@@ -453,6 +585,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   iconText: { color: C.text, fontSize: 18 },
+  iconBtnActive: { backgroundColor: C.border },
+  modBar: { backgroundColor: C.panel2, paddingHorizontal: 8, paddingVertical: 6, gap: 6, borderBottomWidth: 1, borderBottomColor: C.border },
+  modRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  modInput: {
+    height: 34,
+    paddingHorizontal: 10,
+    paddingVertical: 0,
+    color: C.text,
+    fontWeight: '600',
+    backgroundColor: C.input,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 6,
+  },
+  chip: { height: 34, paddingHorizontal: 10, justifyContent: 'center', borderRadius: 6, borderWidth: 1 },
+  chipText: { color: C.text, fontWeight: '600', fontSize: 13 },
+  modBtn: { height: 34, paddingHorizontal: 14, justifyContent: 'center', borderRadius: 6, backgroundColor: C.border },
+  banBtn: { backgroundColor: '#b3261e' },
+  modBtnText: { color: '#fff', fontWeight: '700' },
+  modUnit: { color: C.muted, fontSize: 12 },
+  disabled: { opacity: 0.45 },
   updateBar: {
     flexDirection: 'row',
     alignItems: 'center',
