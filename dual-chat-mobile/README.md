@@ -6,7 +6,7 @@ Masaüstü Dual Chat'in telefon sürümü. Twitch ve Kick'in resmi chat sayfalar
 - **Link çubuğu:** Twitch veya Kick linkini yapıştırınca chat kendiliğinden doğru panelde açılır. **Yapıştır** düğmesi panodaki linki tek dokunuşla açar.
   - Düz kanal adı yazıp Git'e basarsan iki platformda da o ad açılır.
 - **İki görünüm** (sağ üstteki düğme):
-  - **⇆ Bölünmüş:** Dik tutunca chat'ler alt alta, yan çevirince yan yana durur. Aradaki çizgiyi sürükleyerek boyut ayarlanır.
+  - **⇆ Bölünmüş:** Dik tutunca chat'ler alt alta, yan çevirince yan yana durur.
   - **▤ Sekmeli:** Her chat tam ekran açılır, üstteki Twitch | Kick sekmeleriyle geçilir. Diğer chat arka planda açık kalır.
 - Panel başına yazı boyutu (A− / A+).
 - Chat'teki dış linkler telefonun tarayıcısında açılır.

@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Linking,
-  PanResponder,
   Platform,
   Pressable,
   StyleSheet,
@@ -25,7 +24,6 @@ const DEFAULTS = {
   twitch: '',
   kick: '',
   layout: 'split', // split = iki chat aynı ekranda, tabs = sekmeli
-  split: 0.5,
   tab: 'twitch',
   zoom: { twitch: 1, kick: 1 },
 };
@@ -164,42 +162,10 @@ function DualChat() {
     }
   };
 
-  // ---- Bölme çizgisi (sürükle) ----
-  const area = useRef({ size: 1 });
-  const startSplit = useRef(0.5);
-  const splitRef = useRef(s.split);
-  splitRef.current = s.split;
   const horizontal = landscape; // yatay telefon = yan yana, dikey = alt alta
-  const horizontalRef = useRef(horizontal);
-  horizontalRef.current = horizontal;
-  const [liveSplit, setLiveSplit] = useState(null);
-
-  const pan = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: () => true,
-        onPanResponderGrant: () => {
-          startSplit.current = splitRef.current;
-        },
-        onPanResponderMove: (_e, g) => {
-          const d = (horizontalRef.current ? g.dx : g.dy) / area.current.size;
-          setLiveSplit(Math.min(0.85, Math.max(0.15, startSplit.current + d)));
-        },
-        onPanResponderRelease: (_e, g) => {
-          const d = (horizontalRef.current ? g.dx : g.dy) / area.current.size;
-          const v = Math.min(0.85, Math.max(0.15, startSplit.current + d));
-          setLiveSplit(null);
-          update({ split: Math.round(v * 100) / 100 });
-        },
-        onPanResponderTerminate: () => setLiveSplit(null),
-      }),
-    [update]
-  );
 
   if (!ready) return <View style={styles.root} />;
 
-  const split = liveSplit ?? s.split;
   const tabs = s.layout === 'tabs';
 
   return (
@@ -260,26 +226,14 @@ function DualChat() {
       {/* ---- Paneller ---- */}
       <View
         style={[styles.panes, { flexDirection: horizontal ? 'row' : 'column' }]}
-        onLayout={(e) => {
-          const { width: w, height: h } = e.nativeEvent.layout;
-          area.current.size = Math.max(1, horizontal ? w : h);
-        }}
       >
         {KEYS.map((k, i) => {
           const visible = !tabs || s.tab === k;
-          const flex = tabs ? 1 : i === 0 ? split : 1 - split;
           return [
             i === 1 && !tabs ? (
-              <View
-                key="divider"
-                {...pan.panHandlers}
-                style={[styles.divider, horizontal ? styles.dividerH : styles.dividerV, liveSplit != null && styles.dividerActive]}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <View style={[styles.grip, horizontal ? { width: 3, height: 28 } : { width: 28, height: 3 }]} />
-              </View>
+              <View key="divider" style={[styles.divider, horizontal ? styles.dividerH : styles.dividerV]} />
             ) : null,
-            <View key={k} style={[styles.pane, { flex }, !visible && styles.hidden]}>
+            <View key={k} style={[styles.pane, !visible && styles.hidden]}>
               {!tabs && (
                 <PaneHeader k={k} channel={s[k]} onAction={paneAction} />
               )}
@@ -474,7 +428,7 @@ const styles = StyleSheet.create({
   tabTextActive: { color: C.text },
 
   panes: { flex: 1 },
-  pane: { backgroundColor: C.panel, overflow: 'hidden' },
+  pane: { flex: 1, backgroundColor: C.panel, overflow: 'hidden' },
   paneHead: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -501,9 +455,7 @@ const styles = StyleSheet.create({
   placeholder: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   placeholderText: { color: C.muted, textAlign: 'center' },
 
-  divider: { backgroundColor: C.border, alignItems: 'center', justifyContent: 'center' },
-  dividerV: { height: 12 },
-  dividerH: { width: 12 },
-  dividerActive: { backgroundColor: PLATFORMS.twitch.color },
-  grip: { backgroundColor: C.muted, borderRadius: 2 },
+  divider: { backgroundColor: C.border },
+  dividerV: { height: 2 },
+  dividerH: { width: 2 },
 });
