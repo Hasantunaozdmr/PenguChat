@@ -5,7 +5,6 @@ Paneller platformların **resmi popout chat'leridir**. Hesabınla giriş yaptı�
 
 ## Özellikler
 - Twitch ve Kick chat'i yan yana veya alt alta (⇆ / ⇅)
-- Ortadaki çizgiyi sürükleyerek boyut ayarı (çift tık = ortala)
 - Panellerin yerini değiştirme (⇄), istenen paneli gizleme (Twitch / Kick düğmeleri)
 - Panel başına yazı boyutu (A− / A+)
 - 📌 Her zaman üstte + pencere saydamlığı (oyun / OBS üstünde tutmak için)

@@ -33,7 +33,6 @@
 
     <div id="menu" class="menu hidden">
       <button data-action="reload-all">Her iki chat'i yenile <kbd>F5</kbd></button>
-      <button data-action="reset-split">Bölmeyi ortala</button>
       <button data-action="logout">Tüm hesaplardan çıkış yap</button>
     </div>
   </header>
@@ -57,7 +56,7 @@
       </div>
     </section>
 
-    <div id="splitter" class="splitter" title="Sürükle: boyutlandır · Çift tık: ortala"></div>
+    <div id="splitter" class="splitter"></div>
 
     <section class="pane" id="pane-kick" data-platform="kick">
       <div class="pane-head">
@@ -77,8 +76,6 @@
       </div>
     </section>
   </main>
-
-  <div id="dragShield" class="drag-shield hidden"></div>
 
   <script src="renderer.js"></script>
 </body>

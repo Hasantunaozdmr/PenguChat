@@ -178,15 +178,6 @@ kbd { color: var(--muted); font: inherit; font-size: 11px; }
   padding: 20px;
 }
 
-.splitter {
-  flex: none;
-  background: var(--border);
-  transition: background .15s;
-}
-.splitter:hover, .splitter.dragging { background: var(--accent); }
-.horizontal > .splitter { width: 5px; cursor: col-resize; }
-.vertical > .splitter { height: 5px; cursor: row-resize; }
-
-.drag-shield { position: fixed; inset: 0; z-index: 100; }
-.drag-shield.horizontal { cursor: col-resize; }
-.drag-shield.vertical { cursor: row-resize; }
+.splitter { flex: none; background: var(--border); }
+.horizontal > .splitter { width: 2px; }
+.vertical > .splitter { height: 2px; }

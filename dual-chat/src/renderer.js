@@ -6,7 +6,6 @@
     kick: '',
     layout: 'horizontal', // horizontal = yan yana, vertical = alt alta
     swapped: false,
-    split: 50, // ilk panelin yüzdesi
     show: { twitch: true, kick: true },
     zoom: { twitch: 1, kick: 1 },
     pinned: false,
@@ -47,7 +46,6 @@
   const $ = (s, r = document) => r.querySelector(s);
   const panesEl = $('#panes');
   const splitter = $('#splitter');
-  const shield = $('#dragShield');
 
   // Kullanıcı "twitch.tv/kanal" veya "kick.com/kanal" yapıştırsa bile kanal adını çıkar
   function cleanChannel(v) {
@@ -201,16 +199,6 @@
     splitter.classList.toggle('hidden', !both);
     $('#toggleTwitch').classList.toggle('active', state.show.twitch);
     $('#toggleKick').classList.toggle('active', state.show.kick);
-
-    // Bölme oranı: "ilk" panel ekranda solda/üstte olan
-    const first = state.swapped ? panes.kick.el : panes.twitch.el;
-    const second = state.swapped ? panes.twitch.el : panes.kick.el;
-    if (both) {
-      first.style.flex = `${state.split} 1 0`;
-      second.style.flex = `${100 - state.split} 1 0`;
-    } else {
-      first.style.flex = second.style.flex = '1 1 0';
-    }
   }
 
   $('#layoutBtn').addEventListener('click', () => {
@@ -219,7 +207,6 @@
   });
   $('#swapBtn').addEventListener('click', () => {
     state.swapped = !state.swapped;
-    state.split = 100 - state.split;
     save(); applyLayout();
   });
   for (const p of ['twitch', 'kick']) {
@@ -232,32 +219,6 @@
       save(); applyLayout();
     });
   }
-
-  // ---------- Bölme sürükleme ----------
-  splitter.addEventListener('mousedown', (e) => {
-    e.preventDefault();
-    const rect = panesEl.getBoundingClientRect();
-    const horizontal = state.layout === 'horizontal';
-    shield.className = 'drag-shield ' + (horizontal ? 'horizontal' : 'vertical');
-    splitter.classList.add('dragging');
-    const move = (ev) => {
-      const pct = horizontal
-        ? ((ev.clientX - rect.left) / rect.width) * 100
-        : ((ev.clientY - rect.top) / rect.height) * 100;
-      state.split = Math.round(Math.min(85, Math.max(15, pct)));
-      applyLayout();
-    };
-    const up = () => {
-      shield.className = 'drag-shield hidden';
-      splitter.classList.remove('dragging');
-      window.removeEventListener('mousemove', move);
-      window.removeEventListener('mouseup', up);
-      save();
-    };
-    window.addEventListener('mousemove', move);
-    window.addEventListener('mouseup', up);
-  });
-  splitter.addEventListener('dblclick', () => { state.split = 50; save(); applyLayout(); });
 
   // ---------- Pencere ayarları ----------
   const pinBtn = $('#pinBtn');
@@ -283,7 +244,6 @@
   menu.addEventListener('click', async (e) => {
     const action = e.target.closest('button')?.dataset.action;
     if (action === 'reload-all') { openChat('twitch'); openChat('kick'); }
-    if (action === 'reset-split') { state.split = 50; save(); applyLayout(); }
     if (action === 'logout' && confirm('Twitch ve Kick hesaplarından çıkış yapılsın mı?')) {
       await window.dualChat.logoutAll();
       openChat('twitch'); openChat('kick');
