@@ -33,11 +33,9 @@
   const PLATFORMS = {
     twitch: {
       chatUrl: (c) => `https://www.twitch.tv/popout/${encodeURIComponent(c)}/chat?popout=&darkpopout`, // darkpopout = koyu tema
-      loginUrl: () => 'https://www.twitch.tv/login',
     },
     kick: {
       chatUrl: (c) => `https://kick.com/popout/${encodeURIComponent(c)}/chat`,
-      loginUrl: () => 'https://kick.com/',
     },
   };
 
@@ -112,13 +110,6 @@
       case 'chat':
         openChat(p);
         break;
-      case 'login': {
-        const wv = ensureView(p);
-        pane.placeholder.classList.add('hidden');
-        wv.setAttribute('src', PLATFORMS[p].loginUrl());
-        pane.status.textContent = 'giriş yap, sonra ⟳ ile chat\'e dön';
-        break;
-      }
       case 'zoom-in':
       case 'zoom-out': {
         const z = state.zoom[p] + (act === 'zoom-in' ? 0.1 : -0.1);
