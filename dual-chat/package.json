@@ -19,8 +19,11 @@
     "appId": "com.dualchat.app",
     "productName": "Dual Chat",
     "files": ["src/**/*", "package.json"],
-    "win": { "artifactName": "DualChat-${version}-${arch}-${target}.${ext}" },
-    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "DualChat-${version}-setup.${ext}"
+    },
     "portable": { "artifactName": "DualChat-${version}-portable.${ext}" }
   }
 }
