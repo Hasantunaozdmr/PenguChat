@@ -7,7 +7,7 @@
   "license": "MIT",
   "scripts": {
     "start": "electron .",
-    "dist:win": "electron-builder --win portable nsis --publish never",
+    "dist:win": "electron-builder --win nsis --publish never",
     "dist:mac": "electron-builder --mac dmg",
     "dist:linux": "electron-builder --linux AppImage"
   },
@@ -28,15 +28,15 @@
       "allowToChangeInstallationDirectory": true,
       "artifactName": "DualChat-Setup.${ext}"
     },
-    "portable": {
-      "artifactName": "DualChat-Portable.${ext}"
-    },
     "publish": [
       {
         "provider": "generic",
         "url": "https://github.com/Hasantunaozdmr/Canzade-ToastyStat/releases/latest/download"
       }
-    ]
+    ],
+    "win": {
+      "target": "nsis"
+    }
   },
   "dependencies": {
     "electron-updater": "^6.8.11"

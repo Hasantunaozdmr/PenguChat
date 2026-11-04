@@ -43,7 +43,7 @@ jobs:
         run: |
           ls dist
           mkdir -p out
-          cp dist/DualChat-Setup.exe dist/DualChat-Setup.exe.blockmap dist/DualChat-Portable.exe dist/latest.yml out/
+          cp dist/DualChat-Setup.exe dist/DualChat-Setup.exe.blockmap dist/latest.yml out/
           cat out/latest.yml
       - uses: actions/upload-artifact@v4
         with:
@@ -104,8 +104,7 @@ jobs:
 
             | | İndir |
             |---|---|
-            | 🪟 **Windows (kurulum)** | [DualChat-Setup.exe](https://github.com/${{ github.repository }}/releases/latest/download/DualChat-Setup.exe) |
-            | 🪟 **Windows (kurulumsuz)** | [DualChat-Portable.exe](https://github.com/${{ github.repository }}/releases/latest/download/DualChat-Portable.exe) |
+            | 🪟 **Windows** | [DualChat-Setup.exe](https://github.com/${{ github.repository }}/releases/latest/download/DualChat-Setup.exe) |
             | 🤖 **Android** | [DualChat.apk](https://github.com/${{ github.repository }}/releases/latest/download/DualChat.apk) |
 
             **Windows:** "Windows kişisel bilgisayarınızı korudu" uyarısı çıkarsa **Ek bilgi → Yine de çalıştır** de (uygulama imzasız olduğu için normal).

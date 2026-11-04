@@ -11,7 +11,7 @@ Paneller platformların **resmi popout chat'leridir**. Hesabınla giriş yaptı�
 - Girişler kalıcıdır. Uygulamayı kapatıp açınca tekrar giriş yapman gerekmez
 - Kanal adları ve yerleşim hatırlanır
 - `F5` / `Ctrl+R` ile iki chat'i birlikte yenileme
-- **Otomatik güncelleme:** Yeni sürüm çıkınca kurulumlu sürüm arka planda indirir, üstte **⬆ Güncelle** düğmesi çıkar. Kurulumsuz (portable) sürümde **⬇ Yeni sürüm var** düğmesi yeni dosyayı indirir. Menüden (⋯) elle de kontrol edilebilir.
+- **Otomatik güncelleme:** Yeni sürüm çıkınca uygulama arka planda indirir, üstte **⬆ Güncelle** düğmesi çıkar. Menüden (⋯) elle de kontrol edilebilir.
 
 ## Kullanım
 1. Üstteki çubuğa yayının linkini yapıştır, ör. `https://www.twitch.tv/kanal` veya `https://kick.com/kanal`. Chat kendiliğinden doğru panelde açılır, Enter'a basman gerekmez.
@@ -21,10 +21,9 @@ Paneller platformların **resmi popout chat'leridir**. Hesabınla giriş yaptı�
 
 ## Kurulum
 
-### Hazır .exe (Windows)
-`dual-chat/` klasöründe her değişiklik olduğunda GitHub Actions bir Windows sürümü üretir:
-GitHub'da **Actions → "Dual Chat - Windows build" → son çalışma → Artifacts → DualChat-Windows** yolunu izleyip indir.
-İçinde iki dosya var: kurulum gerektirmeyen `DualChat-…-portable.exe` ve kurulum sihirbazı.
+### Windows
+**https://github.com/Hasantunaozdmr/Canzade-ToastyStat/releases/latest/download/DualChat-Setup.exe** dosyasını indir ve kur.
+Sonraki sürümler uygulamanın içindeki **⬆ Güncelle** düğmesiyle gelir.
 
 ### Kaynaktan çalıştırma
 [Node.js](https://nodejs.org) (18+) kurulu olmalı.
