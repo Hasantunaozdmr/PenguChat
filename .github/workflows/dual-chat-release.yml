@@ -1,0 +1,89 @@
+name: Dual Chat - Release
+
+# "dual-chat-v1.0.0" gibi bir etiket gönderilince Windows + Android derlenir
+# ve herkese açık Releases sayfasına (giriş gerektirmeden) yüklenir.
+on:
+  push:
+    tags:
+      - "dual-chat-v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: dual-chat
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-audit --no-fund
+      - run: npm run dist:win
+      - name: Rename
+        shell: bash
+        run: |
+          mkdir -p out
+          cp dist/*-setup.exe out/DualChat-Setup.exe
+          cp dist/*-portable.exe out/DualChat-Portable.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dual-chat/out/*.exe
+
+  android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dual-chat-mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - run: npm ci --no-audit --no-fund
+      - run: npx expo prebuild --platform android --no-install
+      - working-directory: dual-chat-mobile/android
+        run: ./gradlew assembleRelease --no-daemon
+      - run: mkdir -p out && cp android/app/build/outputs/apk/release/app-release.apk out/DualChat.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: dual-chat-mobile/out/DualChat.apk
+
+  release:
+    needs: [windows, android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: files
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'dual-chat-latest' }}
+          name: Dual Chat ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          make_latest: true
+          body: |
+            ## Dual Chat: Twitch + Kick chat tek pencerede
+
+            | | İndir |
+            |---|---|
+            | 🪟 **Windows (kurulum)** | [DualChat-Setup.exe](https://github.com/${{ github.repository }}/releases/latest/download/DualChat-Setup.exe) |
+            | 🪟 **Windows (kurulumsuz)** | [DualChat-Portable.exe](https://github.com/${{ github.repository }}/releases/latest/download/DualChat-Portable.exe) |
+            | 🤖 **Android** | [DualChat.apk](https://github.com/${{ github.repository }}/releases/latest/download/DualChat.apk) |
+
+            **Windows:** "Windows kişisel bilgisayarınızı korudu" uyarısı çıkarsa **Ek bilgi → Yine de çalıştır** de (uygulama imzasız olduğu için normal).
+            **Android:** APK'yı açınca telefon "bilinmeyen kaynaklar" izni isterse izin ver.
+
+            **Kullanım:** Üstteki çubuğa Twitch veya Kick yayın linkini yapıştır, her panelde bir kez **Giriş** ile moderatör hesabına gir.
+            Twitch'te Google ile giriş çalışmaz, kullanıcı adı ve şifre kullan.
+          files: files/*
