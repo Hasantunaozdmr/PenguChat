@@ -7,6 +7,7 @@
     layout: 'horizontal', // horizontal = yan yana, vertical = alt alta
     swapped: false,
     show: { twitch: true, kick: true },
+    timeoutSecs: 919824,
     zoom: { twitch: 1, kick: 1 },
     pinned: false,
     opacity: 100,
@@ -79,6 +80,11 @@
     wv.addEventListener('did-stop-loading', () => (pane.status.textContent = ''));
     wv.addEventListener('did-fail-load', (e) => {
       if (e.errorCode !== -3) pane.status.textContent = 'bağlantı hatası';
+    });
+    wv.addEventListener('console-message', (e) => {
+      if (typeof e.message === 'string' && e.message.startsWith('__PENGU_PICK__')) {
+        try { onPick(p, JSON.parse(e.message.slice(14))); } catch {}
+      }
     });
     wv.addEventListener('dom-ready', () => {
       try { wv.setZoomFactor(state.zoom[p]); } catch {}
@@ -272,6 +278,90 @@
   window.dualChat.onUpdate(renderUpdate);
   window.dualChat.getUpdateStatus().then(renderUpdate);
   updateBtn.addEventListener('click', () => window.dualChat.installUpdate());
+
+  // ---------- Hızlı ceza çubuğu ----------
+  const modUser = $('#modUser');
+  const toSecs = $('#toSecs');
+  const modHint = $('#modHint');
+  const targets = { twitch: false, kick: false };
+  toSecs.value = state.timeoutSecs;
+
+  function renderTargets() {
+    $('#tgtTwitch').classList.toggle('active', targets.twitch);
+    $('#tgtKick').classList.toggle('active', targets.kick);
+    const ok = !!cleanChannel(modUser.value) && (targets.twitch || targets.kick);
+    $('#toBtn').disabled = !ok;
+    $('#banBtn').disabled = !ok;
+  }
+  let modHintTimer;
+  function modMsg(text, cls) {
+    modHint.textContent = text;
+    modHint.className = 'hint ' + (cls || '');
+    clearTimeout(modHintTimer);
+    modHintTimer = setTimeout(() => (modHint.textContent = ''), 5000);
+  }
+
+  // Chat'te bir ada tıklanınca
+  function onPick(fromPlatform, { name, restream }) {
+    modUser.value = name;
+    // Restream ile Kick'e gelen mesajın sahibi aslında Twitch'te
+    const p = restream ? 'twitch' : fromPlatform;
+    targets.twitch = p === 'twitch';
+    targets.kick = p === 'kick';
+    renderTargets();
+  }
+
+  $('#tgtTwitch').addEventListener('click', () => { targets.twitch = !targets.twitch; renderTargets(); });
+  $('#tgtKick').addEventListener('click', () => { targets.kick = !targets.kick; renderTargets(); });
+  $('#modClear').addEventListener('click', () => { modUser.value = ''; targets.twitch = targets.kick = false; renderTargets(); });
+  modUser.addEventListener('input', () => {
+    if (!targets.twitch && !targets.kick) { targets.twitch = state.show.twitch; targets.kick = state.show.kick; }
+    renderTargets();
+  });
+  toSecs.addEventListener('change', () => {
+    const v = Math.round(Number(toSecs.value));
+    state.timeoutSecs = v > 0 ? Math.min(1209600, v) : 919824;
+    toSecs.value = state.timeoutSecs;
+    save();
+  });
+
+  function buildCommand(p, action, user) {
+    if (action === 'ban') return `/ban ${user}`;
+    // Twitch saniye, Kick dakika ister
+    if (p === 'twitch') return `/timeout ${user} ${state.timeoutSecs}`;
+    return `/timeout ${user} ${Math.max(1, Math.ceil(state.timeoutSecs / 60))}`;
+  }
+
+  async function sendCommand(p, cmd) {
+    const wv = panes[p].view;
+    if (!wv || !state[p]) return 'chat açık değil';
+    const focused = await wv.executeJavaScript('window.__penguFocusInput ? window.__penguFocusInput() : false').catch(() => false);
+    if (!focused) return 'mesaj kutusu bulunamadı (giriş yapılı mı?)';
+    await wv.insertText(cmd);
+    await new Promise((r) => setTimeout(r, 120));
+    wv.sendInputEvent({ type: 'keyDown', keyCode: 'Enter' });
+    wv.sendInputEvent({ type: 'char', keyCode: '\r' });
+    wv.sendInputEvent({ type: 'keyUp', keyCode: 'Enter' });
+    return null;
+  }
+
+  async function punish(action) {
+    const user = cleanChannel(modUser.value);
+    const list = ['twitch', 'kick'].filter((p) => targets[p]);
+    if (!user || !list.length) return;
+    const names = list.map((p) => (p === 'twitch' ? 'Twitch' : 'Kick')).join(' + ');
+    if (action === 'ban' && !confirm(`${user} ${names}'te BANLANSIN mı?`)) return;
+    const results = [];
+    for (const p of list) {
+      const err = await sendCommand(p, buildCommand(p, action, user));
+      results.push(`${p === 'twitch' ? 'Twitch' : 'Kick'} ${err ? '✗ ' + err : '✓'}`);
+    }
+    const failed = results.some((r) => r.includes('✗'));
+    modMsg(`${user} ${action === 'ban' ? 'ban' : 'timeout'}: ${results.join(' · ')}`, failed ? 'err' : 'ok');
+  }
+  $('#toBtn').addEventListener('click', () => punish('timeout'));
+  $('#banBtn').addEventListener('click', () => punish('ban'));
+  renderTargets();
 
   // ---------- Başlangıç ----------
   applyLayout();

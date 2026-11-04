@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 
 const FIT_POPUPS_JS = fs.readFileSync(path.join(__dirname, 'fit-popups.js'), 'utf8');
+const PICK_USER_JS = fs.readFileSync(path.join(__dirname, 'pick-user.js'), 'utf8');
 
 // Twitch / Kick bazen "Electron" içeren tarayıcıları engelleyebiliyor,
 // bu yüzden normal bir Chrome kimliği kullanıyoruz.
@@ -71,6 +72,7 @@ app.on('web-contents-created', (_e, contents) => {
     // Kullanıcı kartı gibi pencereler dar panelde taşmasın
     contents.on('dom-ready', () => {
       contents.executeJavaScript(FIT_POPUPS_JS).catch(() => {});
+      contents.executeJavaScript(PICK_USER_JS).catch(() => {});
     });
 
     contents.setWindowOpenHandler(({ url }) => {

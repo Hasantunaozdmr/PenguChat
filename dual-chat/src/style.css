@@ -189,3 +189,36 @@ kbd { color: var(--muted); font: inherit; font-size: 11px; }
 .splitter { flex: none; background: var(--border); }
 .horizontal > .splitter { width: 2px; }
 .vertical > .splitter { height: 2px; }
+
+/* ---------- Hızlı ceza çubuğu ---------- */
+.modbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 5px 10px;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--border);
+}
+.modbar input {
+  height: 26px;
+  background: var(--input);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  font: inherit;
+  padding: 0 8px;
+  outline: 0;
+}
+.modbar input:focus { border-color: var(--text); }
+.modbar input::placeholder { color: var(--muted); opacity: .8; }
+#modUser { width: 210px; font-weight: 600; }
+#toSecs { width: 90px; }
+.mb-icon { font-size: 14px; }
+.mb-unit { color: var(--muted); font-size: 12px; margin-left: -2px; }
+.mb-sep { width: 1px; height: 18px; background: var(--border); margin: 0 2px; }
+.modbar .btn { height: 26px; }
+.btn.mod { font-weight: 600; }
+.btn.mod.danger { background: #b3261e; border-color: #e0463d; }
+.btn.mod.danger:hover { background: #cc3128; }
+.btn.mod:disabled { opacity: .45; cursor: default; }
