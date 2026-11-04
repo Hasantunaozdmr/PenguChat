@@ -17,7 +17,7 @@ Paneller platformların **resmi popout chat'leridir**. Hesabınla giriş yaptı�
 1. Üstteki çubuğa yayının linkini yapıştır, ör. `https://www.twitch.tv/kanal` veya `https://kick.com/kanal`. Chat kendiliğinden doğru panelde açılır, Enter'a basman gerekmez.
    - Twitch ve Kick linkini aynı anda (boşlukla ayırarak) yapıştırırsan ikisi birlikte açılır.
    - Link yerine düz kanal adı yazıp Enter'a basarsan iki platformda da o ad açılır.
-2. Her panelde bir kez **Giriş**'e basıp moderatör hesabınla giriş yap. Ardından **⟳** ile chat'e dön.
+2. Chat'in içindeki **Giriş yap** düğmesiyle moderatör hesabına bir kez gir.
 
 ## Kurulum
 

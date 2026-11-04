@@ -5,13 +5,11 @@ export const PLATFORMS = {
     label: 'Twitch',
     color: '#9146ff',
     chatUrl: (c) => `https://www.twitch.tv/popout/${encodeURIComponent(c)}/chat?popout=&darkpopout`, // darkpopout = koyu tema
-    loginUrl: () => 'https://www.twitch.tv/login',
   },
   kick: {
     label: 'Kick',
     color: '#53fc18',
     chatUrl: (c) => `https://kick.com/popout/${encodeURIComponent(c)}/chat`,
-    loginUrl: () => 'https://kick.com/',
   },
 };
 

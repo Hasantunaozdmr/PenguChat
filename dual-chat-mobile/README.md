@@ -14,7 +14,7 @@ Masaüstü Dual Chat'in telefon sürümü. Twitch ve Kick'in resmi chat sayfalar
 
 ## İlk kullanım
 1. Üstteki çubuğa yayın linkini yapıştır.
-2. Her panelde bir kez **Giriş**'e bas, hesabınla giriş yap, sonra **⟳** ile chat'e dön.
+2. Chat'in içindeki **Giriş yap** düğmesiyle hesabına bir kez gir.
    > Twitch'e **Google ile giriş** uygulama içinde çalışmaz (Google bunu engelliyor). Kullanıcı adı ve şifreyle giriş yap.
 
 ## Kurulum

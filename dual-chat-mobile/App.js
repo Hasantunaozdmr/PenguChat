@@ -185,9 +185,6 @@ function PenguChat() {
       const url = PLATFORMS[k].chatUrl(s[k]);
       if (urls[k] === url) wv?.reload();
       else setUrls((p) => ({ ...p, [k]: url }));
-    } else if (act === 'login') {
-      setUrls((p) => ({ ...p, [k]: PLATFORMS[k].loginUrl() }));
-      showHint(`${PLATFORMS[k].label}: giriş yap, sonra ⟳ ile chat'e dön`);
     } else if (act === 'zoom-in' || act === 'zoom-out') {
       const z = Math.round(Math.min(2, Math.max(0.6, s.zoom[k] + (act === 'zoom-in' ? 0.1 : -0.1))) * 10) / 10;
       update((prev) => ({ ...prev, zoom: { ...prev.zoom, [k]: z } }));
@@ -336,7 +333,6 @@ function PaneButtons({ k, onAction }) {
   );
   return (
     <View style={styles.row}>
-      {btn('login', 'Giriş')}
       {btn('chat', '⟳')}
       {btn('zoom-out', 'A−')}
       {btn('zoom-in', 'A+')}
