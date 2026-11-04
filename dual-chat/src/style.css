@@ -42,27 +42,34 @@ body { display: flex; flex-direction: column; }
 .brand { font-weight: 700; font-size: 15px; letter-spacing: .3px; }
 .brand span { color: var(--kick); }
 
-.channels { display: flex; gap: 6px; align-items: center; }
-
-.field {
+.linkbar {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex: 1 1 320px;
+  max-width: 560px;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 6px;
-  padding: 0 8px;
-  height: 28px;
+  padding: 0 0 0 8px;
+  height: 30px;
 }
-.field:focus-within { border-color: var(--muted); }
-.field input {
+.linkbar:focus-within { border-color: var(--muted); }
+.linkbar input {
+  flex: 1;
+  min-width: 0;
   background: transparent;
   border: 0;
   outline: 0;
   color: var(--text);
-  width: 130px;
   font: inherit;
 }
+.linkbar .btn { height: 28px; border-radius: 0 5px 5px 0; }
+.twitch-dot { background: var(--twitch); }
+.kick-dot { background: var(--kick); margin-left: -4px; }
+.hint { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.hint.ok { color: var(--kick); }
+.hint.err { color: #ff6b6b; }
 
 .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
 .twitch .dot, [data-platform="twitch"] .dot { background: var(--twitch); }

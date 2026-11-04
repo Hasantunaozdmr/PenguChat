@@ -10,17 +10,12 @@
   <header class="toolbar">
     <div class="brand">Dual<span>Chat</span></div>
 
-    <form id="channelForm" class="channels">
-      <label class="field twitch">
-        <span class="dot"></span>
-        <input id="twitchInput" placeholder="Twitch kanalı" spellcheck="false" autocomplete="off" />
-      </label>
-      <label class="field kick">
-        <span class="dot"></span>
-        <input id="kickInput" placeholder="Kick kanalı" spellcheck="false" autocomplete="off" />
-      </label>
+    <form id="linkForm" class="linkbar">
+      <span class="dot twitch-dot"></span><span class="dot kick-dot"></span>
+      <input id="linkInput" placeholder="Twitch veya Kick linkini yapıştır…" title="Linki yapıştırınca chat kendiliğinden doğru panelde açılır. Düz kanal adı yazarsan iki platformda da açılır." spellcheck="false" autocomplete="off" />
       <button type="submit" class="btn primary">Aç</button>
     </form>
+    <span id="linkHint" class="hint"></span>
 
     <div class="spacer"></div>
 

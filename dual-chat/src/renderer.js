@@ -140,27 +140,52 @@
     }
   }
 
-  // ---------- Kanal formu ----------
-  const twitchInput = $('#twitchInput');
-  const kickInput = $('#kickInput');
-  twitchInput.value = state.twitch;
-  kickInput.value = state.kick;
+  // ---------- Link çubuğu ----------
+  // Linkten platformu ve kanalı bulur. Düz kanal adı yazılırsa iki platforma birden uygulanır.
+  function parseTargets(text) {
+    const found = {};
+    const re = /(?:https?:\/\/)?(?:www\.|m\.)?(twitch\.tv|kick\.com)\/(?:popout\/)?([A-Za-z0-9_-]+)/gi;
+    let m;
+    while ((m = re.exec(text))) {
+      const p = m[1].toLowerCase().startsWith('twitch') ? 'twitch' : 'kick';
+      found[p] = m[2].toLowerCase();
+    }
+    if (!Object.keys(found).length) {
+      const name = cleanChannel(text);
+      if (name) { found.twitch = name; found.kick = name; }
+    }
+    return found;
+  }
 
-  $('#channelForm').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const t = cleanChannel(twitchInput.value);
-    // Kick boş bırakılırsa Twitch ile aynı kanal adı kullanılır (genelde aynıdır)
-    const k = cleanChannel(kickInput.value) || t;
-    twitchInput.value = t;
-    kickInput.value = k;
-    const changedT = t !== state.twitch || !panes.twitch.view;
-    const changedK = k !== state.kick || !panes.kick.view;
-    state.twitch = t;
-    state.kick = k;
-    save();
-    if (changedT) openChat('twitch');
-    if (changedK) openChat('kick');
-  });
+  const linkInput = $('#linkInput');
+  const linkHint = $('#linkHint');
+  let hintTimer;
+  function hint(msg, cls) {
+    linkHint.textContent = msg;
+    linkHint.className = 'hint ' + (cls || '');
+    clearTimeout(hintTimer);
+    hintTimer = setTimeout(() => (linkHint.textContent = ''), 3000);
+  }
+
+  function applyLink() {
+    const targets = parseTargets(linkInput.value);
+    const keys = Object.keys(targets);
+    if (!keys.length) { hint('Link anlaşılamadı', 'err'); return; }
+    for (const p of keys) {
+      state[p] = targets[p];
+      if (!state.show[p]) state.show[p] = true;
+      openChat(p);
+    }
+    save(); applyLayout();
+    hint(keys.map((p) => `${p === 'twitch' ? 'Twitch' : 'Kick'}: ${targets[p]}`).join(' · ') + ' açıldı', 'ok');
+    linkInput.value = '';
+  }
+
+  $('#linkForm').addEventListener('submit', (e) => { e.preventDefault(); applyLink(); });
+  // Link yapıştırılınca Enter'a basmadan otomatik aç
+  linkInput.addEventListener('paste', () => setTimeout(() => {
+    if (/(twitch\.tv|kick\.com)\//i.test(linkInput.value)) applyLink();
+  }, 0));
 
   // ---------- Yerleşim ----------
   function applyLayout() {
@@ -278,5 +303,5 @@
   if (state.opacity < 100) window.dualChat.setOpacity(state.opacity / 100);
   openChat('twitch');
   openChat('kick');
-  if (!state.twitch && !state.kick) twitchInput.focus();
+  if (!state.twitch && !state.kick) linkInput.focus();
 })();
