@@ -1,12 +1,21 @@
 name: Dual Chat - Release
 
-# "dual-chat-v1.0.0" gibi bir etiket gönderilince Windows + Android derlenir
-# ve herkese açık Releases sayfasına (giriş gerektirmeden) yüklenir.
+# Uygulamalarda değişiklik olunca Windows + Android derlenir ve herkese açık
+# Releases sayfasına (giriş gerektirmeden) yüklenir. Linkler hep en son sürümü indirir.
 on:
   push:
-    tags:
-      - "dual-chat-v*"
+    branches:
+      - main
+      - claude/twitch-kick-dual-chat-d4tslz
+    paths:
+      - "dual-chat/**"
+      - "dual-chat-mobile/**"
+      - ".github/workflows/dual-chat-release.yml"
   workflow_dispatch:
+
+concurrency:
+  group: dual-chat-release
+  cancel-in-progress: true
 
 permissions:
   contents: write
@@ -69,8 +78,9 @@ jobs:
           merge-multiple: true
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'dual-chat-latest' }}
-          name: Dual Chat ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          tag_name: dual-chat-v1.0.0
+          target_commitish: ${{ github.sha }}
+          name: Dual Chat 1.0.0
           make_latest: true
           body: |
             ## Dual Chat: Twitch + Kick chat tek pencerede
