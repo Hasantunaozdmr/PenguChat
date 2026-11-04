@@ -1,10 +1,13 @@
 :root {
-  --bg: #0e0e10;
-  --panel: #18181b;
-  --panel-2: #1f1f23;
-  --border: #2a2a2e;
-  --text: #efeff1;
-  --muted: #adadb8;
+  /* Turkuaz tema */
+  --bg: #0a6b67;
+  --panel: #0e8f8a;
+  --panel-2: #0b7c77;
+  --input: #075a56;
+  --hover: #13a39d;
+  --border: #23bdb5;
+  --text: #ffffff;
+  --muted: #c9f3ef;
   --twitch: #9146ff;
   --kick: #53fc18;
   --accent: #9146ff;
@@ -40,7 +43,7 @@ body { display: flex; flex-direction: column; }
 }
 
 .brand { font-weight: 700; font-size: 15px; letter-spacing: .3px; }
-.brand span { color: var(--kick); }
+.brand span { color: #062f2d; }
 
 .linkbar {
   display: flex;
@@ -48,13 +51,14 @@ body { display: flex; flex-direction: column; }
   gap: 6px;
   flex: 1 1 320px;
   max-width: 560px;
-  background: var(--bg);
+  background: var(--input);
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 0 0 0 8px;
   height: 30px;
 }
 .linkbar:focus-within { border-color: var(--muted); }
+.linkbar input::placeholder { color: var(--muted); opacity: .8; }
 .linkbar input {
   flex: 1;
   min-width: 0;
@@ -87,7 +91,7 @@ body { display: flex; flex-direction: column; }
   font: inherit;
   cursor: pointer;
 }
-.btn:hover { background: #2c2c31; }
+.btn:hover { background: var(--hover); }
 .btn.primary { background: var(--accent); border-color: var(--accent); font-weight: 600; }
 .btn.primary:hover { filter: brightness(1.1); }
 .btn.icon { width: 30px; padding: 0; font-size: 15px; }
@@ -133,7 +137,7 @@ input[type="range"] { width: 70px; accent-color: var(--accent); }
   font: inherit;
   cursor: pointer;
 }
-.menu button:hover { background: #2c2c31; }
+.menu button:hover { background: var(--hover); }
 kbd { color: var(--muted); font: inherit; font-size: 11px; }
 
 /* ---------- Panes ---------- */

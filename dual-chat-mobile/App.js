@@ -77,13 +77,13 @@ export default function App() {
     <SafeAreaProvider>
       <StatusBar style="light" />
       <SafeAreaView style={styles.root} edges={['top', 'bottom', 'left', 'right']}>
-        <DualChat />
+        <PenguChat />
       </SafeAreaView>
     </SafeAreaProvider>
   );
 }
 
-function DualChat() {
+function PenguChat() {
   const [s, setS] = useState(DEFAULTS);
   const [ready, setReady] = useState(false);
   const [link, setLink] = useState('');
@@ -215,7 +215,7 @@ function DualChat() {
             onChangeText={onChangeLink}
             onSubmitEditing={() => link.trim() && applyText(link)}
             placeholder="Twitch / Kick linki ya da kanal adı"
-            placeholderTextColor="#7a7a85"
+            placeholderTextColor="#a9e3de"
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="url"
@@ -234,7 +234,7 @@ function DualChat() {
         </Pressable>
       </View>
       {newVersion && (
-        <Pressable style={styles.updateBar} onPress={() => Linking.openURL(`${RELEASE_BASE}/DualChat.apk`)}>
+        <Pressable style={styles.updateBar} onPress={() => Linking.openURL(`${RELEASE_BASE}/PenguChat.apk`)}>
           <Text style={styles.updateText}>⬆ Yeni sürüm var (v{newVersion}) · Güncellemek için dokun</Text>
           <Pressable hitSlop={10} onPress={() => setNewVersion(null)}>
             <Text style={styles.updateClose}>✕</Text>
@@ -400,12 +400,14 @@ function ChatView({ k, url, zoom, onRef }) {
 }
 
 const C = {
-  bg: '#0e0e10',
-  panel: '#18181b',
-  panel2: '#1f1f23',
-  border: '#2a2a2e',
-  text: '#efeff1',
-  muted: '#adadb8',
+  // Turkuaz tema
+  bg: '#0a6b67',
+  panel: '#0e8f8a',
+  panel2: '#0b7c77',
+  input: '#075a56',
+  border: '#23bdb5',
+  text: '#ffffff',
+  muted: '#c9f3ef',
 };
 
 const styles = StyleSheet.create({
@@ -430,7 +432,7 @@ const styles = StyleSheet.create({
     gap: 6,
     height: 38,
     paddingLeft: 10,
-    backgroundColor: C.bg,
+    backgroundColor: C.input,
     borderWidth: 1,
     borderColor: C.border,
     borderRadius: 8,

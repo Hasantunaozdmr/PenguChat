@@ -1,4 +1,4 @@
-name: Dual Chat - Release
+name: PenguChat - Release
 
 # Uygulamalarda değişiklik olunca Windows + Android derlenir ve herkese açık
 # Releases sayfasına (giriş gerektirmeden) yüklenir. Linkler hep en son sürümü indirir.
@@ -43,7 +43,9 @@ jobs:
         run: |
           ls dist
           mkdir -p out
-          cp dist/DualChat-Setup.exe dist/DualChat-Setup.exe.blockmap dist/latest.yml out/
+          cp dist/PenguChat-Setup.exe dist/PenguChat-Setup.exe.blockmap dist/latest.yml out/
+          # Eski adla paylaşılmış linkler çalışmaya devam etsin
+          cp dist/PenguChat-Setup.exe out/DualChat-Setup.exe
           cat out/latest.yml
       - uses: actions/upload-artifact@v4
         with:
@@ -79,11 +81,11 @@ jobs:
       - run: npx expo prebuild --platform android --no-install
       - working-directory: dual-chat-mobile/android
         run: ./gradlew assembleRelease --no-daemon
-      - run: mkdir -p out && cp android/app/build/outputs/apk/release/app-release.apk out/DualChat.apk
+      - run: mkdir -p out && cp android/app/build/outputs/apk/release/app-release.apk out/PenguChat.apk && cp out/PenguChat.apk out/DualChat.apk
       - uses: actions/upload-artifact@v4
         with:
           name: android
-          path: dual-chat-mobile/out/DualChat.apk
+          path: dual-chat-mobile/out/*.apk
 
   release:
     needs: [windows, android]
@@ -97,15 +99,15 @@ jobs:
         with:
           tag_name: dual-chat-v${{ env.VERSION }}
           target_commitish: ${{ github.sha }}
-          name: Dual Chat ${{ env.VERSION }}
+          name: PenguChat ${{ env.VERSION }}
           make_latest: true
           body: |
-            ## Dual Chat: Twitch + Kick chat tek pencerede
+            ## 🐧 PenguChat: Twitch + Kick chat tek pencerede
 
             | | İndir |
             |---|---|
-            | 🪟 **Windows** | [DualChat-Setup.exe](https://github.com/${{ github.repository }}/releases/latest/download/DualChat-Setup.exe) |
-            | 🤖 **Android** | [DualChat.apk](https://github.com/${{ github.repository }}/releases/latest/download/DualChat.apk) |
+            | 🪟 **Windows** | [PenguChat-Setup.exe](https://github.com/${{ github.repository }}/releases/latest/download/PenguChat-Setup.exe) |
+            | 🤖 **Android** | [PenguChat.apk](https://github.com/${{ github.repository }}/releases/latest/download/PenguChat.apk) |
 
             **Windows:** "Windows kişisel bilgisayarınızı korudu" uyarısı çıkarsa **Ek bilgi → Yine de çalıştır** de (uygulama imzasız olduğu için normal).
             **Android:** APK'yı açınca telefon "bilinmeyen kaynaklar" izni isterse izin ver.

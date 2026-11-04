@@ -1,6 +1,6 @@
 {
   "name": "dual-chat",
-  "productName": "Dual Chat",
+  "productName": "PenguChat",
   "version": "1.0.0",
   "description": "Twitch ve Kick chat'ini tek pencerede yan yana açan masaüstü uygulaması",
   "main": "src/main.js",
@@ -17,7 +17,7 @@
   },
   "build": {
     "appId": "com.dualchat.app",
-    "productName": "Dual Chat",
+    "productName": "PenguChat",
     "files": [
       "src/**/*",
       "package.json",
@@ -26,7 +26,8 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "artifactName": "DualChat-Setup.${ext}"
+      "artifactName": "PenguChat-Setup.${ext}",
+      "shortcutName": "PenguChat"
     },
     "publish": [
       {

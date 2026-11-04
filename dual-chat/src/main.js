@@ -15,6 +15,10 @@ const CHROME_UA = `Mozilla/5.0 (${
 }) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${process.versions.chrome} Safari/537.36`;
 app.userAgentFallback = CHROME_UA;
 
+// Uygulamanın adı "Dual Chat"ten "PenguChat"e değişti: girişler ve ayarlar
+// kaybolmasın diye eski veri klasörünü kullanmaya devam et.
+app.setPath('userData', path.join(app.getPath('appData'), 'Dual Chat'));
+
 // Giriş yapılan oturumlar (Twitch + Kick) bu partition'da kalıcı olarak saklanır.
 const PARTITION = 'persist:dualchat';
 
@@ -46,8 +50,8 @@ function createWindow() {
     height: 800,
     minWidth: 480,
     minHeight: 360,
-    backgroundColor: '#0e0e10',
-    title: 'Dual Chat — Twitch + Kick',
+    backgroundColor: '#0a6b67',
+    title: 'PenguChat — Twitch + Kick',
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -78,7 +82,7 @@ app.on('web-contents-created', (_e, contents) => {
             width: 520,
             height: 720,
             autoHideMenuBar: true,
-            backgroundColor: '#0e0e10',
+            backgroundColor: '#0a6b67',
             webPreferences: { partition: PARTITION },
           },
         };
@@ -181,7 +185,7 @@ ipcMain.handle('update-install', () => {
   if (updateState.state === 'ready' && autoUpdater) {
     autoUpdater.quitAndInstall(true, true);
   } else if (updateState.state === 'portable-available') {
-    shell.openExternal(`${RELEASE_BASE}/DualChat-Portable.exe`);
+    shell.openExternal(`${RELEASE_BASE}/PenguChat-Setup.exe`);
   }
 });
 

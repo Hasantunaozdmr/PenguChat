@@ -1,4 +1,4 @@
-# Dual Chat — Twitch + Kick tek pencerede
+# 🐧 PenguChat — Twitch + Kick tek pencerede
 
 Aynı anda Twitch ve Kick'te yayın yapan bir kanalın iki chat'ini **tek pencerede, yan yana** açan küçük bir masaüstü uygulaması.
 Paneller platformların **resmi popout chat'leridir**. Hesabınla giriş yaptığında moderatör araçlarının hepsi (ban, timeout, mesaj silme, mod menüsü, /komutlar) normal şekilde çalışır.
@@ -22,7 +22,7 @@ Paneller platformların **resmi popout chat'leridir**. Hesabınla giriş yaptı�
 ## Kurulum
 
 ### Windows
-**https://github.com/Hasantunaozdmr/Canzade-ToastyStat/releases/latest/download/DualChat-Setup.exe** dosyasını indir ve kur.
+**https://github.com/Hasantunaozdmr/Canzade-ToastyStat/releases/latest/download/PenguChat-Setup.exe** dosyasını indir ve kur.
 Sonraki sürümler uygulamanın içindeki **⬆ Güncelle** düğmesiyle gelir.
 
 ### Kaynaktan çalıştırma

@@ -1,4 +1,4 @@
-/* Dual Chat — renderer */
+/* PenguChat — renderer */
 (() => {
   const STORE_KEY = 'dualchat:settings';
   const defaults = {
@@ -280,7 +280,7 @@
       updateBtn.classList.remove('hidden');
     } else {
       updateBtn.classList.add('hidden');
-      if (manualCheck && u.state === 'latest') { manualCheck = false; alert(`Dual Chat güncel (v${u.current}).`); }
+      if (manualCheck && u.state === 'latest') { manualCheck = false; alert(`PenguChat güncel (v${u.current}).`); }
       if (manualCheck && u.state === 'error') { manualCheck = false; alert('Güncelleme kontrol edilemedi. İnternet bağlantını kontrol et.'); }
     }
   }

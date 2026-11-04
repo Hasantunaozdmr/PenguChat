@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Dual Chat",
+    "name": "PenguChat",
     "slug": "dual-chat",
     "version": "1.0.0",
     "orientation": "default",
@@ -12,7 +12,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#0e0e10",
+        "backgroundColor": "#0a6b67",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -23,6 +23,6 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "backgroundColor": "#0e0e10"
+    "backgroundColor": "#0a6b67"
   }
 }

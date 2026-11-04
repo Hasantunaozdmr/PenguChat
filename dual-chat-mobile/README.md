@@ -1,4 +1,4 @@
-# Dual Chat Mobile — Twitch + Kick (Android & iPhone)
+# 🐧 PenguChat Mobile — Twitch + Kick (Android & iPhone)
 
 Masaüstü Dual Chat'in telefon sürümü. Twitch ve Kick'in resmi chat sayfalarını tek ekranda açar. Moderatör hesabınla giriş yaptığında ban, timeout, mesaj silme ve /komutlar normal çalışır. Girişler kalıcıdır.
 
@@ -21,7 +21,7 @@ Masaüstü Dual Chat'in telefon sürümü. Twitch ve Kick'in resmi chat sayfalar
 
 ### Android
 GitHub'da **Actions → "Dual Chat Mobile - Android APK / iOS IPA" → son çalışma → Artifacts → DualChat-Android-APK** yolunu izle ve indir.
-Zip'in içindeki `DualChat.apk` dosyasını telefona at ve aç. Telefon "bilinmeyen kaynaklardan uygulama yükleme" izni isterse ver.
+Zip'in içindeki `PenguChat.apk` dosyasını telefona at ve aç. Telefon "bilinmeyen kaynaklardan uygulama yükleme" izni isterse ver.
 
 ### iPhone
 Apple, App Store dışından uygulama kurmayı zorlaştırıyor. Üç yol var:
