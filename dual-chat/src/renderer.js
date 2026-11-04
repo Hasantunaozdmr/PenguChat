@@ -34,12 +34,10 @@
     twitch: {
       chatUrl: (c) => `https://www.twitch.tv/popout/${encodeURIComponent(c)}/chat?popout=`,
       loginUrl: () => 'https://www.twitch.tv/login',
-      pageUrl: (c) => `https://www.twitch.tv/${encodeURIComponent(c)}`,
     },
     kick: {
       chatUrl: (c) => `https://kick.com/popout/${encodeURIComponent(c)}/chat`,
       loginUrl: () => 'https://kick.com/',
-      pageUrl: (c) => `https://kick.com/${encodeURIComponent(c)}`,
     },
   };
 
@@ -110,7 +108,6 @@
 
   function paneAction(p, act) {
     const pane = panes[p];
-    const channel = state[p];
     switch (act) {
       case 'chat':
         openChat(p);
@@ -132,9 +129,6 @@
         setTimeout(() => { if (pane.status.textContent.startsWith('%')) pane.status.textContent = ''; }, 1200);
         break;
       }
-      case 'external':
-        if (channel) window.dualChat.openExternal(PLATFORMS[p].pageUrl(channel));
-        break;
     }
   }
 
