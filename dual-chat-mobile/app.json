@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "Dual Chat",
+    "slug": "dual-chat",
+    "version": "1.0.0",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.dualchat.mobile"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0e0e10",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "package": "com.dualchat.mobile",
+      "softwareKeyboardLayoutMode": "resize"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "backgroundColor": "#0e0e10"
+  }
+}
