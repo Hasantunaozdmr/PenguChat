@@ -4,7 +4,7 @@ export const PLATFORMS = {
   twitch: {
     label: 'Twitch',
     color: '#9146ff',
-    chatUrl: (c) => `https://www.twitch.tv/popout/${encodeURIComponent(c)}/chat?popout=`,
+    chatUrl: (c) => `https://www.twitch.tv/popout/${encodeURIComponent(c)}/chat?popout=&darkpopout`, // darkpopout = koyu tema
     loginUrl: () => 'https://www.twitch.tv/login',
   },
   kick: {
