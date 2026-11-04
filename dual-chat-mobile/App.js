@@ -15,9 +15,29 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Clipboard from 'expo-clipboard';
+import Constants from 'expo-constants';
 import { PLATFORMS, hasLink, isInternalUrl, parseTargets } from './src/links';
 
 const STORE_KEY = 'dualchat:settings';
+const RELEASE_BASE = 'https://github.com/Hasantunaozdmr/Canzade-ToastyStat/releases/latest/download';
+const APP_VERSION = Constants.expoConfig?.version || '0.0.0';
+
+function isNewer(a, b) {
+  const pa = String(a).split('.').map(Number);
+  const pb = String(b).split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) > (pb[i] || 0);
+  }
+  return false;
+}
+
+// En son sürümü Releases sayfasındaki latest.yml'den okur
+async function fetchLatestVersion() {
+  const res = await fetch(`${RELEASE_BASE}/latest.yml?t=${Date.now()}`);
+  if (!res.ok) return null;
+  const text = await res.text();
+  return (text.match(/^version:\s*['"]?([\d.]+)/m) || [])[1] || null;
+}
 const KEYS = ['twitch', 'kick'];
 
 const DEFAULTS = {
@@ -74,6 +94,19 @@ function DualChat() {
 
   const { width, height } = useWindowDimensions();
   const landscape = width > height;
+
+  // ---- Güncelleme kontrolü (Android: yeni APK indirilir) ----
+  const [newVersion, setNewVersion] = useState(null);
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const check = () =>
+      fetchLatestVersion()
+        .then((v) => v && isNewer(v, APP_VERSION) && setNewVersion(v))
+        .catch(() => {});
+    check();
+    const t = setInterval(check, 30 * 60 * 1000);
+    return () => clearInterval(t);
+  }, []);
 
   // ---- Ayarları yükle / kaydet ----
   useEffect(() => {
@@ -199,6 +232,14 @@ function DualChat() {
           <Text style={styles.iconText}>{tabs ? '▤' : '⇆'}</Text>
         </Pressable>
       </View>
+      {newVersion && (
+        <Pressable style={styles.updateBar} onPress={() => Linking.openURL(`${RELEASE_BASE}/DualChat.apk`)}>
+          <Text style={styles.updateText}>⬆ Yeni sürüm var (v{newVersion}) · Güncellemek için dokun</Text>
+          <Pressable hitSlop={10} onPress={() => setNewVersion(null)}>
+            <Text style={styles.updateClose}>✕</Text>
+          </Pressable>
+        </Pressable>
+      )}
       {hint && (
         <Text style={[styles.hint, { color: hint.ok ? PLATFORMS.kick.color : '#ff6b6b' }]} numberOfLines={1}>
           {hint.text}
@@ -413,6 +454,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   iconText: { color: C.text, fontSize: 18 },
+  updateBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    backgroundColor: '#1f8f3a',
+  },
+  updateText: { color: '#fff', fontWeight: '700', flex: 1 },
+  updateClose: { color: '#fff', fontSize: 16, paddingLeft: 12 },
   hint: { paddingHorizontal: 10, paddingVertical: 3, fontSize: 12, backgroundColor: C.panel },
   dot: { width: 8, height: 8, borderRadius: 4 },
 

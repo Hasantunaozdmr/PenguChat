@@ -20,6 +20,10 @@ concurrency:
 permissions:
   contents: write
 
+env:
+  # Her derleme yeni bir sürüm numarası alır, uygulamalar bunu görünce "Güncelle" gösterir
+  VERSION: 1.1.${{ github.run_number }}
+
 jobs:
   windows:
     runs-on: windows-latest
@@ -32,17 +36,19 @@ jobs:
         with:
           node-version: 20
       - run: npm install --no-audit --no-fund
+      - run: npm version ${{ env.VERSION }} --no-git-tag-version --allow-same-version
       - run: npm run dist:win
-      - name: Rename
+      - name: Collect
         shell: bash
         run: |
+          ls dist
           mkdir -p out
-          cp dist/*-setup.exe out/DualChat-Setup.exe
-          cp dist/*-portable.exe out/DualChat-Portable.exe
+          cp dist/DualChat-Setup.exe dist/DualChat-Setup.exe.blockmap dist/DualChat-Portable.exe dist/latest.yml out/
+          cat out/latest.yml
       - uses: actions/upload-artifact@v4
         with:
           name: windows
-          path: dual-chat/out/*.exe
+          path: dual-chat/out/*
 
   android:
     runs-on: ubuntu-latest
@@ -59,6 +65,17 @@ jobs:
           distribution: temurin
           java-version: 17
       - run: npm ci --no-audit --no-fund
+      - name: Set version
+        run: |
+          node -e "
+            const fs = require('fs');
+            const p = 'app.json';
+            const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+            j.expo.version = process.env.VERSION;
+            j.expo.android.versionCode = 100 + Number(process.env.GITHUB_RUN_NUMBER);
+            fs.writeFileSync(p, JSON.stringify(j, null, 2));
+            console.log(j.expo.version, j.expo.android.versionCode);
+          "
       - run: npx expo prebuild --platform android --no-install
       - working-directory: dual-chat-mobile/android
         run: ./gradlew assembleRelease --no-daemon
@@ -78,9 +95,9 @@ jobs:
           merge-multiple: true
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: dual-chat-v1.0.0
+          tag_name: dual-chat-v${{ env.VERSION }}
           target_commitish: ${{ github.sha }}
-          name: Dual Chat 1.0.0
+          name: Dual Chat ${{ env.VERSION }}
           make_latest: true
           body: |
             ## Dual Chat: Twitch + Kick chat tek pencerede
@@ -93,6 +110,8 @@ jobs:
 
             **Windows:** "Windows kişisel bilgisayarınızı korudu" uyarısı çıkarsa **Ek bilgi → Yine de çalıştır** de (uygulama imzasız olduğu için normal).
             **Android:** APK'yı açınca telefon "bilinmeyen kaynaklar" izni isterse izin ver.
+
+            **Güncelleme:** Bu sürümden itibaren uygulama yeni sürümü kendisi bulur ve **Güncelle** düğmesi gösterir.
 
             **Kullanım:** Üstteki çubuğa Twitch veya Kick yayın linkini yapıştır, her panelde bir kez **Giriş** ile moderatör hesabına gir.
             Twitch'te Google ile giriş çalışmaz, kullanıcı adı ve şifre kullan.

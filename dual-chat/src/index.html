@@ -19,6 +19,8 @@
 
     <div class="spacer"></div>
 
+    <button id="updateBtn" class="btn update hidden"></button>
+
     <div class="group">
       <button id="toggleTwitch" class="btn chip twitch active" title="Twitch panelini göster/gizle">Twitch</button>
       <button id="toggleKick" class="btn chip kick active" title="Kick panelini göster/gizle">Kick</button>
@@ -33,6 +35,7 @@
 
     <div id="menu" class="menu hidden">
       <button data-action="reload-all">Her iki chat'i yenile <kbd>F5</kbd></button>
+      <button data-action="check-update">Güncellemeleri kontrol et <kbd id="versionLabel"></kbd></button>
       <button data-action="logout">Tüm hesaplardan çıkış yap</button>
     </div>
   </header>

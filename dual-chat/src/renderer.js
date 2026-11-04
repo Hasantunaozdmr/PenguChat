@@ -244,6 +244,7 @@
   menu.addEventListener('click', async (e) => {
     const action = e.target.closest('button')?.dataset.action;
     if (action === 'reload-all') { openChat('twitch'); openChat('kick'); }
+    if (action === 'check-update') { manualCheck = true; window.dualChat.checkUpdates(); }
     if (action === 'logout' && confirm('Twitch ve Kick hesaplarından çıkış yapılsın mı?')) {
       await window.dualChat.logoutAll();
       openChat('twitch'); openChat('kick');
@@ -256,6 +257,36 @@
       openChat('twitch'); openChat('kick');
     }
   });
+
+  // ---------- Güncelleme ----------
+  const updateBtn = $('#updateBtn');
+  let manualCheck = false;
+  function renderUpdate(u) {
+    if (u.current) $('#versionLabel').textContent = 'v' + u.current;
+    updateBtn.classList.remove('busy');
+    updateBtn.disabled = false;
+    if (u.state === 'downloading') {
+      updateBtn.textContent = `Güncelleme iniyor… %${u.percent || 0}`;
+      updateBtn.classList.add('busy');
+      updateBtn.disabled = true;
+      updateBtn.classList.remove('hidden');
+    } else if (u.state === 'ready') {
+      updateBtn.textContent = `⬆ Güncelle (v${u.version})`;
+      updateBtn.title = 'Uygulama kapanıp yeni sürümle yeniden açılır';
+      updateBtn.classList.remove('hidden');
+    } else if (u.state === 'portable-available') {
+      updateBtn.textContent = `⬇ Yeni sürüm var (v${u.version})`;
+      updateBtn.title = 'Yeni sürümü indir, eskisinin yerine kullan';
+      updateBtn.classList.remove('hidden');
+    } else {
+      updateBtn.classList.add('hidden');
+      if (manualCheck && u.state === 'latest') { manualCheck = false; alert(`Dual Chat güncel (v${u.current}).`); }
+      if (manualCheck && u.state === 'error') { manualCheck = false; alert('Güncelleme kontrol edilemedi. İnternet bağlantını kontrol et.'); }
+    }
+  }
+  window.dualChat.onUpdate(renderUpdate);
+  window.dualChat.getUpdateStatus().then(renderUpdate);
+  updateBtn.addEventListener('click', () => window.dualChat.installUpdate());
 
   // ---------- Başlangıç ----------
   applyLayout();

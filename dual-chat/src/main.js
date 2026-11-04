@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, session } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, session, net } = require('electron');
 const path = require('path');
 
 // Twitch / Kick bazen "Electron" içeren tarayıcıları engelleyebiliyor,
@@ -112,8 +112,79 @@ ipcMain.handle('logout-all', async () => {
   await session.fromPartition(PARTITION).clearStorageData();
 });
 
+// ---------- Güncelleme ----------
+const RELEASE_BASE = 'https://github.com/Hasantunaozdmr/Canzade-ToastyStat/releases/latest/download';
+const IS_PORTABLE = !!process.env.PORTABLE_EXECUTABLE_DIR;
+let updateState = { state: 'idle', current: app.getVersion() };
+
+function sendUpdate(patch) {
+  updateState = { ...updateState, ...patch };
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('update-status', updateState);
+}
+
+function newer(a, b) {
+  const pa = String(a).split('.').map(Number);
+  const pb = String(b).split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) > (pb[i] || 0);
+  }
+  return false;
+}
+
+let autoUpdater = null;
+function setupAutoUpdater() {
+  if (IS_PORTABLE || !app.isPackaged) return;
+  try {
+    ({ autoUpdater } = require('electron-updater'));
+  } catch {
+    return;
+  }
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.on('checking-for-update', () => sendUpdate({ state: 'checking' }));
+  autoUpdater.on('update-available', (i) => sendUpdate({ state: 'downloading', version: i.version, percent: 0 }));
+  autoUpdater.on('update-not-available', () => sendUpdate({ state: 'latest' }));
+  autoUpdater.on('download-progress', (p) => sendUpdate({ state: 'downloading', percent: Math.round(p.percent) }));
+  autoUpdater.on('update-downloaded', (i) => sendUpdate({ state: 'ready', version: i.version }));
+  autoUpdater.on('error', (e) => sendUpdate({ state: 'error', message: String(e?.message || e) }));
+}
+
+async function checkForUpdates() {
+  if (!app.isPackaged) return sendUpdate({ state: 'latest' });
+  if (autoUpdater) {
+    if (updateState.state === 'downloading' || updateState.state === 'ready') return;
+    return autoUpdater.checkForUpdates().catch((e) => sendUpdate({ state: 'error', message: String(e?.message || e) }));
+  }
+  // Kurulumsuz (portable) sürüm kendini değiştiremez: yeni sürüm varsa indirme linki gösterilir
+  try {
+    sendUpdate({ state: 'checking' });
+    const res = await net.fetch(`${RELEASE_BASE}/latest.yml`, { cache: 'no-store' });
+    const text = await res.text();
+    const version = (text.match(/^version:\s*['"]?([\d.]+)/m) || [])[1];
+    if (version && newer(version, app.getVersion())) sendUpdate({ state: 'portable-available', version });
+    else sendUpdate({ state: 'latest' });
+  } catch (e) {
+    sendUpdate({ state: 'error', message: String(e?.message || e) });
+  }
+}
+
+ipcMain.handle('update-check', () => checkForUpdates());
+ipcMain.handle('update-status', () => updateState);
+ipcMain.handle('update-install', () => {
+  if (updateState.state === 'ready' && autoUpdater) {
+    autoUpdater.quitAndInstall(true, true);
+  } else if (updateState.state === 'portable-available') {
+    shell.openExternal(`${RELEASE_BASE}/DualChat-Portable.exe`);
+  }
+});
+
 app.whenReady().then(() => {
   createWindow();
+  setupAutoUpdater();
+  mainWindow.webContents.once('did-finish-load', () => {
+    setTimeout(checkForUpdates, 3000);
+  });
+  setInterval(checkForUpdates, 30 * 60 * 1000);
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

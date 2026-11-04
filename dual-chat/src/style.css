@@ -98,6 +98,10 @@ body { display: flex; flex-direction: column; }
 .btn.chip.twitch.active { border-color: var(--twitch); }
 .btn.chip.kick.active { border-color: var(--kick); }
 
+.btn.update { background: #1f8f3a; border-color: #2bb04f; font-weight: 600; }
+.btn.update:hover { filter: brightness(1.1); }
+.btn.update.busy { background: var(--panel-2); border-color: var(--border); font-weight: 400; cursor: default; color: var(--muted); }
+
 .btn.mini { height: 22px; padding: 0 7px; font-size: 12px; border-radius: 4px; }
 
 input[type="range"] { width: 70px; accent-color: var(--accent); }

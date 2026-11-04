@@ -10,6 +10,7 @@ Masaüstü Dual Chat'in telefon sürümü. Twitch ve Kick'in resmi chat sayfalar
   - **▤ Sekmeli:** Her chat tam ekran açılır, üstteki Twitch | Kick sekmeleriyle geçilir. Diğer chat arka planda açık kalır.
 - Panel başına yazı boyutu (A− / A+).
 - Chat'teki dış linkler telefonun tarayıcısında açılır.
+- **Güncelleme (Android):** Yeni sürüm çıkınca üstte yeşil **⬆ Yeni sürüm var** çubuğu görünür, dokununca yeni APK iner, açıp **Güncelle** dersin. Girişler silinmez.
 
 ## İlk kullanım
 1. Üstteki çubuğa yayın linkini yapıştır.
