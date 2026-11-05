@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('dualChat', {
   setOpacity: (v) => ipcRenderer.invoke('set-opacity', v),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   logoutAll: () => ipcRenderer.invoke('logout-all'),
+  measureDelay: (args) => ipcRenderer.invoke('measure-delay', args),
   checkUpdates: () => ipcRenderer.invoke('update-check'),
   getUpdateStatus: () => ipcRenderer.invoke('update-status'),
   installUpdate: () => ipcRenderer.invoke('update-install'),

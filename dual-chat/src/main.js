@@ -181,6 +181,95 @@ async function checkForUpdates() {
   }
 }
 
+// ---------- Yayın gecikmesi ölçümü ----------
+// Her iki platformun canlı HLS listesindeki en son parçanın çekim zamanı (PROGRAM-DATE-TIME)
+// karşılaştırılır. Bilgisayar saati iki tarafı aynı etkilediği için fark saatten bağımsızdır.
+const TWITCH_CLIENT_ID = 'kimne78kx3ncx6brgo4mv6wki5h1ko'; // twitch.tv sitesinin herkese açık istemci kimliği
+
+async function fetchText(url, opts) {
+  const res = await net.fetch(url, { cache: 'no-store', ...opts });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.text();
+}
+
+// Ana listeden ilk (en yüksek) kalitenin medya listesini bulur
+function firstVariant(master, base) {
+  const lines = master.split('\n').map((l) => l.trim());
+  const i = lines.findIndex((l) => l.startsWith('#EXT-X-STREAM-INF'));
+  if (i < 0) return null;
+  const uri = lines.slice(i + 1).find((l) => l && !l.startsWith('#'));
+  return uri ? new URL(uri, base).toString() : null;
+}
+
+// Medya listesindeki son tam parçanın bitiş zamanı (ms)
+function liveEdgeTime(media) {
+  let pdt = null;
+  let dur = 0;
+  let edge = null;
+  for (const raw of media.split('\n')) {
+    const l = raw.trim();
+    if (l.startsWith('#EXT-X-PROGRAM-DATE-TIME:')) pdt = Date.parse(l.slice(25));
+    else if (l.startsWith('#EXTINF:')) dur = parseFloat(l.slice(8)) * 1000 || 0;
+    else if (l && !l.startsWith('#') && pdt != null) {
+      edge = pdt + dur;
+      pdt += dur; // PDT her parçada yazmıyorsa sonrakini tahmin et
+    }
+  }
+  return edge;
+}
+
+async function edgeFromMaster(masterUrl) {
+  const master = await fetchText(masterUrl);
+  const mediaUrl = master.includes('#EXTINF') ? masterUrl : firstVariant(master, masterUrl);
+  if (!mediaUrl) throw new Error('liste yok');
+  const media = mediaUrl === masterUrl ? master : await fetchText(mediaUrl);
+  const edge = liveEdgeTime(media);
+  if (!edge) throw new Error('zaman bilgisi yok');
+  return edge;
+}
+
+async function twitchMasterUrl(channel) {
+  const body = {
+    operationName: 'PlaybackAccessToken_Template',
+    query:
+      'query PlaybackAccessToken_Template($login: String!, $isLive: Boolean!, $vodID: ID!, $isVod: Boolean!, $playerType: String!) {  streamPlaybackAccessToken(channelName: $login, params: {platform: "web", playerBackend: "mediaplayer", playerType: $playerType}) @include(if: $isLive) {    value    signature   __typename  }  videoPlaybackAccessToken(id: $vodID, params: {platform: "web", playerBackend: "mediaplayer", playerType: $playerType}) @include(if: $isVod) {    value    signature   __typename  }}',
+    variables: { isLive: true, login: channel, isVod: false, vodID: '', playerType: 'site' },
+  };
+  const res = await net.fetch('https://gql.twitch.tv/gql', {
+    method: 'POST',
+    headers: { 'Client-ID': TWITCH_CLIENT_ID, 'Content-Type': 'text/plain;charset=UTF-8' },
+    body: JSON.stringify(body),
+  });
+  const json = await res.json();
+  const tok = json?.data?.streamPlaybackAccessToken;
+  if (!tok) throw new Error('token yok');
+  const q = new URLSearchParams({
+    sig: tok.signature,
+    token: tok.value,
+    allow_source: 'true',
+    fast_bread: 'true',
+    p: String(Math.floor(Math.random() * 1e6)),
+  });
+  return `https://usher.ttvnw.net/api/channel/hls/${encodeURIComponent(channel)}.m3u8?${q}`;
+}
+
+ipcMain.handle('measure-delay', async (_e, { twitch, kickPlaybackUrl }) => {
+  const out = { twitch: null, kick: null, errors: {} };
+  await Promise.all([
+    (async () => {
+      try { out.twitch = await edgeFromMaster(await twitchMasterUrl(twitch)); }
+      catch (e) { out.errors.twitch = String(e.message || e); }
+    })(),
+    (async () => {
+      try {
+        if (!kickPlaybackUrl) throw new Error('yayın kapalı');
+        out.kick = await edgeFromMaster(kickPlaybackUrl);
+      } catch (e) { out.errors.kick = String(e.message || e); }
+    })(),
+  ]);
+  return out;
+});
+
 ipcMain.handle('update-check', () => checkForUpdates());
 ipcMain.handle('update-status', () => updateState);
 ipcMain.handle('update-install', () => {

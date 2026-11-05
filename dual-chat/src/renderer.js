@@ -363,6 +363,164 @@
   $('#banBtn').addEventListener('click', () => punish('ban'));
   renderTargets();
 
+  // ---------- Yayın karşılaştırma ----------
+  // İki yayını küçük, sessiz oynatıcılarda yan yana gösterir; kronometre ile gecikme farkı ölçülür
+  const compareEl = $('#compare');
+  const cmpViews = { twitch: $('#cmpTwitch'), kick: $('#cmpKick') };
+  const playerUrl = {
+    twitch: (c) => `https://player.twitch.tv/?channel=${encodeURIComponent(c)}&parent=twitch.tv&muted=true&autoplay=true`,
+    kick: (c) => `https://player.kick.com/${encodeURIComponent(c)}?muted=true&autoplay=true`,
+  };
+
+  function loadPlayers() {
+    for (const p of ['twitch', 'kick']) {
+      const box = cmpViews[p];
+      box.innerHTML = '';
+      if (!state[p]) {
+        box.innerHTML = '<div class="placeholder">Kanal açık değil</div>';
+        continue;
+      }
+      const wv = document.createElement('webview');
+      wv.setAttribute('partition', 'persist:dualchat');
+      wv.setAttribute('src', playerUrl[p](state[p]));
+      box.appendChild(wv);
+    }
+  }
+  function openCompare(open) {
+    compareEl.classList.toggle('hidden', !open);
+    $('#compareBtn').classList.toggle('active', open);
+    if (open) { loadPlayers(); placeCompare(); }
+    else for (const p of ['twitch', 'kick']) cmpViews[p].innerHTML = ''; // kapatınca yayınları durdur
+    resetTimer();
+  }
+  $('#compareBtn').addEventListener('click', () => openCompare(compareEl.classList.contains('hidden')));
+  $('#cmpClose').addEventListener('click', () => openCompare(false));
+  $('#cmpReload').addEventListener('click', loadPlayers);
+
+  // Kutuyu başlığından tutup taşı (yeri hatırlanır)
+  function placeCompare() {
+    const pos = state.comparePos;
+    if (!pos) return;
+    const w = compareEl.offsetWidth || 560;
+    const h = compareEl.offsetHeight || 300;
+    compareEl.style.left = Math.min(Math.max(0, pos.x), window.innerWidth - w) + 'px';
+    compareEl.style.top = Math.min(Math.max(0, pos.y), window.innerHeight - h) + 'px';
+    compareEl.style.right = 'auto';
+  }
+  $('.cmp-head').addEventListener('mousedown', (e) => {
+    if (e.target.closest('button')) return;
+    e.preventDefault();
+    const r = compareEl.getBoundingClientRect();
+    const dx = e.clientX - r.left;
+    const dy = e.clientY - r.top;
+    // Sürüklerken oynatıcılar fareyi yutmasın
+    const shield = document.createElement('div');
+    shield.className = 'cmp-shield';
+    document.body.appendChild(shield);
+    const move = (ev) => {
+      state.comparePos = { x: ev.clientX - dx, y: ev.clientY - dy };
+      placeCompare();
+    };
+    const up = () => {
+      shield.remove();
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+      save();
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  });
+  window.addEventListener('resize', placeCompare);
+
+  // Kronometre: aynı anı önce birinde, sonra diğerinde görünce iki düğmeye basılır
+  let firstSeen = null;
+  let timerReset;
+  const cmpResult = $('#cmpResult');
+  function resetTimer() {
+    firstSeen = null;
+    $('#sawTwitch').classList.remove('waiting');
+    $('#sawKick').classList.remove('waiting');
+  }
+  function saw(p) {
+    const now = performance.now();
+    const label = (x) => (x === 'twitch' ? 'Twitch' : 'Kick');
+    if (!firstSeen || firstSeen.p === p) {
+      resetTimer();
+      firstSeen = { p, t: now };
+      $(p === 'twitch' ? '#sawTwitch' : '#sawKick').classList.add('waiting');
+      const other = p === 'twitch' ? 'kick' : 'twitch';
+      cmpResult.textContent = `Şimdi ${label(other)}'te aynı anı bekle…`;
+      cmpResult.style.color = '';
+      clearTimeout(timerReset);
+      timerReset = setTimeout(() => { resetTimer(); cmpResult.textContent = ''; }, 60000);
+      return;
+    }
+    const diff = (now - firstSeen.t) / 1000;
+    const behind = p; // ikinci basılan platform geride
+    clearTimeout(timerReset);
+    resetTimer();
+    if (diff < 0.7) {
+      cmpResult.textContent = '✓ Eşit gidiyor';
+      cmpResult.style.color = 'var(--kick)';
+    } else {
+      cmpResult.textContent = `${label(behind)} ${diff.toFixed(1).replace('.', ',')} sn geride`;
+      cmpResult.style.color = diff > 5 ? '#ffb4ab' : 'var(--text)';
+    }
+  }
+  $('#sawTwitch').addEventListener('click', () => saw('twitch'));
+  $('#sawKick').addEventListener('click', () => saw('kick'));
+
+  // ---------- Otomatik gecikme yazısı ----------
+  const delayTag = $('#delayTag');
+  const fmt = (x) => x.toFixed(1).replace('.', ',');
+  async function kickPlaybackUrl() {
+    const wv = panes.kick.view;
+    if (!wv || !state.kick) return null;
+    // Kick chat sayfası kick.com'da açık: API'yi o sayfanın içinden (çerezleriyle) çağır
+    const js = `fetch('/api/v2/channels/' + ${JSON.stringify(state.kick)}, { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => (j && j.livestream && j.playback_url) || null)
+      .catch(() => null)`;
+    return wv.executeJavaScript(js).catch(() => null);
+  }
+
+  let measuring = false;
+  async function measureDelay() {
+    if (measuring) return;
+    if (!state.twitch || !state.kick) { delayTag.classList.add('hidden'); return; }
+    measuring = true;
+    try {
+      const url = await kickPlaybackUrl();
+      const r = await window.dualChat.measureDelay({ twitch: state.twitch, kickPlaybackUrl: url });
+      delayTag.classList.remove('hidden', 'ok', 'warn', 'muted');
+      delayTag.title = 'Twitch ile Kick yayını arasındaki yaklaşık gecikme farkı (±1-2 sn). Tıkla: yayınları yan yana gör.';
+      if (r.twitch && r.kick) {
+        // Canlı ucu daha eski olan taraf geride
+        const diff = (r.twitch - r.kick) / 1000; // + ise Kick geride
+        const abs = Math.abs(diff);
+        if (abs < 1) {
+          delayTag.textContent = '⏱ Yayınlar eşit';
+          delayTag.classList.add('ok');
+        } else {
+          delayTag.textContent = `⏱ ${diff > 0 ? 'Kick' : 'Twitch'} ~${fmt(abs)} sn geride`;
+          delayTag.classList.add(abs >= 5 ? 'warn' : 'ok');
+        }
+      } else {
+        const off = !r.twitch && !r.kick ? 'İki yayın' : !r.twitch ? 'Twitch' : 'Kick';
+        delayTag.textContent = `⏱ ${off} kapalı / ölçülemedi`;
+        delayTag.title = 'Ölçülemedi: ' + JSON.stringify(r.errors);
+        delayTag.classList.add('muted');
+      }
+    } catch {
+      delayTag.classList.add('hidden');
+    } finally {
+      measuring = false;
+    }
+  }
+  delayTag.addEventListener('click', () => openCompare(compareEl.classList.contains('hidden')));
+  setTimeout(measureDelay, 4000);
+  setInterval(measureDelay, 15000);
+
   // ---------- Başlangıç ----------
   applyLayout();
   if (state.pinned) setPinned(true);

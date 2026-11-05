@@ -19,6 +19,7 @@
 
     <div class="spacer"></div>
 
+    <button id="delayTag" class="delay-tag hidden" title="Twitch ile Kick yayını arasındaki yaklaşık gecikme farkı. Tıkla: yayınları yan yana gör."></button>
     <button id="updateBtn" class="btn update hidden"></button>
 
     <div class="group">
@@ -28,6 +29,7 @@
     <div class="group">
       <button id="layoutBtn" class="btn icon" title="Yan yana / Alt alta">⇆</button>
       <button id="swapBtn" class="btn icon" title="Panellerin yerini değiştir">⇄</button>
+      <button id="compareBtn" class="btn icon" title="Yayınları karşılaştır (Twitch / Kick gecikmesi)">📺</button>
       <button id="pinBtn" class="btn icon" title="Her zaman üstte">📌</button>
       <input id="opacity" type="range" min="30" max="100" value="100" title="Pencere saydamlığı" />
       <button id="menuBtn" class="btn icon" title="Diğer">⋯</button>
@@ -90,6 +92,31 @@
       </div>
     </section>
   </main>
+
+  <div id="compare" class="compare hidden">
+    <div class="cmp-head">
+      <strong>📺 Yayın karşılaştır</strong>
+      <span class="spacer"></span>
+      <button id="cmpReload" class="btn mini" title="İki yayını aynı anda yeniden başlat">⟳</button>
+      <button id="cmpClose" class="btn mini" title="Kapat">✕</button>
+    </div>
+    <div class="cmp-players">
+      <div class="cmp-p" data-platform="twitch">
+        <div class="cmp-label"><span class="dot"></span>Twitch</div>
+        <div class="cmp-view" id="cmpTwitch"></div>
+      </div>
+      <div class="cmp-p" data-platform="kick">
+        <div class="cmp-label"><span class="dot"></span>Kick</div>
+        <div class="cmp-view" id="cmpKick"></div>
+      </div>
+    </div>
+    <div class="cmp-timer">
+      <span class="cmp-help">Aynı anı görünce bas:</span>
+      <button id="sawTwitch" class="btn mini saw twitch">Twitch'te gördüm</button>
+      <button id="sawKick" class="btn mini saw kick">Kick'te gördüm</button>
+      <span id="cmpResult" class="cmp-result"></span>
+    </div>
+  </div>
 
   <script src="renderer.js"></script>
 </body>
