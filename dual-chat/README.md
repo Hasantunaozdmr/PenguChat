@@ -5,7 +5,7 @@ Paneller platformların **resmi popout chat'leridir**. Hesabınla giriş yaptı�
 
 ## Özellikler
 - Twitch ve Kick chat'i yan yana veya alt alta (⇆ / ⇅)
-- **Yayın gecikmesi:** Üst çubukta "⏱ Kick ~3 sn geride" gibi bir yazı her 15 saniyede güncellenir (iki platformun canlı yayın listesindeki en son parçanın zamanları karşılaştırılır, ±1-2 sn). Yazıya ya da 📺'a tıklayınca iki yayın küçük, sessiz oynatıcılarda yan yana açılır; "Twitch'te gördüm / Kick'te gördüm" kronometresiyle fark elle de ölçülebilir.
+- **Yayın gecikmesi:** Üst çubukta "⏱ Kick ~3 sn geride" gibi bir yazı her 15 saniyede güncellenir (iki platformun canlı yayın listesindeki en son parçanın zamanları karşılaştırılır, ±1-2 sn). Video oynatmaz, çok az internet kullanır. Yazıya tıklayınca hemen yeniden ölçer.
 - **Hızlı ceza çubuğu:** Chat'te bir kullanıcı adına tıkla, üstteki çubukta seçilir. **⏱ Timeout** (varsayılan 919824 sn) ya da **⛔ Ban** ile komut senin yerine gönderilir. Twitch / Kick düğmeleriyle hangi platformda (ya da ikisinde birden) uygulanacağını seç. Restream'in Kick'e aktardığı "[Twitch: kullanıcı]" mesajlarında gerçek kullanıcı seçilir. Kick süreyi dakika olarak alır, uygulama çevirir.
 - Panellerin yerini değiştirme (⇄), istenen paneli gizleme (Twitch / Kick düğmeleri)
 - Panel başına yazı boyutu (A− / A+)
