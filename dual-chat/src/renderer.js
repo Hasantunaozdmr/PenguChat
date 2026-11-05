@@ -365,7 +365,6 @@
 
   // ---------- Otomatik gecikme yazısı ----------
   const delayTag = $('#delayTag');
-  const fmt = (x) => x.toFixed(1).replace('.', ',');
   // Kick yayın adresi birkaç dakika geçerli: sık sık API'ye gitmemek için sakla
   let kickUrlCache = { slug: null, url: null, at: 0 };
   async function kickPlaybackUrl() {
@@ -408,8 +407,9 @@
           delayTag.textContent = '⏱ Yayınlar eşit';
           delayTag.classList.add('ok');
         } else {
-          delayTag.textContent = `⏱ ${diff > 0 ? 'Kick' : 'Twitch'} ${fmt(abs)} sn geride`;
-          delayTag.classList.add(abs >= 5 ? 'warn' : 'ok');
+          const secs = Math.round(abs); // tam saniye: "5 saniye gecikme var"
+          delayTag.textContent = `⏱ ${diff > 0 ? "Kick'te" : "Twitch'te"} ${secs} saniye gecikme var`;
+          delayTag.classList.add(secs >= 5 ? 'warn' : 'ok');
         }
       } else {
         const off = r.twitch == null && r.kick == null ? 'İki yayın' : r.twitch == null ? 'Twitch' : 'Kick';
