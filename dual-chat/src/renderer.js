@@ -366,17 +366,25 @@
   // ---------- Otomatik gecikme yazısı ----------
   const delayTag = $('#delayTag');
   const fmt = (x) => x.toFixed(1).replace('.', ',');
+  // Kick yayın adresi birkaç dakika geçerli: sık sık API'ye gitmemek için sakla
+  let kickUrlCache = { slug: null, url: null, at: 0 };
   async function kickPlaybackUrl() {
     const wv = panes.kick.view;
     if (!wv || !state.kick) return null;
+    if (kickUrlCache.slug === state.kick && kickUrlCache.url && Date.now() - kickUrlCache.at < 4 * 60 * 1000) {
+      return kickUrlCache.url;
+    }
     // Kick chat sayfası kick.com'da açık: API'yi o sayfanın içinden (çerezleriyle) çağır
     const js = `fetch('/api/v2/channels/' + ${JSON.stringify(state.kick)}, { credentials: 'include' })
       .then(r => r.ok ? r.json() : null)
       .then(j => (j && j.livestream && j.playback_url) || null)
       .catch(() => null)`;
-    return wv.executeJavaScript(js).catch(() => null);
+    const url = await wv.executeJavaScript(js).catch(() => null);
+    kickUrlCache = { slug: state.kick, url, at: url ? Date.now() : 0 };
+    return url;
   }
 
+  const DELAY_TITLE = 'Twitch ile Kick yayını arasındaki gecikme farkı (son 20 sn, yaklaşık ±0,5 sn).';
   let measuring = false;
   async function measureDelay() {
     if (measuring) return;
@@ -384,22 +392,27 @@
     measuring = true;
     try {
       const url = await kickPlaybackUrl();
-      const r = await window.dualChat.measureDelay({ twitch: state.twitch, kickPlaybackUrl: url });
+      const r = await window.dualChat.measureDelay({ twitch: state.twitch, kick: state.kick, kickPlaybackUrl: url });
+      if (!r.kick) kickUrlCache.url = null; // yayın yeni açıldıysa adresi yeniden sor
       delayTag.classList.remove('hidden', 'ok', 'warn', 'muted');
-      delayTag.title = 'Twitch ile Kick yayını arasındaki yaklaşık gecikme farkı (±1-2 sn). Tıkla: hemen yeniden ölç.';
-      if (r.twitch && r.kick) {
-        // Canlı ucu daha eski olan taraf geride
-        const diff = (r.twitch - r.kick) / 1000; // + ise Kick geride
+      delayTag.title = DELAY_TITLE;
+      if (r.twitch != null && r.kick != null) {
+        if (r.n.twitch < 4 || r.n.kick < 4) {
+          delayTag.textContent = '⏱ Ölçülüyor…';
+          delayTag.classList.add('muted');
+          return;
+        }
+        const diff = (r.kick - r.twitch) / 1000; // + ise Kick geride
         const abs = Math.abs(diff);
         if (abs < 1) {
           delayTag.textContent = '⏱ Yayınlar eşit';
           delayTag.classList.add('ok');
         } else {
-          delayTag.textContent = `⏱ ${diff > 0 ? 'Kick' : 'Twitch'} ~${fmt(abs)} sn geride`;
+          delayTag.textContent = `⏱ ${diff > 0 ? 'Kick' : 'Twitch'} ${fmt(abs)} sn geride`;
           delayTag.classList.add(abs >= 5 ? 'warn' : 'ok');
         }
       } else {
-        const off = !r.twitch && !r.kick ? 'İki yayın' : !r.twitch ? 'Twitch' : 'Kick';
+        const off = r.twitch == null && r.kick == null ? 'İki yayın' : r.twitch == null ? 'Twitch' : 'Kick';
         delayTag.textContent = `⏱ ${off} kapalı / ölçülemedi`;
         delayTag.title = 'Ölçülemedi: ' + JSON.stringify(r.errors);
         delayTag.classList.add('muted');
@@ -411,8 +424,11 @@
     }
   }
   delayTag.addEventListener('click', measureDelay);
-  setTimeout(measureDelay, 4000);
-  setInterval(measureDelay, 15000);
+  // Aralık rastgele: sabit 2 sn olsaydı listenin hep aynı anına denk gelir, doğru değeri kaçırırdı.
+  // Her okuma 1-2 KB'lık bir metin.
+  (function loop() {
+    measureDelay().finally(() => setTimeout(loop, 900 + Math.random() * 700));
+  })();
 
   // ---------- Başlangıç ----------
   applyLayout();

@@ -218,14 +218,44 @@ function liveEdgeTime(media) {
   return edge;
 }
 
-async function edgeFromMaster(masterUrl) {
+// Her platform için: medya listesinin adresi (birkaç dakika geçerli) ve son ölçümler
+const SAMPLE_WINDOW_MS = 20000;
+const delayState = {
+  twitch: { key: null, mediaUrl: null, mediaAt: 0, samples: [] },
+  kick: { key: null, mediaUrl: null, mediaAt: 0, samples: [] },
+};
+
+async function resolveMediaUrl(masterUrl) {
   const master = await fetchText(masterUrl);
-  const mediaUrl = master.includes('#EXTINF') ? masterUrl : firstVariant(master, masterUrl);
+  if (master.includes('#EXTINF')) return masterUrl;
+  const mediaUrl = firstVariant(master, masterUrl);
   if (!mediaUrl) throw new Error('liste yok');
-  const media = mediaUrl === masterUrl ? master : await fetchText(mediaUrl);
+  return mediaUrl;
+}
+
+// Canlı ucun ne kadar geride olduğunu (ms) ölçer ve son 20 sn'nin en küçüğünü döner.
+// Liste 2 sn'lik parçalarla güncellendiği için tek ölçüm 0-2 sn zıplar; en küçük değer
+// "parça tam yayınlandığı an"a denk gelir ve iki platform için de aynı anlamı taşır.
+async function sampleLag(p, key, getMasterUrl) {
+  const st = delayState[p];
+  if (st.key !== key) Object.assign(st, { key, mediaUrl: null, mediaAt: 0, samples: [] });
+  if (!st.mediaUrl || Date.now() - st.mediaAt > 4 * 60 * 1000) {
+    st.mediaUrl = await resolveMediaUrl(await getMasterUrl());
+    st.mediaAt = Date.now();
+  }
+  let media;
+  try {
+    media = await fetchText(st.mediaUrl);
+  } catch (e) {
+    st.mediaUrl = null; // adres süresi dolmuş olabilir, sonraki ölçümde yenile
+    throw e;
+  }
   const edge = liveEdgeTime(media);
   if (!edge) throw new Error('zaman bilgisi yok');
-  return edge;
+  const now = Date.now();
+  st.samples.push({ t: now, lag: now - edge });
+  st.samples = st.samples.filter((x) => now - x.t <= SAMPLE_WINDOW_MS);
+  return { lag: Math.min(...st.samples.map((x) => x.lag)), n: st.samples.length };
 }
 
 async function twitchMasterUrl(channel) {
@@ -253,18 +283,29 @@ async function twitchMasterUrl(channel) {
   return `https://usher.ttvnw.net/api/channel/hls/${encodeURIComponent(channel)}.m3u8?${q}`;
 }
 
-ipcMain.handle('measure-delay', async (_e, { twitch, kickPlaybackUrl }) => {
-  const out = { twitch: null, kick: null, errors: {} };
+ipcMain.handle('measure-delay', async (_e, { twitch, kick, kickPlaybackUrl }) => {
+  const out = { twitch: null, kick: null, n: { twitch: 0, kick: 0 }, errors: {} };
   await Promise.all([
     (async () => {
-      try { out.twitch = await edgeFromMaster(await twitchMasterUrl(twitch)); }
-      catch (e) { out.errors.twitch = String(e.message || e); }
+      try {
+        const r = await sampleLag('twitch', twitch, () => twitchMasterUrl(twitch));
+        out.twitch = r.lag;
+        out.n.twitch = r.n;
+      } catch (e) {
+        delayState.twitch.samples = [];
+        out.errors.twitch = String(e.message || e);
+      }
     })(),
     (async () => {
       try {
         if (!kickPlaybackUrl) throw new Error('yayın kapalı');
-        out.kick = await edgeFromMaster(kickPlaybackUrl);
-      } catch (e) { out.errors.kick = String(e.message || e); }
+        const r = await sampleLag('kick', kick, async () => kickPlaybackUrl);
+        out.kick = r.lag;
+        out.n.kick = r.n;
+      } catch (e) {
+        delayState.kick.samples = [];
+        out.errors.kick = String(e.message || e);
+      }
     })(),
   ]);
   return out;
