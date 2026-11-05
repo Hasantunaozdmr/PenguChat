@@ -212,13 +212,6 @@
   }
 
   // ---------- Pencere ayarları ----------
-  const pinBtn = $('#pinBtn');
-  async function setPinned(v) {
-    state.pinned = await window.dualChat.setAlwaysOnTop(v);
-    pinBtn.classList.toggle('active', state.pinned);
-    save();
-  }
-  pinBtn.addEventListener('click', () => setPinned(!state.pinned));
 
   const opacity = $('#opacity');
   opacity.value = state.opacity;
@@ -432,7 +425,8 @@
 
   // ---------- Başlangıç ----------
   applyLayout();
-  if (state.pinned) setPinned(true);
+  // "Her zaman üstte" düğmesi kaldırıldı: önceden açık bırakıldıysa kapat
+  if (state.pinned) { state.pinned = false; save(); window.dualChat.setAlwaysOnTop(false); }
   if (state.opacity < 100) window.dualChat.setOpacity(state.opacity / 100);
   openChat('twitch');
   openChat('kick');

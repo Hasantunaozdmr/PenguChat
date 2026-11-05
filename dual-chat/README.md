@@ -9,7 +9,6 @@ Paneller platformların **resmi popout chat'leridir**. Hesabınla giriş yaptı�
 - **Hızlı ceza çubuğu:** Chat'te bir kullanıcı adına tıkla, üstteki çubukta seçilir. **⏱ Timeout** (varsayılan 919824 sn) ya da **⛔ Ban** ile komut senin yerine gönderilir. Twitch / Kick düğmeleriyle hangi platformda (ya da ikisinde birden) uygulanacağını seç. Restream'in Kick'e aktardığı "[Twitch: kullanıcı]" mesajlarında gerçek kullanıcı seçilir. Kick süreyi dakika olarak alır, uygulama çevirir.
 - Panellerin yerini değiştirme (⇄), istenen paneli gizleme (Twitch / Kick düğmeleri)
 - Panel başına yazı boyutu (A− / A+)
-- 📌 Her zaman üstte + pencere saydamlığı (oyun / OBS üstünde tutmak için)
 - Girişler kalıcıdır. Uygulamayı kapatıp açınca tekrar giriş yapman gerekmez
 - Kanal adları ve yerleşim hatırlanır
 - `F5` / `Ctrl+R` ile iki chat'i birlikte yenileme
