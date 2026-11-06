@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1fc9bf"/>
+      <stop offset="1" stop-color="#0a7c77"/>
+    </linearGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2b3445"/>
+      <stop offset="1" stop-color="#151a24"/>
+    </linearGradient>
+  </defs>
+  <!-- zemin -->
+  <rect x="32" y="32" width="960" height="960" rx="220" fill="url(#bg)"/>
+  <!-- sohbet balonları (Twitch moru, Kick yeşili) -->
+  <g transform="translate(640 150)">
+    <rect width="250" height="150" rx="45" fill="#9146ff"/>
+    <path d="M60 140 L40 200 L120 145 Z" fill="#9146ff"/>
+    <circle cx="80" cy="75" r="17" fill="#fff"/><circle cx="125" cy="75" r="17" fill="#fff"/><circle cx="170" cy="75" r="17" fill="#fff"/>
+  </g>
+  <g transform="translate(700 340)">
+    <rect width="210" height="125" rx="40" fill="#53fc18"/>
+    <path d="M160 115 L185 170 L115 120 Z" fill="#53fc18"/>
+    <circle cx="65" cy="62" r="15" fill="#0b3b1a"/><circle cx="105" cy="62" r="15" fill="#0b3b1a"/><circle cx="145" cy="62" r="15" fill="#0b3b1a"/>
+  </g>
+  <!-- penguen -->
+  <g transform="translate(-40 40)">
+    <!-- ayaklar -->
+    <ellipse cx="395" cy="880" rx="80" ry="34" fill="#ff9d1c"/>
+    <ellipse cx="585" cy="880" rx="80" ry="34" fill="#ff9d1c"/>
+    <!-- gövde -->
+    <ellipse cx="490" cy="600" rx="275" ry="300" fill="url(#body)"/>
+    <!-- kanatlar -->
+    <ellipse cx="225" cy="640" rx="62" ry="165" transform="rotate(18 225 640)" fill="#1b2230"/>
+    <ellipse cx="755" cy="640" rx="62" ry="165" transform="rotate(-18 755 640)" fill="#1b2230"/>
+    <!-- göbek -->
+    <ellipse cx="490" cy="665" rx="190" ry="215" fill="#fdfdfd"/>
+    <!-- yüz -->
+    <path d="M300 470 C300 360 400 330 490 380 C580 330 680 360 680 470 C680 560 600 590 490 590 C380 590 300 560 300 470 Z" fill="#fdfdfd"/>
+    <!-- gözler -->
+    <ellipse cx="415" cy="470" rx="38" ry="46" fill="#151a24"/>
+    <ellipse cx="565" cy="470" rx="38" ry="46" fill="#151a24"/>
+    <circle cx="428" cy="452" r="13" fill="#fff"/>
+    <circle cx="578" cy="452" r="13" fill="#fff"/>
+    <!-- yanaklar -->
+    <ellipse cx="365" cy="540" rx="32" ry="20" fill="#ff8fa3" opacity=".75"/>
+    <ellipse cx="615" cy="540" rx="32" ry="20" fill="#ff8fa3" opacity=".75"/>
+    <!-- gaga -->
+    <path d="M445 525 Q490 505 535 525 Q490 585 445 525 Z" fill="#ff9d1c"/>
+  </g>
+</svg>

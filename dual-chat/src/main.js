@@ -53,6 +53,7 @@ function createWindow() {
     minHeight: 360,
     backgroundColor: '#0a6b67',
     title: 'PenguChat — Twitch + Kick',
+    icon: path.join(__dirname, 'icon.png'),
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -288,6 +289,7 @@ ipcMain.handle('measure-delay', async (_e, { twitch, kick, kickPlaybackUrl }) =>
   await Promise.all([
     (async () => {
       try {
+        if (!twitch) throw new Error('kanal yok');
         const r = await sampleLag('twitch', twitch, () => twitchMasterUrl(twitch));
         out.twitch = r.lag;
         out.n.twitch = r.n;
