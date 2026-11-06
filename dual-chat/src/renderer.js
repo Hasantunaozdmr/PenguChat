@@ -325,17 +325,46 @@
     return `/timeout ${user} ${Math.max(1, Math.ceil(state.timeoutSecs / 60))}`;
   }
 
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   async function sendCommand(p, cmd) {
     const wv = panes[p].view;
     if (!wv || !state[p]) return 'chat açık değil';
+    // Klavye komutları (tümünü seç / sil / Enter) bu panele gitsin
+    if (document.activeElement && document.activeElement !== wv) document.activeElement.blur();
+    wv.focus();
+    await sleep(120);
     const focused = await wv.executeJavaScript('window.__penguFocusInput ? window.__penguFocusInput() : false').catch(() => false);
     if (!focused) return 'mesaj kutusu bulunamadı (giriş yapılı mı?)';
+    const left = () => wv.executeJavaScript('window.__penguInputText ? window.__penguInputText() : ""').catch(() => '');
+    // Kutuyu gerçek düzenleme komutlarıyla temizle (Kick'in kutusu sayfa içi silmeyi dinlemiyor)
+    async function clearBox() {
+      for (let i = 0; i < 3 && (await left()); i++) {
+        wv.selectAll();
+        await sleep(40);
+        wv.delete();
+        await sleep(120);
+      }
+      return !(await left());
+    }
+    await sleep(60);
+    if (!(await clearBox())) return 'mesaj kutusu temizlenemedi';
     await wv.insertText(cmd);
-    await new Promise((r) => setTimeout(r, 120));
-    wv.sendInputEvent({ type: 'keyDown', keyCode: 'Enter' });
-    wv.sendInputEvent({ type: 'char', keyCode: '\r' });
-    wv.sendInputEvent({ type: 'keyUp', keyCode: 'Enter' });
-    return null;
+    await sleep(150);
+    const enter = () => {
+      wv.sendInputEvent({ type: 'keyDown', keyCode: 'Enter' });
+      wv.sendInputEvent({ type: 'char', keyCode: '\r' });
+      wv.sendInputEvent({ type: 'keyUp', keyCode: 'Enter' });
+    };
+    // Önce gönder düğmesi (Kick'te komut ipucu kutusu Enter'ı yutuyor), olmazsa Enter
+    const steps = [() => wv.executeJavaScript('window.__penguClickSend && window.__penguClickSend()').catch(() => {}), enter, enter];
+    for (const step of steps) {
+      await step();
+      await sleep(350);
+      if (!(await left())) return null;
+    }
+    // Gönderilemedi: komut kutuda kalıp bir sonrakine eklenmesin
+    await clearBox();
+    return 'gönderilemedi';
   }
 
   async function punish(action) {
@@ -376,47 +405,57 @@
     return url;
   }
 
-  const DELAY_TITLE = 'Twitch ile Kick yayını arasındaki gecikme farkı (son 20 sn, yaklaşık ±0,5 sn).';
+  const DELAY_TITLE = 'Yayının izleyiciye ulaşma gecikmesi (son 20 sn ölçümü, bilgisayar saatine göre). 10 saniyede bir Twitch / Kick arasında değişir. Tıkla: diğerini göster.';
+  let lastDelay = null; // son ölçüm sonucu
+  let showing = 'twitch'; // yazının şu an gösterdiği platform
+
+  function renderDelay() {
+    const r = lastDelay;
+    if (!r) return;
+    delayTag.classList.remove('hidden', 'ok', 'warn', 'muted');
+    delayTag.title = DELAY_TITLE;
+    const label = showing === 'twitch' ? 'Twitch' : 'Kick';
+    const lag = r[showing];
+    if (lag == null) {
+      delayTag.textContent = `⏱ ${label} kapalı / ölçülemedi`;
+      delayTag.title = 'Ölçülemedi: ' + (r.errors[showing] || '');
+      delayTag.classList.add('muted');
+    } else if (r.n[showing] < 4) {
+      delayTag.textContent = `⏱ ${label} ölçülüyor…`;
+      delayTag.classList.add('muted');
+    } else {
+      const secs = Math.max(0, Math.round(lag / 1000));
+      delayTag.textContent = `⏱ ${label} gecikmesi: ${secs} sn`;
+      delayTag.classList.add(secs >= 10 ? 'warn' : 'ok');
+    }
+  }
+
   let measuring = false;
   async function measureDelay() {
     if (measuring) return;
-    if (!state.twitch || !state.kick) { delayTag.classList.add('hidden'); return; }
+    if (!state.twitch && !state.kick) { delayTag.classList.add('hidden'); return; }
     measuring = true;
     try {
-      const url = await kickPlaybackUrl();
+      const url = state.kick ? await kickPlaybackUrl() : null;
       const r = await window.dualChat.measureDelay({ twitch: state.twitch, kick: state.kick, kickPlaybackUrl: url });
       if (!r.kick) kickUrlCache.url = null; // yayın yeni açıldıysa adresi yeniden sor
-      delayTag.classList.remove('hidden', 'ok', 'warn', 'muted');
-      delayTag.title = DELAY_TITLE;
-      if (r.twitch != null && r.kick != null) {
-        if (r.n.twitch < 4 || r.n.kick < 4) {
-          delayTag.textContent = '⏱ Ölçülüyor…';
-          delayTag.classList.add('muted');
-          return;
-        }
-        const diff = (r.kick - r.twitch) / 1000; // + ise Kick geride
-        const abs = Math.abs(diff);
-        if (abs < 1) {
-          delayTag.textContent = '⏱ Yayınlar eşit';
-          delayTag.classList.add('ok');
-        } else {
-          const secs = Math.round(abs); // tam saniye: "5 saniye gecikme var"
-          delayTag.textContent = `⏱ ${diff > 0 ? "Kick'te" : "Twitch'te"} ${secs} saniye gecikme var`;
-          delayTag.classList.add(secs >= 5 ? 'warn' : 'ok');
-        }
-      } else {
-        const off = r.twitch == null && r.kick == null ? 'İki yayın' : r.twitch == null ? 'Twitch' : 'Kick';
-        delayTag.textContent = `⏱ ${off} kapalı / ölçülemedi`;
-        delayTag.title = 'Ölçülemedi: ' + JSON.stringify(r.errors);
-        delayTag.classList.add('muted');
-      }
+      lastDelay = r;
+      renderDelay();
     } catch {
       delayTag.classList.add('hidden');
     } finally {
       measuring = false;
     }
   }
-  delayTag.addEventListener('click', measureDelay);
+
+  function flipDelay() {
+    const other = showing === 'twitch' ? 'kick' : 'twitch';
+    if (state[other]) showing = other; // kanal açık değilse o platformu atla
+    renderDelay();
+  }
+  // 10 saniyede bir Twitch / Kick arasında geçiş
+  setInterval(flipDelay, 10000);
+  delayTag.addEventListener('click', flipDelay);
   // Aralık rastgele: sabit 2 sn olsaydı listenin hep aynı anına denk gelir, doğru değeri kaçırırdı.
   // Her okuma 1-2 KB'lık bir metin.
   (function loop() {

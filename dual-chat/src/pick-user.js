@@ -13,10 +13,12 @@
 
   // Restream ile Kick'e aktarılan mesajlarda gerçek yazan: "[Twitch: kullanici] mesaj"
   function restreamAuthor(el) {
-    let row = el;
-    for (let i = 0; i < 6 && row; i++, row = row.parentElement) {
-      const m = (row.textContent || '').match(/\[Twitch:\s*([A-Za-z0-9_]{2,25})\]/);
-      if (m) return m[1];
+    // Mesaj satırına kadar yukarı çık (tüm chat'i kapsayacak kadar büyümeden)
+    for (let row = el, i = 0; row && i < 15; row = row.parentElement, i++) {
+      const text = row.textContent || '';
+      if (text.length > 1500) break;
+      const m = text.match(/\[\s*Twitch\s*:\s*([^\]\s]+)\s*\]/i);
+      if (m && NAME.test(m[1])) return m[1].replace(/^@/, '');
     }
     return null;
   }
@@ -83,11 +85,31 @@
 
   const inputText = (el) => (el.tagName === 'TEXTAREA' ? el.value : el.textContent || '').trim();
 
+  function findSendButton() {
+    return (
+      document.querySelector('[data-a-target="chat-send-button"], #send-message-button, button[aria-label="Send"], button[aria-label="Gönder"]') ||
+      [...document.querySelectorAll('button')].find((b) => /^(gönder|send|chat|sohbet)$/i.test((b.textContent || '').trim()))
+    );
+  }
+
+  // Masaüstü yardımcıları: kutudaki metin / gönder düğmesine bas
+  window.__penguInputText = () => {
+    const input = findInput();
+    return input ? inputText(input) : '';
+  };
+  window.__penguClickSend = () => {
+    const btn = findSendButton();
+    if (!btn || btn.disabled) return false;
+    btn.click();
+    return true;
+  };
+
   // Masaüstü: kutuyu odaklar, metni uygulama klavye olarak yazar
+  // (silmeyi uygulama gerçek düzenleme komutlarıyla yapar; sayfa içi silme Kick'in kutusunu bozuyor)
   window.__penguFocusInput = () => {
     const input = findInput();
     if (!input) return false;
-    focusAndClear(input);
+    input.focus();
     return true;
   };
 
@@ -104,21 +126,24 @@
     } else {
       document.execCommand('insertText', false, cmd);
     }
-    setTimeout(() => {
+    const enter = () => {
       const opts = { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true };
       input.dispatchEvent(new KeyboardEvent('keydown', opts));
       input.dispatchEvent(new KeyboardEvent('keyup', opts));
-      setTimeout(() => {
-        // Enter işe yaramadıysa gönder düğmesine bas
-        if (inputText(input)) {
-          const btn =
-            document.querySelector('[data-a-target="chat-send-button"], #send-message-button') ||
-            [...document.querySelectorAll('button')].find((b) => /^(gönder|send|chat|sohbet)$/i.test((b.textContent || '').trim()));
-          if (btn) btn.click();
-        }
-        setTimeout(() => (inputText(input) ? report(false, 'gönderilemedi') : report(true)), 300);
-      }, 250);
-    }, 150);
+    };
+    // Önce gönder düğmesi (Kick'te komut ipucu kutusu Enter'ı yutuyor), olmazsa Enter
+    const steps = [() => window.__penguClickSend(), enter, enter];
+    let i = 0;
+    const next = () => {
+      if (!inputText(input)) return report(true);
+      if (i >= steps.length) {
+        focusAndClear(input); // yazılan komut kutuda kalıp sonrakine eklenmesin
+        return report(false, 'gönderilemedi');
+      }
+      steps[i++]();
+      setTimeout(next, 350);
+    };
+    setTimeout(next, 150);
   };
 
   document.addEventListener(
