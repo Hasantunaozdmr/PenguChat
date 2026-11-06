@@ -1,6 +1,6 @@
 # 🐧 PenguChat Mobile — Twitch + Kick (Android & iPhone)
 
-Masaüstü Dual Chat'in telefon sürümü. Twitch ve Kick'in resmi chat sayfalarını tek ekranda açar. Moderatör hesabınla giriş yaptığında ban, timeout, mesaj silme ve /komutlar normal çalışır. Girişler kalıcıdır.
+Masaüstü PenguChat'in telefon sürümü. Twitch ve Kick'in resmi chat sayfalarını tek ekranda açar. Moderatör hesabınla giriş yaptığında ban, timeout, mesaj silme ve /komutlar normal çalışır. Girişler kalıcıdır.
 
 ## Özellikler
 - **Link çubuğu:** Twitch veya Kick linkini yapıştırınca chat kendiliğinden doğru panelde açılır. **Yapıştır** düğmesi panodaki linki tek dokunuşla açar.
@@ -21,21 +21,19 @@ Masaüstü Dual Chat'in telefon sürümü. Twitch ve Kick'in resmi chat sayfalar
 ## Kurulum
 
 ### Android
-GitHub'da **Actions → "Dual Chat Mobile - Android APK / iOS IPA" → son çalışma → Artifacts → DualChat-Android-APK** yolunu izle ve indir.
-Zip'in içindeki `PenguChat.apk` dosyasını telefona at ve aç. Telefon "bilinmeyen kaynaklardan uygulama yükleme" izni isterse ver.
+**https://github.com/Hasantunaozdmr/PenguChat/releases/latest/download/PenguChat.apk** dosyasını telefona indir ve aç. Telefon "bilinmeyen kaynaklardan uygulama yükleme" izni isterse ver.
 
 ### iPhone
-Apple, App Store dışından uygulama kurmayı zorlaştırıyor. Üç yol var:
+Hazır bir iPhone sürümü yok; Apple, App Store dışından uygulama kurmayı zorlaştırıyor. İki yol var:
 
 1. **Expo Go ile (en kolay, ücretsiz):** App Store'dan **Expo Go** uygulamasını kur. Bilgisayarda:
    ```bash
-   cd dual-chat-mobile
+   cd mobile
    npm install
    npx expo start --tunnel
    ```
    Ekranda çıkan QR kodu iPhone kamerasıyla okut. Uygulama bilgisayar açıkken çalışır.
-2. **Sideloadly / AltStore ile (ücretsiz Apple hesabı):** Actions'tan **DualChat-iOS-IPA-unsigned** dosyasını indir, bir Windows/Mac bilgisayarda Sideloadly ile kendi Apple hesabınla iPhone'a kur. Ücretsiz hesapta uygulamanın 7 günde bir yeniden imzalanması gerekir.
-3. **Apple Geliştirici hesabı (yıllık 99 $):** `npx eas-cli build -p ios` ile imzalı sürüm üretilip TestFlight'tan kalıcı olarak kurulur.
+2. **Apple Geliştirici hesabı (yıllık 99 $):** `npx eas-cli build -p ios` ile imzalı sürüm üretilip TestFlight'tan kalıcı olarak kurulur.
 
 ## Geliştirme
 ```bash

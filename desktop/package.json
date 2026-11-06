@@ -1,8 +1,8 @@
 {
-  "name": "dual-chat",
+  "name": "penguchat",
   "productName": "PenguChat",
   "version": "1.0.0",
-  "description": "Twitch ve Kick chat'ini tek pencerede yan yana açan masaüstü uygulaması",
+  "description": "PenguChat: Twitch ve Kick chat'ini tek pencerede açan masaüstü uygulaması",
   "main": "src/main.js",
   "license": "MIT",
   "scripts": {
@@ -32,7 +32,7 @@
     "publish": [
       {
         "provider": "generic",
-        "url": "https://github.com/Hasantunaozdmr/Canzade-ToastyStat/releases/latest/download"
+        "url": "https://github.com/Hasantunaozdmr/PenguChat/releases/latest/download"
       }
     ],
     "win": {

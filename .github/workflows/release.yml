@@ -1,35 +1,35 @@
 name: PenguChat - Release
 
-# Uygulamalarda değişiklik olunca Windows + Android derlenir ve herkese açık
-# Releases sayfasına (giriş gerektirmeden) yüklenir. Linkler hep en son sürümü indirir.
+# main'e her gönderimde Windows + Android derlenir ve herkese açık Releases sayfasına
+# (giriş gerektirmeden) yüklenir. Uygulamalar yeni sürümü buradan bulur.
 on:
   push:
     branches:
       - main
-      - claude/twitch-kick-dual-chat-d4tslz
     paths:
-      - "dual-chat/**"
-      - "dual-chat-mobile/**"
-      - ".github/workflows/dual-chat-release.yml"
+      - "desktop/**"
+      - "mobile/**"
+      - ".github/workflows/release.yml"
   workflow_dispatch:
 
 concurrency:
-  group: dual-chat-release
+  group: penguchat-release
   cancel-in-progress: true
 
 permissions:
   contents: write
 
 env:
-  # Her derleme yeni bir sürüm numarası alır, uygulamalar bunu görünce "Güncelle" gösterir
-  VERSION: 1.1.${{ github.run_number }}
+  # Her derleme yeni bir sürüm numarası alır, uygulamalar bunu görünce "Güncelle" gösterir.
+  # 2.0.x: eski depodaki 1.1.x sürümlerinden büyük olmalı.
+  VERSION: 2.0.${{ github.run_number }}
 
 jobs:
   windows:
     runs-on: windows-latest
     defaults:
       run:
-        working-directory: dual-chat
+        working-directory: desktop
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -44,19 +44,17 @@ jobs:
           ls dist
           mkdir -p out
           cp dist/PenguChat-Setup.exe dist/PenguChat-Setup.exe.blockmap dist/latest.yml out/
-          # Eski adla paylaşılmış linkler çalışmaya devam etsin
-          cp dist/PenguChat-Setup.exe out/DualChat-Setup.exe
           cat out/latest.yml
       - uses: actions/upload-artifact@v4
         with:
           name: windows
-          path: dual-chat/out/*
+          path: desktop/out/*
 
   android:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: dual-chat-mobile
+        working-directory: mobile
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -74,18 +72,19 @@ jobs:
             const p = 'app.json';
             const j = JSON.parse(fs.readFileSync(p, 'utf8'));
             j.expo.version = process.env.VERSION;
-            j.expo.android.versionCode = 100 + Number(process.env.GITHUB_RUN_NUMBER);
+            // Eski depodaki sürüm kodlarından (100+) büyük olmalı, yoksa Android üstüne kurmaz
+            j.expo.android.versionCode = 1000 + Number(process.env.GITHUB_RUN_NUMBER);
             fs.writeFileSync(p, JSON.stringify(j, null, 2));
             console.log(j.expo.version, j.expo.android.versionCode);
           "
       - run: npx expo prebuild --platform android --no-install
-      - working-directory: dual-chat-mobile/android
+      - working-directory: mobile/android
         run: ./gradlew assembleRelease --no-daemon
-      - run: mkdir -p out && cp android/app/build/outputs/apk/release/app-release.apk out/PenguChat.apk && cp out/PenguChat.apk out/DualChat.apk
+      - run: mkdir -p out && cp android/app/build/outputs/apk/release/app-release.apk out/PenguChat.apk
       - uses: actions/upload-artifact@v4
         with:
           name: android
-          path: dual-chat-mobile/out/*.apk
+          path: mobile/out/*.apk
 
   release:
     needs: [windows, android]
@@ -97,7 +96,7 @@ jobs:
           merge-multiple: true
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: dual-chat-v${{ env.VERSION }}
+          tag_name: v${{ env.VERSION }}
           target_commitish: ${{ github.sha }}
           name: PenguChat ${{ env.VERSION }}
           make_latest: true
@@ -112,8 +111,6 @@ jobs:
             **Windows:** "Windows kişisel bilgisayarınızı korudu" uyarısı çıkarsa **Ek bilgi → Yine de çalıştır** de (uygulama imzasız olduğu için normal).
             **Android:** APK'yı açınca telefon "bilinmeyen kaynaklar" izni isterse izin ver.
 
-            **Güncelleme:** Bu sürümden itibaren uygulama yeni sürümü kendisi bulur ve **Güncelle** düğmesi gösterir.
-
-            **Kullanım:** Üstteki çubuğa Twitch veya Kick yayın linkini yapıştır, her panelde bir kez **Giriş** ile moderatör hesabına gir.
-            Twitch'te Google ile giriş çalışmaz, kullanıcı adı ve şifre kullan.
+            **Kullanım:** Üstteki çubuğa Twitch veya Kick yayın linkini yapıştır. Chat'lerin içindeki **Giriş yap** ile hesabına bir kez gir.
+            Twitch'te Google ile giriş çalışmaz, kullanıcı adı ve şifre kullan. Kurduktan sonra güncellemeler uygulamanın içinden gelir.
           files: files/*

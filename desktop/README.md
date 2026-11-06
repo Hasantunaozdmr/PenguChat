@@ -24,14 +24,14 @@ Paneller platformların **resmi popout chat'leridir**. Hesabınla giriş yaptı�
 ## Kurulum
 
 ### Windows
-**https://github.com/Hasantunaozdmr/Canzade-ToastyStat/releases/latest/download/PenguChat-Setup.exe** dosyasını indir ve kur.
+**https://github.com/Hasantunaozdmr/PenguChat/releases/latest/download/PenguChat-Setup.exe** dosyasını indir ve kur.
 Sonraki sürümler uygulamanın içindeki **⬆ Güncelle** düğmesiyle gelir.
 
 ### Kaynaktan çalıştırma
 [Node.js](https://nodejs.org) (18+) kurulu olmalı.
 ```bash
-cd dual-chat
+cd desktop
 npm install
 npm start
 ```
-Kendin .exe üretmek için: `npm run dist:win` (çıktı `dual-chat/dist/` klasörüne düşer).
+Kendin .exe üretmek için: `npm run dist:win` (çıktı `desktop/dist/` klasörüne düşer).

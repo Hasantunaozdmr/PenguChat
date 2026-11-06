@@ -127,7 +127,7 @@ ipcMain.handle('logout-all', async () => {
 });
 
 // ---------- Güncelleme ----------
-const RELEASE_BASE = 'https://github.com/Hasantunaozdmr/Canzade-ToastyStat/releases/latest/download';
+const RELEASE_BASE = 'https://github.com/Hasantunaozdmr/PenguChat/releases/latest/download';
 const IS_PORTABLE = !!process.env.PORTABLE_EXECUTABLE_DIR;
 let updateState = { state: 'idle', current: app.getVersion() };
 
