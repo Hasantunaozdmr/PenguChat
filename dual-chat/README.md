@@ -7,7 +7,7 @@ Paneller platformların **resmi popout chat'leridir**. Hesabınla giriş yaptı�
 - Twitch ve Kick chat'i yan yana veya alt alta (⇆ / ⇅)
 - **Yayın gecikmesi:** Üst çubukta 10 saniyede bir sırayla "⏱ Twitch gecikmesi: 3 sn" / "⏱ Kick gecikmesi: 8 sn" yazar (tıklayınca diğerine geçer). İki platformun canlı yayın listesi yaklaşık saniyede bir okunur, son 20 saniyenin en iyi ölçümü kullanılır. Video oynatmaz, çok az internet kullanır.
 - **Hızlı ceza çubuğu:** Chat'te bir kullanıcı adına tıkla, üstteki çubukta seçilir. **⏱ Timeout** (varsayılan 919824 sn) ya da **⛔ Ban** ile komut senin yerine gönderilir. Twitch / Kick düğmeleriyle hangi platformda (ya da ikisinde birden) uygulanacağını seç. Restream'in Kick'e aktardığı "[Twitch: kullanıcı]" mesajlarında gerçek kullanıcı seçilir. Kick süreyi dakika olarak alır, uygulama çevirir.
-- **İzleyici / mod modu (otomatik):** Uygulama giriş yaptığın hesabın kanalda moderatör olup olmadığına bakar. Normal izleyicide ceza çubuğu ve 👤 düğmesi hiç görünmez; modlarda görünür (👤 ile açılıp kapanır). Modluk sonradan verilirse birkaç dakika içinde kendiliğinden gelir.
+- **İzleyici / mod modu (otomatik):** Uygulama giriş yaptığın hesabın kanalda moderatör olup olmadığına bakar. Normal izleyicide ceza çubuğu ve 👤 düğmesi hiç görünmez; modlarda görünür (👤 ile açılıp kapanır). Gecikme yazısı da sadece modlara görünür. Modluk sonradan verilirse ya da alınırsa en geç 1 dakikada kendiliğinden değişir.
 - Panellerin yerini değiştirme (⇄), istenen paneli gizleme (Twitch / Kick düğmeleri)
 - Panel başına yazı boyutu (A− / A+)
 - Girişler kalıcıdır. Uygulamayı kapatıp açınca tekrar giriş yapman gerekmez

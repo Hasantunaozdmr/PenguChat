@@ -300,8 +300,8 @@
     modStatus[p] = ['mod', 'viewer', 'unknown'].includes(res) ? res : 'unknown';
     applyModUi();
   }
-  // Sonradan modluk verilirse / alınırsa birkaç dakikada fark et
-  setInterval(() => ['twitch', 'kick'].forEach(checkMod), 3 * 60 * 1000);
+  // Sonradan modluk verilirse / alınırsa en geç 1 dakikada fark et
+  setInterval(() => ['twitch', 'kick'].forEach(checkMod), 60 * 1000);
 
   function applyModUi() {
     const anyAccess = canMod('twitch') || canMod('kick');
@@ -310,6 +310,7 @@
     toggle.classList.toggle('hidden', !anyAccess);
     toggle.classList.toggle('active', anyAccess && state.modBarOpen);
     $('#modbar').classList.toggle('hidden', !(anyAccess && state.modBarOpen));
+    try { renderDelay(); } catch {} // gecikme yazısı da sadece modlara
     toggle.title =
       'Mod araçları (timeout / ban) aç / kapat' +
       (['twitch', 'kick'].some((p) => modStatus[p] === 'unknown') ? ' · Yetkin otomatik anlaşılamadı' : '');
@@ -459,6 +460,8 @@
   let showing = 'twitch'; // yazının şu an gösterdiği platform
 
   function renderDelay() {
+    // Normal izleyiciye gecikme yazısı gösterilmez
+    if (!canMod('twitch') && !canMod('kick')) { delayTag.classList.add('hidden'); return; }
     const r = lastDelay;
     if (!r) return;
     delayTag.classList.remove('hidden', 'ok', 'warn', 'muted');
@@ -483,6 +486,7 @@
   async function measureDelay() {
     if (measuring) return;
     if (!state.twitch && !state.kick) { delayTag.classList.add('hidden'); return; }
+    if (!canMod('twitch') && !canMod('kick')) { delayTag.classList.add('hidden'); return; } // izleyici: ölçme bile
     measuring = true;
     try {
       const url = state.kick ? await kickPlaybackUrl() : null;

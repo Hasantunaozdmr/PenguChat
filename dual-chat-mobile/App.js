@@ -218,11 +218,11 @@ function PenguChat() {
   useEffect(() => {
     setModStatus((m) => ({ ...m, kick: 'pending' }));
   }, [urls.kick]);
-  // Sonradan modluk verilirse / alınırsa birkaç dakikada fark et
+  // Sonradan modluk verilirse / alınırsa en geç 1 dakikada fark et
   const checkModRef = useRef(checkMod);
   checkModRef.current = checkMod;
   useEffect(() => {
-    const t = setInterval(() => KEYS.forEach((k) => checkModRef.current(k)), 3 * 60 * 1000);
+    const t = setInterval(() => KEYS.forEach((k) => checkModRef.current(k)), 60 * 1000);
     return () => clearInterval(t);
   }, []);
 
