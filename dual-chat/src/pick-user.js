@@ -92,6 +92,59 @@
     );
   }
 
+  // ---- Moderatör mü? ('mod' | 'viewer' | 'unknown') ----
+  // Giriş yapmış hesabın bu kanaldaki yetkisi, sitenin kendi kullandığı yolla sorulur.
+  const cookie = (name) => {
+    const m = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+    return m ? decodeURIComponent(m[1]) : '';
+  };
+  // Sayfada mod araçları (ban / timeout düğmeleri) görünüyor mu? Yedek kontrol.
+  const hasModUi = () =>
+    !!document.querySelector(
+      '[data-a-target="chat-mod-view-button"], [data-test-selector="chat-mod-icons"], button[aria-label^="Ban "], button[aria-label^="Timeout "], button[aria-label*="Yasakla"], button[aria-label*="Zaman aşımı"]'
+    );
+
+  async function twitchModStatus(login) {
+    const token = cookie('auth-token');
+    if (!token) return 'viewer'; // giriş yapılmamış
+    try {
+      const res = await fetch('https://gql.twitch.tv/gql', {
+        method: 'POST',
+        headers: { 'Client-Id': 'kimne78kx3ncx6brgo4mv6wki5h1ko', Authorization: 'OAuth ' + token },
+        body: JSON.stringify({
+          query: 'query($l: String!) { currentUser { login } user(login: $l) { self { isModerator } } }',
+          variables: { l: login },
+        }),
+      });
+      const d = (await res.json()).data;
+      if (d && d.currentUser && d.currentUser.login === login) return 'mod'; // kanal sahibi
+      if (d && d.user && d.user.self) return d.user.self.isModerator ? 'mod' : 'viewer';
+    } catch {}
+    return hasModUi() ? 'mod' : 'unknown';
+  }
+
+  async function kickModStatus(slug) {
+    const token = cookie('session_token');
+    const headers = { Accept: 'application/json' };
+    if (token) headers.Authorization = 'Bearer ' + token;
+    try {
+      const res = await fetch('/api/v2/channels/' + encodeURIComponent(slug) + '/me', { credentials: 'include', headers });
+      if (res.status === 401 || res.status === 403) return token ? (hasModUi() ? 'mod' : 'unknown') : 'viewer';
+      if (res.ok) {
+        const j = await res.json();
+        if (j && (j.is_moderator || j.is_broadcaster || j.is_super_admin)) return 'mod';
+        if (j && 'is_moderator' in j) return 'viewer';
+      }
+    } catch {}
+    return hasModUi() ? 'mod' : 'unknown';
+  }
+
+  window.__penguModStatus = async (channel) => {
+    const status = isTwitch ? await twitchModStatus(channel) : await kickModStatus(channel);
+    if (window.ReactNativeWebView) post('__PENGU_MOD__' + JSON.stringify({ status }));
+    return status;
+  };
+
   // Masaüstü yardımcıları: kutudaki metin / gönder düğmesine bas
   window.__penguInputText = () => {
     const input = findInput();

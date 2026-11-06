@@ -27,6 +27,7 @@
       <button id="toggleKick" class="btn chip kick active" title="Kick panelini göster/gizle">Kick</button>
     </div>
     <div class="group">
+      <button id="modToggle" class="btn icon hidden" title="Mod araçları (timeout / ban) aç / kapat">👤</button>
       <button id="layoutBtn" class="btn icon" title="Yan yana / Alt alta">⇆</button>
       <button id="swapBtn" class="btn icon" title="Panellerin yerini değiştir">⇄</button>
       <input id="opacity" type="range" min="30" max="100" value="100" title="Pencere saydamlığı" />
@@ -40,7 +41,7 @@
     </div>
   </header>
 
-  <div id="modbar" class="modbar">
+  <div id="modbar" class="modbar hidden">
     <span class="mb-icon">👤</span>
     <input id="modUser" placeholder="Chat'te bir kullanıcı adına tıkla" spellcheck="false" autocomplete="off" />
     <button id="modClear" class="btn mini" title="Seçimi temizle">✕</button>

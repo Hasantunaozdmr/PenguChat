@@ -8,6 +8,7 @@
     swapped: false,
     show: { twitch: true, kick: true },
     timeoutSecs: 919824,
+    modBarOpen: true,
     zoom: { twitch: 1, kick: 1 },
     pinned: false,
     opacity: 100,
@@ -88,6 +89,8 @@
     });
     wv.addEventListener('dom-ready', () => {
       try { wv.setZoomFactor(state.zoom[p]); } catch {}
+      // Sayfa (ve giriş çerezleri) hazır olunca mod mu diye bak
+      setTimeout(() => checkMod(p), 2500);
     });
     pane.body.appendChild(wv);
     pane.view = wv;
@@ -104,6 +107,10 @@
       return;
     }
     pane.placeholder.classList.add('hidden');
+    if (modStatus[p] !== 'pending' && pane.view && pane.view.getAttribute('src') !== PLATFORMS[p].chatUrl(channel)) {
+      modStatus[p] = 'pending'; // yeni kanal: yetki yeniden sorulacak
+      applyModUi();
+    }
     const url = PLATFORMS[p].chatUrl(channel);
     const wv = ensureView(p);
     if (wv.getAttribute('src') !== url) wv.setAttribute('src', url);
@@ -279,6 +286,47 @@
   const targets = { twitch: false, kick: false };
   toSecs.value = state.timeoutSecs;
 
+  // ---- İzleyici / mod modu ----
+  // Her platform için: 'pending' (bakılıyor), 'mod', 'viewer' (normal izleyici), 'unknown' (anlaşılamadı)
+  const modStatus = { twitch: 'pending', kick: 'pending' };
+  const canMod = (p) => !!state[p] && (modStatus[p] === 'mod' || modStatus[p] === 'unknown');
+
+  async function checkMod(p) {
+    const wv = panes[p].view;
+    if (!wv || !state[p]) return;
+    const res = await wv
+      .executeJavaScript(`window.__penguModStatus ? window.__penguModStatus(${JSON.stringify(state[p])}) : 'unknown'`)
+      .catch(() => 'unknown');
+    modStatus[p] = ['mod', 'viewer', 'unknown'].includes(res) ? res : 'unknown';
+    applyModUi();
+  }
+  // Sonradan modluk verilirse / alınırsa birkaç dakikada fark et
+  setInterval(() => ['twitch', 'kick'].forEach(checkMod), 3 * 60 * 1000);
+
+  function applyModUi() {
+    const anyAccess = canMod('twitch') || canMod('kick');
+    const toggle = $('#modToggle');
+    // Normal izleyici: mod araçları hiç görünmez
+    toggle.classList.toggle('hidden', !anyAccess);
+    toggle.classList.toggle('active', anyAccess && state.modBarOpen);
+    $('#modbar').classList.toggle('hidden', !(anyAccess && state.modBarOpen));
+    toggle.title =
+      'Mod araçları (timeout / ban) aç / kapat' +
+      (['twitch', 'kick'].some((p) => modStatus[p] === 'unknown') ? ' · Yetkin otomatik anlaşılamadı' : '');
+    for (const p of ['twitch', 'kick']) {
+      const chip = $(p === 'twitch' ? '#tgtTwitch' : '#tgtKick');
+      chip.disabled = !canMod(p);
+      chip.title = canMod(p) ? `${p === 'twitch' ? 'Twitch' : 'Kick'}'te uygula` : 'Bu kanalda moderatör değilsin';
+      if (!canMod(p)) targets[p] = false;
+    }
+    renderTargets();
+  }
+  $('#modToggle').addEventListener('click', () => {
+    state.modBarOpen = !state.modBarOpen;
+    save();
+    applyModUi();
+  });
+
   function renderTargets() {
     $('#tgtTwitch').classList.toggle('active', targets.twitch);
     $('#tgtKick').classList.toggle('active', targets.kick);
@@ -296,19 +344,20 @@
 
   // Chat'te bir ada tıklanınca
   function onPick(fromPlatform, { name, restream }) {
+    if (!canMod('twitch') && !canMod('kick')) return; // izleyici modunda tıklama bir şey yapmaz
     modUser.value = name;
     // Restream ile Kick'e gelen mesajın sahibi aslında Twitch'te
     const p = restream ? 'twitch' : fromPlatform;
-    targets.twitch = p === 'twitch';
-    targets.kick = p === 'kick';
+    targets.twitch = p === 'twitch' && canMod('twitch');
+    targets.kick = p === 'kick' && canMod('kick');
     renderTargets();
   }
 
-  $('#tgtTwitch').addEventListener('click', () => { targets.twitch = !targets.twitch; renderTargets(); });
-  $('#tgtKick').addEventListener('click', () => { targets.kick = !targets.kick; renderTargets(); });
+  $('#tgtTwitch').addEventListener('click', () => { if (canMod('twitch')) targets.twitch = !targets.twitch; renderTargets(); });
+  $('#tgtKick').addEventListener('click', () => { if (canMod('kick')) targets.kick = !targets.kick; renderTargets(); });
   $('#modClear').addEventListener('click', () => { modUser.value = ''; targets.twitch = targets.kick = false; renderTargets(); });
   modUser.addEventListener('input', () => {
-    if (!targets.twitch && !targets.kick) { targets.twitch = state.show.twitch; targets.kick = state.show.kick; }
+    if (!targets.twitch && !targets.kick) { targets.twitch = canMod('twitch'); targets.kick = canMod('kick'); }
     renderTargets();
   });
   toSecs.addEventListener('change', () => {
@@ -464,6 +513,7 @@
 
   // ---------- Başlangıç ----------
   applyLayout();
+  applyModUi();
   // "Her zaman üstte" düğmesi kaldırıldı: önceden açık bırakıldıysa kapat
   if (state.pinned) { state.pinned = false; save(); window.dualChat.setAlwaysOnTop(false); }
   if (state.opacity < 100) window.dualChat.setOpacity(state.opacity / 100);

@@ -200,13 +200,45 @@ function PenguChat() {
   const [secsText, setSecsText] = useState(null);
   const pending = useRef({});
 
+  // ---- İzleyici / mod modu ----
+  // 'pending' (bakılıyor), 'mod', 'viewer' (normal izleyici), 'unknown' (anlaşılamadı)
+  const [modStatus, setModStatus] = useState({ twitch: 'pending', kick: 'pending' });
+  const canMod = (k) => !!s[k] && (modStatus[k] === 'mod' || modStatus[k] === 'unknown');
+  const anyModAccess = canMod('twitch') || canMod('kick');
+  const checkMod = (k) => {
+    if (!s[k]) return;
+    views.current[k]?.injectJavaScript(
+      `window.__penguModStatus ? window.__penguModStatus(${JSON.stringify(s[k])}) : window.ReactNativeWebView.postMessage('__PENGU_MOD__{"status":"unknown"}'); true;`
+    );
+  };
+  // Kanal değişince yetkiyi yeniden sor
+  useEffect(() => {
+    setModStatus((m) => ({ ...m, twitch: 'pending' }));
+  }, [urls.twitch]);
+  useEffect(() => {
+    setModStatus((m) => ({ ...m, kick: 'pending' }));
+  }, [urls.kick]);
+  // Sonradan modluk verilirse / alınırsa birkaç dakikada fark et
+  const checkModRef = useRef(checkMod);
+  checkModRef.current = checkMod;
+  useEffect(() => {
+    const t = setInterval(() => KEYS.forEach((k) => checkModRef.current(k)), 3 * 60 * 1000);
+    return () => clearInterval(t);
+  }, []);
+
   const onWebMessage = (k, data) => {
     if (typeof data !== 'string') return;
-    if (data.startsWith('__PENGU_PICK__')) {
+    if (data.startsWith('__PENGU_MOD__')) {
+      try {
+        const { status } = JSON.parse(data.slice(13));
+        setModStatus((m) => ({ ...m, [k]: ['mod', 'viewer', 'unknown'].includes(status) ? status : 'unknown' }));
+      } catch {}
+    } else if (data.startsWith('__PENGU_PICK__')) {
+      if (!anyModAccess) return; // izleyici modunda dokunma bir şey yapmaz
       try {
         const { name, restream } = JSON.parse(data.slice(14));
         const p = restream ? 'twitch' : k; // Restream mesajının sahibi Twitch'te
-        setMod({ open: true, user: name, twitch: p === 'twitch', kick: p === 'kick' });
+        setMod({ open: true, user: name, twitch: p === 'twitch' && canMod('twitch'), kick: p === 'kick' && canMod('kick') });
       } catch {}
     } else if (data.startsWith('__PENGU_SENT__')) {
       try {
@@ -252,7 +284,7 @@ function PenguChat() {
 
   const punish = (action) => {
     const user = cleanChannel(mod.user);
-    const list = KEYS.filter((k) => mod[k]);
+    const list = KEYS.filter((k) => mod[k] && canMod(k));
     if (!user || !list.length) return;
     if (action === 'ban') {
       const names = list.map((k) => PLATFORMS[k].label).join(' + ');
@@ -294,13 +326,15 @@ function PenguChat() {
             <Text style={styles.pasteText}>Yapıştır</Text>
           </Pressable>
         </View>
-        <Pressable
-          style={[styles.iconBtn, mod.open && styles.iconBtnActive]}
-          onPress={() => setMod((m) => ({ ...m, open: !m.open }))}
-          accessibilityLabel="Hızlı ceza çubuğu"
-        >
-          <Text style={styles.iconText}>👤</Text>
-        </Pressable>
+        {anyModAccess && (
+          <Pressable
+            style={[styles.iconBtn, mod.open && styles.iconBtnActive]}
+            onPress={() => setMod((m) => ({ ...m, open: !m.open }))}
+            accessibilityLabel="Hızlı ceza çubuğu"
+          >
+            <Text style={styles.iconText}>👤</Text>
+          </Pressable>
+        )}
         <Pressable
           style={styles.iconBtn}
           onPress={() => update({ layout: tabs ? 'split' : 'tabs' })}
@@ -317,7 +351,7 @@ function PenguChat() {
           </Pressable>
         </Pressable>
       )}
-      {mod.open && (
+      {mod.open && anyModAccess && (
         <View style={styles.modBar}>
           <View style={styles.modRow}>
             <TextInput
@@ -327,7 +361,7 @@ function PenguChat() {
                 setMod((m) => ({
                   ...m,
                   user: t,
-                  ...(!m.twitch && !m.kick ? { twitch: !!s.twitch, kick: !!s.kick } : {}),
+                  ...(!m.twitch && !m.kick ? { twitch: canMod('twitch'), kick: canMod('kick') } : {}),
                 }))
               }
               placeholder="Chat'te bir ada dokun"
@@ -338,7 +372,8 @@ function PenguChat() {
             {KEYS.map((k) => (
               <Pressable
                 key={k}
-                style={[styles.chip, { borderColor: PLATFORMS[k].color }, mod[k] && { backgroundColor: PLATFORMS[k].color }]}
+                style={[styles.chip, { borderColor: PLATFORMS[k].color }, mod[k] && { backgroundColor: PLATFORMS[k].color }, !canMod(k) && styles.disabled]}
+                disabled={!canMod(k)}
                 onPress={() => setMod((m) => ({ ...m, [k]: !m[k] }))}
               >
                 <Text style={[styles.chipText, mod[k] && k === 'kick' && { color: '#062f2d' }]}>{PLATFORMS[k].label}</Text>
@@ -414,6 +449,7 @@ function PenguChat() {
                     url={urls[k]}
                     zoom={s.zoom[k]}
                     onMessage={(data) => onWebMessage(k, data)}
+                    onLoaded={() => setTimeout(() => checkModRef.current(k), 2500)}
                     onRef={(r) => {
                       views.current[k] = r;
                     }}
@@ -471,7 +507,7 @@ function PaneButtons({ k, onAction }) {
   );
 }
 
-function ChatView({ k, url, zoom, onRef, onMessage }) {
+function ChatView({ k, url, zoom, onRef, onMessage, onLoaded }) {
   const inner = useRef(null);
   const setRef = useCallback(
     (r) => {
@@ -500,6 +536,7 @@ function ChatView({ k, url, zoom, onRef, onMessage }) {
       injectedJavaScriptBeforeContentLoaded={VIEWPORT_JS}
       injectedJavaScript={zoomJs(zoom) + FIT_POPUPS_JS + PICK_USER_JS + '\ntrue;'}
       onMessage={(e) => onMessage(e.nativeEvent.data)}
+      onLoadEnd={() => onLoaded?.()}
       onShouldStartLoadWithRequest={onShouldStart}
       // Girişlerin kalıcı olması için
       sharedCookiesEnabled

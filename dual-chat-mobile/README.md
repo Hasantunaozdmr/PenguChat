@@ -9,7 +9,7 @@ Masaüstü Dual Chat'in telefon sürümü. Twitch ve Kick'in resmi chat sayfalar
   - **⇆ Bölünmüş:** Dik tutunca chat'ler alt alta, yan çevirince yan yana durur.
   - **▤ Sekmeli:** Her chat tam ekran açılır, üstteki Twitch | Kick sekmeleriyle geçilir. Diğer chat arka planda açık kalır.
 - Panel başına yazı boyutu (A− / A+).
-- **Hızlı ceza çubuğu (👤):** Chat'te bir ada dokun, üstte çubuk açılır. **⏱ Timeout** (varsayılan 919824 sn) ya da **⛔ Ban** komutu seçtiğin platform(lar)a gönderilir. Restream mesajlarında gerçek Twitch kullanıcısı seçilir.
+- **Hızlı ceza çubuğu (👤):** Chat'te bir ada dokun, üstte çubuk açılır. **⏱ Timeout** (varsayılan 919824 sn) ya da **⛔ Ban** komutu seçtiğin platform(lar)a gönderilir. Restream mesajlarında gerçek Twitch kullanıcısı seçilir. Sadece moderatör olduğun kanallarda görünür; normal izleyicide gizlidir.
 - Chat'teki dış linkler telefonun tarayıcısında açılır.
 - **Güncelleme (Android):** Yeni sürüm çıkınca üstte yeşil **⬆ Yeni sürüm var** çubuğu görünür, dokununca yeni APK iner, açıp **Güncelle** dersin. Girişler silinmez.
 

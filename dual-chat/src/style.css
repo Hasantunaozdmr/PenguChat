@@ -240,3 +240,5 @@ kbd { color: var(--muted); font: inherit; font-size: 11px; }
 .delay-tag.ok { border-color: var(--kick); }
 .delay-tag.warn { border-color: #ffb84d; color: #ffe2b0; }
 .delay-tag.muted { color: var(--muted); font-weight: 400; }
+#modToggle.active { background: var(--border); }
+.btn.chip:disabled { opacity: .25; cursor: not-allowed; }
