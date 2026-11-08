@@ -86,7 +86,7 @@ export async function hasMineNews() {
 // Durumlar sadece ileri gider: çözülen / reddedilen kilitlenir
 const NEXT = {
   bekliyor: ['onaylandi', 'reddedildi'],
-  onaylandi: ['cozuldu', 'reddedildi'],
+  onaylandi: ['cozuldu'],
   cozuldu: [],
   reddedildi: [],
 };
