@@ -544,8 +544,11 @@
   // ---------- Güncelleme ----------
   const updateBtn = $('#updateBtn');
   let manualCheck = false;
+  // Beta süresince kullanıcıya sürüm numarası yerine "Beta" gösterilir. Beta bitince BETA = '' yap.
+  const BETA = 'Beta';
+  const ver = (v) => BETA || 'v' + v;
   function renderUpdate(u) {
-    if (u.current) $('#versionLabel').textContent = 'v' + u.current;
+    if (u.current) $('#versionLabel').textContent = ver(u.current);
     updateBtn.classList.remove('busy');
     updateBtn.disabled = false;
     if (u.state === 'downloading') {
@@ -554,16 +557,16 @@
       updateBtn.disabled = true;
       updateBtn.classList.remove('hidden');
     } else if (u.state === 'ready') {
-      updateBtn.textContent = `⬆ Güncelle (v${u.version})`;
+      updateBtn.textContent = BETA ? '⬆ Güncelle' : `⬆ Güncelle (v${u.version})`;
       updateBtn.title = 'Uygulama kapanıp yeni sürümle yeniden açılır';
       updateBtn.classList.remove('hidden');
     } else if (u.state === 'portable-available') {
-      updateBtn.textContent = `⬇ Yeni sürüm var (v${u.version})`;
+      updateBtn.textContent = BETA ? '⬇ Yeni sürüm var' : `⬇ Yeni sürüm var (v${u.version})`;
       updateBtn.title = 'Yeni sürümü indir, eskisinin yerine kullan';
       updateBtn.classList.remove('hidden');
     } else {
       updateBtn.classList.add('hidden');
-      if (manualCheck && u.state === 'latest') { manualCheck = false; alert(`PenguChat güncel (v${u.current}).`); }
+      if (manualCheck && u.state === 'latest') { manualCheck = false; alert(`PenguChat güncel (${ver(u.current)}).`); }
       if (manualCheck && u.state === 'error') { manualCheck = false; alert('Güncelleme kontrol edilemedi. İnternet bağlantını kontrol et.'); }
     }
   }

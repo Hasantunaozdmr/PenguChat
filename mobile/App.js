@@ -420,7 +420,7 @@ function PenguChat() {
       {reportMode && <ReportModal accounts={accounts} mode={reportMode} onClose={() => setReportMode(null)} appVersion={APP_VERSION} admin={admin} onAdminChange={changeAdmin} startTab={mineNews ? 'mine' : 'new'} onMineSeen={() => setMineNews(false)} />}
       {newVersion && (
         <Pressable style={styles.updateBar} onPress={() => Linking.openURL(`${RELEASE_BASE}/PenguChat.apk`)}>
-          <Text style={styles.updateText}>⬆ Yeni sürüm var (v{newVersion}) · Güncellemek için dokun</Text>
+          <Text style={styles.updateText}>⬆ Yeni sürüm var · Güncellemek için dokun</Text>
           <Pressable hitSlop={10} onPress={() => setNewVersion(null)}>
             <Text style={styles.updateClose}>✕</Text>
           </Pressable>
