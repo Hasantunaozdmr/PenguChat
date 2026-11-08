@@ -315,18 +315,20 @@
     return t;
   }
   const STATUS = {
-    bekliyor: '⏳ Bekliyor',
+    bekliyor: '📨 Gönderildi',
     onaylandi: '👍 Onaylandı',
     cozuldu: '✅ Çözüldü',
     reddedildi: '❌ Reddedildi',
   };
   // Durumlar sadece ileri gider: çözülen / reddedilen kilitlenir
   const NEXT = {
-    bekliyor: ['onaylandi', 'cozuldu', 'reddedildi'],
+    bekliyor: ['onaylandi', 'reddedildi'],
     onaylandi: ['cozuldu', 'reddedildi'],
     cozuldu: [],
     reddedildi: [],
   };
+  // Yönetici düğmelerinin yazısı
+  const ACTION = { onaylandi: '📋 Sıraya al', cozuldu: '✅ Çözüldü', reddedildi: '❌ Reddet' };
   const stBadge = (st) => `<span class="st st-${esc(STATUS[st] ? st : 'bekliyor')}">${STATUS[st] || STATUS.bekliyor}</span>`;
 
   // Cevap / durum değişikliği görüldü mü? (sorun no → son görülen güncelleme zamanı)
@@ -371,7 +373,7 @@
       ? list.map((x) => `<div class="rep">
           <div class="rep-meta">${stBadge(x.status)}<span>${esc(fmtDate(x.created_at))}</span>${isNews(x, seen) ? '<span class="dot-new"></span>' : ''}</div>
           <div class="rep-msg">${esc(x.message)}</div>
-          ${x.admin_note ? `<div class="rep-note"><b>${x.status === 'reddedildi' ? 'Red sebebi' : 'Cevap'}:</b>${esc(x.admin_note)}</div>` : ''}
+          ${x.status === 'reddedildi' && x.admin_note ? `<div class="rep-note"><b>Red sebebi:</b>${esc(x.admin_note)}</div>` : ''}
         </div>`).join('')
       : '<div class="empty">Bu cihazdan henüz sorun bildirmedin.</div>';
     // Görüldü olarak işaretle
@@ -397,7 +399,7 @@
     $('#reportSend').disabled = false;
     if (!r.ok) { reportHint('Gönderilemedi: ' + r.error, 'err'); return; }
     $('#reportText').value = '';
-    reportHint('Teşekkürler, gönderildi! Durumunu "Bildirdiklerim"den takip edebilirsin 🐧', 'ok');
+    reportHint('Gönderildi! Durumunu "Bildirdiklerim"den takip edebilirsin 🐧', 'ok');
     setTimeout(() => showTab('mine'), 1800);
   });
 
@@ -458,15 +460,15 @@
           <span>${esc(x.platform || '')} · v${esc(x.app_version || '?')}</span><div class="spacer"></div>
           <button class="btn mini" data-del="${Number(x.id)}" title="Sil">🗑</button></div>
         <div class="rep-msg">${esc(x.message)}</div>
-        ${x.admin_note ? `<div class="rep-note"><b>Senin notun:</b>${esc(x.admin_note)}</div>` : ''}
+        ${x.status === 'reddedildi' && x.admin_note ? `<div class="rep-note"><b>Red sebebi:</b>${esc(x.admin_note)}</div>` : ''}
         <div class="rep-acts">
-          ${(NEXT[x.status] || NEXT.bekliyor).map((st) => `<button class="btn mini" data-st="${st}">${STATUS[st]}</button>`).join('')}
+          ${(NEXT[x.status] || NEXT.bekliyor).map((st) => `<button class="btn mini" data-st="${st}">${ACTION[st]}</button>`).join('')}
           ${(NEXT[x.status] || NEXT.bekliyor).length ? '' : '<span class="hint">🔒 Kesinleşti</span>'}
-          <button class="btn mini" data-st="${esc(x.status || 'bekliyor')}" data-noteonly="1">💬 Not / cevap</button>
+          <span class="hint act-hint"></span>
         </div>
         <div class="rep-edit hidden">
-          <textarea maxlength="1000" placeholder="">${esc(x.admin_note || '')}</textarea>
-          <div class="row"><span class="hint"></span><div class="spacer"></div><button class="btn mini" data-cancel>Vazgeç</button><button class="btn mini primary" data-save>Kaydet</button></div>
+          <textarea maxlength="1000" placeholder="Red sebebi — örn: Bu sorun uygulamayla değil, internetinle ilgili."></textarea>
+          <div class="row"><span class="hint"></span><div class="spacer"></div><button class="btn mini" data-cancel>Vazgeç</button><button class="btn mini primary" data-save>Reddet</button></div>
         </div>
       </div>`).join('');
   }
@@ -482,32 +484,29 @@
     if (!card) return;
     const edit = card.querySelector('.rep-edit');
     const stBtn = e.target.closest('[data-st]');
-    if (stBtn && !stBtn.dataset.noteonly && !(NEXT[card.dataset.status] || NEXT.bekliyor).includes(stBtn.dataset.st)) return;
+    const save = async (st, note, hintEl) => {
+      hintEl.textContent = 'Kaydediliyor…';
+      hintEl.className = 'hint';
+      const r = await window.dualChat.setReportStatus(getAdmin(), card.dataset.id, st, note);
+      if (!r.ok) { hintEl.textContent = 'Kaydedilemedi: ' + r.error; hintEl.className = 'hint err'; return; }
+      loadInbox();
+    };
     if (stBtn) {
-      // Durum seçildi: not kutusunu aç (reddederken sebep zorunlu)
-      edit.dataset.newst = stBtn.dataset.st;
+      const st = stBtn.dataset.st;
+      if (!(NEXT[card.dataset.status] || NEXT.bekliyor).includes(st)) return;
+      if (st !== 'reddedildi') return save(st, '', card.querySelector('.act-hint')); // tek tık
+      // Reddet: sebep kutusunu aç
       edit.classList.remove('hidden');
-      const ta = edit.querySelector('textarea');
-      // Başka bir duruma geçerken eski not (ör. red sebebi) taşınmasın
-      const same = stBtn.dataset.noteonly || stBtn.dataset.st === card.dataset.status;
-      ta.value = same ? card.dataset.note || '' : '';
-      ta.placeholder = stBtn.dataset.st === 'reddedildi'
-        ? 'Red sebebi (zorunlu) — örn: Bu sorun uygulamayla değil, internetinle ilgili.'
-        : 'İsteğe bağlı not / cevap — gönderen kişi bunu görecek.';
-      edit.querySelector('.hint').textContent = `Yeni durum: ${STATUS[stBtn.dataset.st] || STATUS.bekliyor}`;
-      edit.querySelector('.hint').className = 'hint';
-      ta.focus();
+      edit.querySelector('.hint').textContent = '';
+      edit.querySelector('textarea').focus();
       return;
     }
     if (e.target.closest('[data-cancel]')) { edit.classList.add('hidden'); return; }
     if (e.target.closest('[data-save]')) {
       const note = edit.querySelector('textarea').value.trim();
       const hint = edit.querySelector('.hint');
-      if (edit.dataset.newst === 'reddedildi' && !note) { hint.textContent = 'Red sebebini yaz.'; hint.className = 'hint err'; return; }
-      hint.textContent = 'Kaydediliyor…';
-      const r = await window.dualChat.setReportStatus(getAdmin(), card.dataset.id, edit.dataset.newst, note);
-      if (!r.ok) { hint.textContent = 'Kaydedilemedi: ' + r.error; hint.className = 'hint err'; return; }
-      loadInbox();
+      if (!note) { hint.textContent = 'Red sebebini yaz.'; hint.className = 'hint err'; return; }
+      save('reddedildi', note, hint);
     }
   });
   $('#inboxRefresh').addEventListener('click', loadInbox);

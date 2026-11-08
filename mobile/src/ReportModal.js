@@ -85,14 +85,17 @@ export async function hasMineNews() {
 
 // Durumlar sadece ileri gider: çözülen / reddedilen kilitlenir
 const NEXT = {
-  bekliyor: ['onaylandi', 'cozuldu', 'reddedildi'],
+  bekliyor: ['onaylandi', 'reddedildi'],
   onaylandi: ['cozuldu', 'reddedildi'],
   cozuldu: [],
   reddedildi: [],
 };
 
+// Yönetici düğmelerinin yazısı
+const ACTION = { onaylandi: '📋 Sıraya al', cozuldu: '✅ Çözüldü', reddedildi: '❌ Reddet' };
+
 export const STATUS = {
-  bekliyor: { label: '⏳ Bekliyor', color: '#6b7280' },
+  bekliyor: { label: '📨 Gönderildi', color: '#6b7280' },
   onaylandi: { label: '👍 Onaylandı', color: '#2563eb' },
   cozuldu: { label: '✅ Çözüldü', color: '#1f8f3a' },
   reddedildi: { label: '❌ Reddedildi', color: '#b3261e' },
@@ -196,9 +199,9 @@ function Mine({ onMineSeen }) {
           <Text style={s.repMsg} selectable>
             {x.message}
           </Text>
-          {!!x.admin_note && (
+          {x.status === 'reddedildi' && !!x.admin_note && (
             <View style={s.note2}>
-              <Text style={s.repSmall}>{x.status === 'reddedildi' ? 'Red sebebi:' : 'Cevap:'}</Text>
+              <Text style={s.repSmall}>Red sebebi:</Text>
               <Text style={s.repMsg} selectable>
                 {x.admin_note}
               </Text>
@@ -234,7 +237,7 @@ function ReportForm({ appVersion, onSent }) {
         await reportRpc('submit_report', args);
       }
       setMessage('');
-      setHint({ text: 'Teşekkürler, gönderildi! 🐧', ok: true });
+      setHint({ text: 'Gönderildi! Durumunu "Bildirdiklerim"den takip edebilirsin 🐧', ok: true });
       onSent();
     } catch (e) {
       setHint({ text: 'Gönderilemedi: ' + e.message, err: true });
@@ -370,34 +373,21 @@ function Inbox({ admin, saveAdmin, onClose }) {
 }
 
 function AdminItem({ x, admin, onDelete, onSaved }) {
-  const [edit, setEdit] = useState(null); // seçilen yeni durum
-  const [note, setNote] = useState(x.admin_note || '');
+  const [rejecting, setRejecting] = useState(false);
+  const [note, setNote] = useState('');
   const [hint, setHint] = useState(null);
-  const save = async () => {
-    if (edit === 'reddedildi' && !note.trim()) return setHint('Red sebebini yaz.');
+  const next = NEXT[x.status] || NEXT.bekliyor;
+  const save = async (st, reason) => {
     setHint('Kaydediliyor…');
     try {
-      await reportRpc('set_report_status', { p_password: admin, p_id: Number(x.id), p_status: edit, p_note: note.trim().slice(0, 1000) });
-      setEdit(null);
+      await reportRpc('set_report_status', { p_password: admin, p_id: Number(x.id), p_status: st, p_note: reason || '' });
+      setRejecting(false);
+      setHint(null);
       onSaved();
     } catch (e) {
       setHint('Kaydedilemedi: ' + e.message);
     }
   };
-  const btn = (st, label) => (
-    <Pressable
-      key={label}
-      style={s.mini}
-      onPress={() => {
-        setEdit(st);
-        // Başka bir duruma geçerken eski not (ör. red sebebi) taşınmasın
-        setNote(st === x.status ? x.admin_note || '' : '');
-        setHint(null);
-      }}
-    >
-      <Text style={s.miniText}>{label === '💬' ? '💬 Not' : STATUS[st].label}</Text>
-    </Pressable>
-  );
   return (
     <View style={s.rep}>
       <View style={s.repMeta}>
@@ -414,37 +404,52 @@ function AdminItem({ x, admin, onDelete, onSaved }) {
       <Text style={s.repMsg} selectable>
         {x.message}
       </Text>
-      {!!x.admin_note && (
+      {x.status === 'reddedildi' && !!x.admin_note && (
         <View style={s.note2}>
-          <Text style={s.repSmall}>Senin notun:</Text>
+          <Text style={s.repSmall}>Red sebebi:</Text>
           <Text style={s.repMsg}>{x.admin_note}</Text>
         </View>
       )}
       <View style={[s.repMeta, { flexWrap: 'wrap', marginTop: 6 }]}>
-        {(NEXT[x.status] || NEXT.bekliyor).map((st) => btn(st, st))}
-        {!(NEXT[x.status] || NEXT.bekliyor).length && <Text style={s.repSmall}>🔒 Kesinleşti</Text>}
-        {btn(STATUS[x.status] ? x.status : 'bekliyor', '💬')}
+        {next.map((st) => (
+          <Pressable
+            key={st}
+            style={s.mini}
+            onPress={() => {
+              setHint(null);
+              if (st === 'reddedildi') setRejecting(true);
+              else save(st); // tek dokunuş
+            }}
+          >
+            <Text style={s.miniText}>{ACTION[st]}</Text>
+          </Pressable>
+        ))}
+        {!next.length && <Text style={s.repSmall}>🔒 Kesinleşti</Text>}
+        {!rejecting && !!hint && <Text style={[s.repSmall, { color: C.err }]}>{hint}</Text>}
       </View>
-      {edit && (
+      {rejecting && (
         <View style={{ gap: 6, marginTop: 6 }}>
-          <Text style={s.repSmall}>Yeni durum: {STATUS[edit].label}</Text>
           <TextInput
             style={[s.input, { height: 70 }]}
             value={note}
             onChangeText={setNote}
-            placeholder={edit === 'reddedildi' ? 'Red sebebi (zorunlu)' : 'İsteğe bağlı not / cevap — gönderen kişi görecek'}
+            placeholder="Red sebebi — örn: Bu sorun uygulamayla değil, internetinle ilgili."
             placeholderTextColor="#a9e3de"
             multiline
             maxLength={1000}
             textAlignVertical="top"
+            autoFocus
           />
           <View style={s.head}>
             <Text style={[s.hint, { color: C.err }]}>{hint || ''}</Text>
-            <Pressable style={s.mini} onPress={() => setEdit(null)}>
+            <Pressable style={s.mini} onPress={() => setRejecting(false)}>
               <Text style={s.miniText}>Vazgeç</Text>
             </Pressable>
-            <Pressable style={[s.mini, { backgroundColor: C.accent, borderColor: C.accent }]} onPress={save}>
-              <Text style={s.miniText}>Kaydet</Text>
+            <Pressable
+              style={[s.mini, { backgroundColor: '#b3261e', borderColor: '#e0463d' }]}
+              onPress={() => (note.trim() ? save('reddedildi', note.trim().slice(0, 1000)) : setHint('Red sebebini yaz.'))}
+            >
+              <Text style={s.miniText}>Reddet</Text>
             </Pressable>
           </View>
         </View>
