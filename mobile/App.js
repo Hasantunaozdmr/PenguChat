@@ -18,7 +18,7 @@ import * as Clipboard from 'expo-clipboard';
 import Constants from 'expo-constants';
 import { PLATFORMS, cleanChannel, hasLink, isInternalUrl, parseTargets } from './src/links';
 import { FIT_POPUPS_JS, PICK_USER_JS } from './src/injected';
-import ReportModal from './src/ReportModal';
+import ReportModal, { countNew, loadAdmin, storeAdmin } from './src/ReportModal';
 
 const STORE_KEY = 'dualchat:settings';
 const RELEASE_BASE = 'https://github.com/Hasantunaozdmr/PenguChat/releases/latest/download';
@@ -101,6 +101,22 @@ function PenguChat() {
   // ---- Güncelleme kontrolü (Android: yeni APK indirilir) ----
   const [newVersion, setNewVersion] = useState(null);
   const [reportMode, setReportMode] = useState(null); // null | 'report' | 'inbox'
+  const [admin, setAdmin] = useState(''); // yönetici şifresi (yalnızca senin cihazında dolu)
+  const [newReports, setNewReports] = useState(0);
+  useEffect(() => {
+    loadAdmin().then(setAdmin);
+  }, []);
+  useEffect(() => {
+    if (!admin) return setNewReports(0);
+    const check = () => countNew(admin).then(setNewReports);
+    check();
+    const t = setInterval(check, 5 * 60 * 1000);
+    return () => clearInterval(t);
+  }, [admin]);
+  const changeAdmin = (v) => {
+    storeAdmin(v);
+    setAdmin(v);
+  };
   useEffect(() => {
     if (Platform.OS !== 'android') return;
     const check = () =>
@@ -337,6 +353,23 @@ function PenguChat() {
             <Text style={styles.iconText}>👤</Text>
           </Pressable>
         )}
+        {!!admin && (
+          <Pressable
+            style={styles.iconBtn}
+            onPress={() => {
+              setNewReports(0);
+              setReportMode('inbox');
+            }}
+            accessibilityLabel="Gelen sorunlar"
+          >
+            <Text style={styles.iconText}>📥</Text>
+            {newReports > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{newReports > 9 ? '9+' : newReports}</Text>
+              </View>
+            )}
+          </Pressable>
+        )}
         <Pressable
           style={styles.iconBtn}
           onPress={() => setReportMode('report')}
@@ -354,7 +387,7 @@ function PenguChat() {
           <Text style={styles.iconText}>{tabs ? '▤' : '⇆'}</Text>
         </Pressable>
       </View>
-      {reportMode && <ReportModal mode={reportMode} onClose={() => setReportMode(null)} appVersion={APP_VERSION} />}
+      {reportMode && <ReportModal mode={reportMode} onClose={() => setReportMode(null)} appVersion={APP_VERSION} admin={admin} onAdminChange={changeAdmin} />}
       {newVersion && (
         <Pressable style={styles.updateBar} onPress={() => Linking.openURL(`${RELEASE_BASE}/PenguChat.apk`)}>
           <Text style={styles.updateText}>⬆ Yeni sürüm var (v{newVersion}) · Güncellemek için dokun</Text>
@@ -635,6 +668,19 @@ const styles = StyleSheet.create({
   },
   iconText: { color: C.text, fontSize: 18 },
   iconBtnActive: { backgroundColor: C.border },
+  badge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    borderRadius: 9,
+    backgroundColor: '#e0463d',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
   modBar: { backgroundColor: C.panel2, paddingHorizontal: 8, paddingVertical: 6, gap: 6, borderBottomWidth: 1, borderBottomColor: C.border },
   modRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   modInput: {

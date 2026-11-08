@@ -236,7 +236,6 @@
     const action = e.target.closest('button')?.dataset.action;
     if (action === 'reload-all') { openChat('twitch'); openChat('kick'); }
     if (action === 'report') openReport();
-    if (action === 'inbox') openInbox();
     if (action === 'check-update') { manualCheck = true; window.dualChat.checkUpdates(); }
     if (action === 'logout' && confirm('Twitch ve Kick hesaplarından çıkış yapılsın mı?')) {
       await window.dualChat.logoutAll();
@@ -256,9 +255,31 @@
   const getAdmin = () => { try { return localStorage.getItem(ADMIN_KEY) || ''; } catch { return ''; } };
   const setAdmin = (v) => {
     try { v ? localStorage.setItem(ADMIN_KEY, v) : localStorage.removeItem(ADMIN_KEY); } catch {}
-    $('#inboxItem').classList.toggle('hidden', !v);
+    $('#inboxBtn').classList.toggle('hidden', !v);
+    if (v) checkNew(); else setBadge(0);
   };
-  setAdmin(getAdmin());
+
+  // 📥 tuşundaki yeni sorun sayısı: en son görülen sorunun numarasından büyük olanlar.
+  const SEEN_KEY = 'penguchat:seenReport';
+  const getSeen = () => { try { return Number(localStorage.getItem(SEEN_KEY)) || 0; } catch { return 0; } };
+  function setBadge(n) {
+    const b = $('#inboxBadge');
+    b.textContent = n > 9 ? '9+' : String(n);
+    b.classList.toggle('hidden', !n);
+  }
+  function markSeen(list) {
+    const max = Math.max(getSeen(), ...list.map((x) => Number(x.id) || 0));
+    try { localStorage.setItem(SEEN_KEY, String(max)); } catch {}
+    setBadge(0);
+  }
+  async function checkNew() {
+    const pw = getAdmin();
+    if (!pw) return;
+    const r = await window.dualChat.listReports(pw);
+    if (r.ok) setBadge((r.data || []).filter((x) => Number(x.id) > getSeen()).length);
+  }
+  $('#inboxBtn').addEventListener('click', () => openInbox());
+  setInterval(checkNew, 5 * 60 * 1000);
 
   const reportDlg = $('#reportDlg');
   const inboxDlg = $('#inboxDlg');
@@ -344,6 +365,7 @@
       return;
     }
     const list = r.data || [];
+    markSeen(list);
     $('#inboxCount').textContent = list.length ? `${list.length} sorun` : '';
     if (!list.length) { inboxList.innerHTML = '<div class="empty">Henüz gelen sorun yok 🎉</div>'; return; }
     inboxList.innerHTML = list.map((x) => `<div class="rep">
@@ -366,6 +388,7 @@
     inboxDlg.classList.remove('hidden');
     loadInbox();
   }
+  setAdmin(getAdmin());
 
   // ---------- Güncelleme ----------
   const updateBtn = $('#updateBtn');

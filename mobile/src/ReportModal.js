@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { reportRpc } from './report';
 
 const ADMIN_KEY = 'penguchat:admin';
+const SEEN_KEY = 'penguchat:seenReport';
 const C = { panel2: '#0b7c77', input: '#075a56', border: '#23bdb5', text: '#ffffff', muted: '#c9f3ef', ok: '#53fc18', err: '#ff6b6b', accent: '#9146ff' };
 
 function fmtDate(iso) {
@@ -13,23 +14,47 @@ function fmtDate(iso) {
   return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
-// mode: 'report' (herkes) | 'inbox' (yalnızca yönetici)
-export default function ReportModal({ mode, onClose, appVersion }) {
-  const [admin, setAdmin] = useState(null);
-  useEffect(() => {
-    AsyncStorage.getItem(ADMIN_KEY).then((v) => setAdmin(v || '')).catch(() => setAdmin(''));
-  }, []);
-  const saveAdmin = (v) => {
-    setAdmin(v);
-    (v ? AsyncStorage.setItem(ADMIN_KEY, v) : AsyncStorage.removeItem(ADMIN_KEY)).catch(() => {});
-  };
+// Yönetici şifresi ve "son görülen sorun" telefonda saklanır; App bunları kullanarak 📥 tuşunu gösterir.
+export async function loadAdmin() {
+  try {
+    return (await AsyncStorage.getItem(ADMIN_KEY)) || '';
+  } catch {
+    return '';
+  }
+}
+export function storeAdmin(v) {
+  (v ? AsyncStorage.setItem(ADMIN_KEY, v) : AsyncStorage.removeItem(ADMIN_KEY)).catch(() => {});
+}
+async function getSeen() {
+  try {
+    return Number(await AsyncStorage.getItem(SEEN_KEY)) || 0;
+  } catch {
+    return 0;
+  }
+}
+async function markSeen(list) {
+  const max = Math.max(await getSeen(), ...list.map((x) => Number(x.id) || 0));
+  AsyncStorage.setItem(SEEN_KEY, String(max)).catch(() => {});
+}
+export async function countNew(password) {
+  if (!password) return 0;
+  try {
+    const list = (await reportRpc('get_reports', { p_password: password })) || [];
+    const seen = await getSeen();
+    return list.filter((x) => Number(x.id) > seen).length;
+  } catch {
+    return 0;
+  }
+}
 
+// mode: 'report' (herkes) | 'inbox' (yalnızca yönetici)
+export default function ReportModal({ mode, onClose, appVersion, admin, onAdminChange }) {
   return (
     <Modal visible={!!mode} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={s.wrap} onPress={onClose}>
         <Pressable style={[s.dlg, mode === 'inbox' && s.tall]} onPress={() => {}}>
           {mode === 'report' && <ReportForm onClose={onClose} appVersion={appVersion} />}
-          {mode === 'inbox' && admin !== null && <Inbox admin={admin} saveAdmin={saveAdmin} onClose={onClose} />}
+          {mode === 'inbox' && <Inbox admin={admin} saveAdmin={onAdminChange} onClose={onClose} />}
         </Pressable>
       </Pressable>
     </Modal>
@@ -119,7 +144,9 @@ function Inbox({ admin, saveAdmin, onClose }) {
     setList(null);
     setError(null);
     try {
-      setList((await reportRpc('get_reports', { p_password: password })) || []);
+      const data = (await reportRpc('get_reports', { p_password: password })) || [];
+      setList(data);
+      markSeen(data);
     } catch (e) {
       if (e.message === 'Şifre yanlış') {
         saveAdmin('');
