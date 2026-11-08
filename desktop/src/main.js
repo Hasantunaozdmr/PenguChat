@@ -374,6 +374,29 @@ ipcMain.handle('report-send', reportHandler(async (_e, { message, contact, token
 ipcMain.handle('report-mine', reportHandler((_e, token) => reportRpc('my_reports', { p_token: String(token || '') })));
 ipcMain.handle('report-set-status', reportHandler((_e, { password, id, status, note }) =>
   reportRpc('set_report_status', { p_password: String(password || ''), p_id: Number(id), p_status: String(status), p_note: String(note || '').slice(0, 1000) })));
+ipcMain.handle('report-log', reportHandler((_e, password) => reportRpc('get_log', { p_password: String(password || '') })));
+ipcMain.handle('report-stats', reportHandler((_e, password) => reportRpc('get_stats', { p_password: String(password || '') })));
+ipcMain.handle('report-modlog', reportHandler((_e, password) => reportRpc('get_mod_log', { p_password: String(password || '') })));
+ipcMain.handle('mod-action', reportHandler((_e, a) =>
+  reportRpc('log_mod_action', {
+    p_client: String(a.client || ''),
+    p_mod_twitch: String(a.twitch || '').slice(0, 40),
+    p_mod_kick: String(a.kick || '').slice(0, 40),
+    p_platform: String(a.platform),
+    p_action: String(a.action),
+    p_target: String(a.target || '').slice(0, 40),
+    p_secs: a.secs ? Number(a.secs) : null,
+    p_ok: !!a.ok,
+  })));
+ipcMain.handle('ping', reportHandler((_e, { id, mod, twitch, kick }) =>
+  reportRpc('ping', {
+    p_id: String(id || ''),
+    p_platform: `windows ${process.getSystemVersion ? process.getSystemVersion() : ''}`.trim().slice(0, 30),
+    p_version: app.getVersion(),
+    p_mod: !!mod,
+    p_twitch: String(twitch || '').slice(0, 40),
+    p_kick: String(kick || '').slice(0, 40),
+  })));
 ipcMain.handle('report-is-admin', reportHandler((_e, password) => reportRpc('is_admin', { p_password: String(password || '') })));
 ipcMain.handle('report-list', reportHandler((_e, password) => reportRpc('get_reports', { p_password: String(password || '') })));
 ipcMain.handle('report-delete', reportHandler((_e, { password, id }) =>

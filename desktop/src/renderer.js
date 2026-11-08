@@ -91,6 +91,7 @@
       try { wv.setZoomFactor(state.zoom[p]); } catch {}
       // Sayfa (ve giriş çerezleri) hazır olunca mod mu diye bak
       setTimeout(() => checkMod(p), 2500);
+      setTimeout(() => updateViewers(p), 3000);
     });
     pane.body.appendChild(wv);
     pane.view = wv;
@@ -101,6 +102,7 @@
     const pane = panes[p];
     const channel = state[p];
     pane.chan.textContent = channel ? '· ' + channel : '';
+    $('.viewers', pane.el).textContent = '';
     if (!channel) {
       if (pane.view) { pane.view.remove(); pane.view = null; }
       pane.placeholder.classList.remove('hidden');
@@ -443,6 +445,7 @@
   }
   function showLogin(err) {
     $('#inboxCount').textContent = '';
+    $('#inboxTabs').classList.add('hidden');
     $('#inboxLogout').classList.add('hidden');
     $('#inboxRefresh').classList.add('hidden');
     inboxList.innerHTML = `<form class="empty" id="adminForm">
@@ -468,7 +471,11 @@
     if (!pw) return showLogin();
     $('#inboxLogout').classList.remove('hidden');
     $('#inboxRefresh').classList.remove('hidden');
+    $('#inboxTabs').classList.remove('hidden');
     inboxList.innerHTML = '<div class="empty">Yükleniyor…</div>';
+    if (inboxTab === 'log') return loadLog(pw);
+    if (inboxTab === 'stats') return loadStats(pw);
+    if (inboxTab === 'mod') return loadModLog(pw);
     const r = await window.dualChat.listReports(pw);
     if (!r.ok) {
       if (r.error === 'Şifre yanlış') { setAdmin(''); return showLogin('Şifre değişmiş, yeniden gir.'); }
@@ -533,9 +540,93 @@
       save('reddedildi', note, hint);
     }
   });
+  // ---- 📜 Log ve 📊 İstatistik (sadece yönetici) ----
+  let inboxTab = 'reports';
+  $('#inboxTabs').addEventListener('click', (e) => {
+    const t = e.target.closest('[data-itab]')?.dataset.itab;
+    if (!t) return;
+    inboxTab = t;
+    $('#inboxTabs').querySelectorAll('.tab').forEach((b) => b.classList.toggle('active', b.dataset.itab === t));
+    loadInbox();
+  });
+  const LOG_KIND = {
+    gonderildi: '📨 Gönderildi',
+    onaylandi: '📋 Sıraya alındı',
+    cozuldu: '✅ Çözüldü',
+    reddedildi: '❌ Reddedildi',
+    silindi: '🗑 Silindi',
+  };
+  function failed(r) {
+    if (r.error === 'Şifre yanlış') { setAdmin(''); showLogin('Şifre değişmiş, yeniden gir.'); return true; }
+    const missing = /\(404\)/.test(r.error) ? ' — Supabase\'e log/istatistik SQL\'i çalıştırılmamış olabilir.' : '';
+    inboxList.innerHTML = `<div class="empty">Yüklenemedi: ${esc(r.error)}${missing}</div>`;
+    return true;
+  }
+  async function loadLog(pw) {
+    const r = await window.dualChat.reportLog(pw);
+    if (!r.ok) return failed(r);
+    const list = r.data || [];
+    $('#inboxCount').textContent = list.length ? `${list.length} kayıt` : '';
+    inboxList.innerHTML = list.length
+      ? list.map((x) => `<div class="log-row"><span class="t">${esc(fmtDate(x.at))}</span><span class="k">${LOG_KIND[x.kind] || esc(x.kind)}</span>
+          <span class="d"><b>${esc(x.contact || 'İsimsiz')}</b> · ${esc(x.message || '')}${x.note ? `<small>Sebep: ${esc(x.note)}</small>` : ''}</span></div>`).join('')
+      : '<div class="empty">Henüz kayıt yok.</div>';
+  }
+  function fmtDur(secs) {
+    if (!secs) return '';
+    if (secs % 86400 === 0) return secs / 86400 + ' gün';
+    if (secs % 3600 === 0) return secs / 3600 + ' saat';
+    if (secs % 60 === 0) return secs / 60 + ' dk';
+    return secs + ' sn';
+  }
+  async function loadModLog(pw) {
+    const r = await window.dualChat.modLog(pw);
+    if (!r.ok) return failed(r);
+    const list = r.data || [];
+    $('#inboxCount').textContent = list.length ? `${list.length} işlem` : '';
+    inboxList.innerHTML = list.length
+      ? list.map((x) => {
+          const who = (x.platform === 'twitch' ? x.mod_twitch : x.mod_kick) || x.mod_twitch || x.mod_kick || '?';
+          return `<div class="log-row"><span class="t">${esc(fmtDate(x.at))}</span>
+            <span class="k">${x.action === 'ban' ? '⛔ Ban' : '⏱ Timeout ' + esc(fmtDur(x.secs))}</span>
+            <span class="d"><b>${esc(x.target)}</b> · ${x.platform === 'twitch' ? 'Twitch' : 'Kick'}<small>mod: ${esc(who)}${x.ok === false ? ' · ✗ gönderilemedi' : ''}</small></span></div>`;
+        }).join('')
+      : '<div class="empty">Henüz mod işlemi yok. (Sadece bu uygulamadan atılan timeout / ban kaydedilir.)</div>';
+  }
+  function ago(iso) {
+    const m = Math.max(0, Math.round((Date.now() - new Date(iso)) / 60000));
+    if (m < 2) return 'şimdi';
+    if (m < 60) return m + ' dk önce';
+    if (m < 1440) return Math.round(m / 60) + ' sa önce';
+    return Math.round(m / 1440) + ' gün önce';
+  }
+  async function loadStats(pw) {
+    const r = await window.dualChat.reportStats(pw);
+    if (!r.ok) return failed(r);
+    const d = r.data || {};
+    const list = d.list || [];
+    $('#inboxCount').textContent = '';
+    const online = (x) => Date.now() - new Date(x.last_seen) < 10 * 60000;
+    inboxList.innerHTML = `<div class="stats">
+        <div class="stat"><b>${Number(d.total) || 0}</b><span>Toplam kullanıcı</span></div>
+        <div class="stat"><b>${Number(d.online) || 0}</b><span>Şu an açık</span></div>
+        <div class="stat"><b>${Number(d.today) || 0}</b><span>Son 24 saat</span></div>
+        <div class="stat"><b>${Number(d.mods) || 0}</b><span>Mod (son 7 gün)</span></div>
+        <div class="stat"><b>${Number(d.bans) || 0}</b><span>Ban</span></div>
+        <div class="stat"><b>${Number(d.timeouts) || 0}</b><span>Timeout</span></div>
+        <div class="stat"><b>${Number(d.actions_today) || 0}</b><span>Bugünkü mod işlemi</span></div>
+      </div>
+      <table class="users"><tr><th></th><th>Twitch</th><th>Kick</th><th>Mod</th><th>Cihaz</th><th>Sürüm</th><th>Son görülme</th></tr>
+      ${list.map((x) => `<tr><td class="${online(x) ? 'on' : ''}">${online(x) ? '●' : '○'}</td><td>${esc(x.twitch || '—')}</td><td>${esc(x.kick || '—')}</td>
+        <td>${x.is_mod ? '🛡️' : ''}</td><td>${esc((x.platform || '').split(' ')[0])}</td><td>v${esc(x.version || '?')}</td><td>${esc(ago(x.last_seen))}</td></tr>`).join('')}
+      </table>`;
+  }
+
   $('#inboxRefresh').addEventListener('click', loadInbox);
   $('#inboxLogout').addEventListener('click', () => { setAdmin(''); showLogin(); });
   function openInbox() {
+    inboxTab = 'reports';
+    $('#inboxTabs').querySelectorAll('.tab').forEach((b) => b.classList.toggle('active', b.dataset.itab === 'reports'));
     inboxDlg.classList.remove('hidden');
     loadInbox();
   }
@@ -728,6 +819,10 @@
     const results = [];
     for (const p of list) {
       const err = await sendCommand(p, buildCommand(p, action, user));
+      window.dualChat.modAction({
+        client: clientId(), twitch: accounts.twitch, kick: accounts.kick,
+        platform: p, action, target: user, secs: action === 'timeout' ? state.timeoutSecs : null, ok: !err,
+      }).catch(() => {});
       results.push(`${p === 'twitch' ? 'Twitch' : 'Kick'} ${err ? '✗ ' + err : '✓'}`);
     }
     const failed = results.some((r) => r.includes('✗'));
@@ -816,6 +911,40 @@
   (function loop() {
     measureDelay().finally(() => setTimeout(loop, 900 + Math.random() * 700));
   })();
+
+  // ---------- Yayının izleyici sayısı (herkese açık) ----------
+  const fmtNum = (n) => n.toLocaleString('tr-TR');
+  async function updateViewers(p) {
+    const el = $('.viewers', panes[p].el);
+    const wv = panes[p].view;
+    if (!wv || !state[p]) { el.textContent = ''; return; }
+    const n = await wv.executeJavaScript(`window.__penguViewers ? window.__penguViewers(${JSON.stringify(state[p])}) : -1`).catch(() => -1);
+    if (n == null) { el.textContent = '· kapalı'; el.classList.add('off'); }
+    else if (n >= 0) { el.textContent = `👁 ${fmtNum(n)}`; el.classList.remove('off'); }
+  }
+  setInterval(() => ['twitch', 'kick'].forEach(updateViewers), 30 * 1000);
+
+  // ---------- Kullanım bilgisi (sadece yöneticinin istatistik ekranı için) ----------
+  const CLIENT_KEY = 'penguchat:clientId';
+  function clientId() {
+    let id = '';
+    try { id = localStorage.getItem(CLIENT_KEY) || ''; } catch {}
+    if (!id) {
+      id = (crypto.randomUUID() + crypto.randomUUID()).replace(/-/g, '');
+      try { localStorage.setItem(CLIENT_KEY, id); } catch {}
+    }
+    return id;
+  }
+  function ping() {
+    window.dualChat.ping({
+      id: clientId(),
+      mod: modStatus.twitch === 'mod' || modStatus.kick === 'mod',
+      twitch: accounts.twitch,
+      kick: accounts.kick,
+    }).catch(() => {});
+  }
+  setTimeout(ping, 15 * 1000); // chat'ler açılıp hesaplar okunduktan sonra
+  setInterval(ping, 5 * 60 * 1000);
 
   // ---------- Başlangıç ----------
   applyLayout();

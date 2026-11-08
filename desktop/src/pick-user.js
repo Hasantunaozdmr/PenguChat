@@ -155,6 +155,31 @@
     return status;
   };
 
+  // ---- Yayının anlık izleyici sayısı (yayın kapalıysa null) ----
+  window.__penguViewers = async (channel) => {
+    let n = null;
+    try {
+      if (isTwitch) {
+        const res = await fetch('https://gql.twitch.tv/gql', {
+          method: 'POST',
+          headers: { 'Client-Id': 'kimne78kx3ncx6brgo4mv6wki5h1ko' },
+          body: JSON.stringify({ query: 'query($l: String!) { user(login: $l) { stream { viewersCount } } }', variables: { l: channel } }),
+        });
+        const d = (await res.json()).data;
+        const st = d && d.user && d.user.stream;
+        n = st ? Number(st.viewersCount) || 0 : null;
+      } else {
+        const res = await fetch('/api/v2/channels/' + encodeURIComponent(channel), { credentials: 'include', headers: { Accept: 'application/json' } });
+        const j = res.ok ? await res.json() : null;
+        n = j && j.livestream ? Number(j.livestream.viewer_count) || 0 : null;
+      }
+    } catch {
+      n = undefined; // ölçülemedi
+    }
+    if (window.ReactNativeWebView) post('__PENGU_VIEW__' + JSON.stringify({ n: n === undefined ? -1 : n }));
+    return n === undefined ? -1 : n;
+  };
+
   // Masaüstü yardımcıları: kutudaki metin / gönder düğmesine bas
   window.__penguInputText = () => {
     const input = findInput();

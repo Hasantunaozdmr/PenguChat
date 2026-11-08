@@ -333,3 +333,20 @@ kbd { color: var(--muted); font: inherit; font-size: 11px; }
 .dlg-foot .spacer { display: none; }
 #reportContact { opacity: .85; cursor: default; }
 #reportContact.bad { color: #ff6b6b; }
+
+/* ---------- İzleyici sayısı / log / istatistik ---------- */
+.pane-head .viewers { color: var(--text); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.pane-head .viewers.off { color: var(--muted); font-weight: 400; }
+.log-row { display: flex; gap: 8px; align-items: baseline; padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,.08); }
+.log-row .t { color: var(--muted); font-size: 11px; white-space: nowrap; min-width: 92px; }
+.log-row .k { font-weight: 700; white-space: nowrap; }
+.log-row .d { flex: 1; min-width: 0; word-break: break-word; }
+.log-row .d small { color: var(--muted); display: block; }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 8px; }
+.stat { background: var(--input); border: 1px solid var(--border); border-radius: 8px; padding: 10px; text-align: center; }
+.stat b { display: block; font-size: 24px; }
+.stat span { color: var(--muted); font-size: 11px; }
+.users { width: 100%; border-collapse: collapse; font-size: 12px; }
+.users th { text-align: left; color: var(--muted); font-weight: 600; padding: 4px 6px; position: sticky; top: 0; background: var(--panel-2); }
+.users td { padding: 5px 6px; border-top: 1px solid rgba(255,255,255,.08); white-space: nowrap; }
+.users .on { color: var(--kick); }

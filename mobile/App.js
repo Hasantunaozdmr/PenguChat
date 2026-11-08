@@ -19,7 +19,7 @@ import Constants from 'expo-constants';
 import { PLATFORMS, cleanChannel, hasLink, isInternalUrl, parseTargets } from './src/links';
 import { FIT_POPUPS_JS, PICK_USER_JS } from './src/injected';
 import ReportModal, { countNew, hasMineNews, loadAdmin, storeAdmin } from './src/ReportModal';
-import { OWNER_ACCOUNTS } from './src/report';
+import { OWNER_ACCOUNTS, logModAction, sendPing } from './src/report';
 
 const STORE_KEY = 'dualchat:settings';
 const RELEASE_BASE = 'https://github.com/Hasantunaozdmr/PenguChat/releases/latest/download';
@@ -116,6 +116,7 @@ function PenguChat() {
   }, []);
   const [ownerOn, setOwnerOn] = useState({ twitch: false, kick: false }); // sahibin hesabıyla girilmiş mi
   const [accounts, setAccounts] = useState({ twitch: '', kick: '' }); // giriş yapılmış hesap adları
+  const [viewers, setViewers] = useState({ twitch: undefined, kick: undefined }); // yayın izleyici sayısı (null = kapalı)
   useEffect(() => {
     loadAdmin().then(setAdmin);
   }, []);
@@ -258,8 +259,52 @@ function PenguChat() {
     return () => clearInterval(t);
   }, []);
 
+  // ---- Yayının izleyici sayısı (herkese açık) ----
+  const askViewers = (k) => {
+    if (!s[k]) return;
+    views.current[k]?.injectJavaScript(`window.__penguViewers && window.__penguViewers(${JSON.stringify(s[k])}); true;`);
+  };
+  const askViewersRef = useRef(askViewers);
+  askViewersRef.current = askViewers;
+  useEffect(() => {
+    const t = setInterval(() => KEYS.forEach((k) => askViewersRef.current(k)), 30 * 1000);
+    return () => clearInterval(t);
+  }, []);
+  useEffect(() => {
+    setViewers((v) => ({ ...v, twitch: undefined }));
+  }, [urls.twitch]);
+  useEffect(() => {
+    setViewers((v) => ({ ...v, kick: undefined }));
+  }, [urls.kick]);
+
+  // ---- Kullanım bilgisi (yalnızca yöneticinin istatistik ekranı için) ----
+  const pingRef = useRef(null);
+  pingRef.current = () =>
+    sendPing({
+      p_platform: `android ${Platform.Version}`.slice(0, 30),
+      p_version: APP_VERSION,
+      p_mod: modStatus.twitch === 'mod' || modStatus.kick === 'mod',
+      p_twitch: accounts.twitch,
+      p_kick: accounts.kick,
+    });
+  useEffect(() => {
+    const first = setTimeout(() => pingRef.current(), 15 * 1000);
+    const t = setInterval(() => pingRef.current(), 5 * 60 * 1000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(t);
+    };
+  }, []);
+
   const onWebMessage = (k, data) => {
     if (typeof data !== 'string') return;
+    if (data.startsWith('__PENGU_VIEW__')) {
+      try {
+        const { n } = JSON.parse(data.slice(14));
+        if (n !== -1) setViewers((v) => ({ ...v, [k]: n }));
+      } catch {}
+      return;
+    }
     if (data.startsWith('__PENGU_MOD__')) {
       try {
         const { status, me } = JSON.parse(data.slice(13));
@@ -313,6 +358,15 @@ function PenguChat() {
     const results = [];
     for (const k of list) {
       const r = await sendCommand(k, buildCommand(k, action, user, secs));
+      logModAction({
+        p_mod_twitch: accounts.twitch,
+        p_mod_kick: accounts.kick,
+        p_platform: k,
+        p_action: action,
+        p_target: user,
+        p_secs: action === 'timeout' ? secs : null,
+        p_ok: !!r.ok,
+      });
       results.push(`${PLATFORMS[k].label} ${r.ok ? '✓' : '✗ ' + r.err}`);
     }
     showHint(`${user} ${action === 'ban' ? 'ban' : 'timeout'}: ${results.join(' · ')}`, !results.some((x) => x.includes('✗')));
@@ -496,6 +550,7 @@ function PenguChat() {
               <Text style={[styles.tabText, s.tab === k && styles.tabTextActive]}>
                 {PLATFORMS[k].label}
                 {s[k] ? ` · ${s[k]}` : ''}
+                {viewerText(viewers[k])}
               </Text>
             </Pressable>
           ))}
@@ -514,7 +569,7 @@ function PenguChat() {
             ) : null,
             <View key={k} style={[styles.pane, !visible && styles.hidden]}>
               {!tabs && (
-                <PaneHeader k={k} channel={s[k]} onAction={paneAction} />
+                <PaneHeader k={k} channel={s[k]} viewers={viewers[k]} onAction={paneAction} />
               )}
               {tabs && <PaneToolbar k={k} onAction={paneAction} />}
               <View style={styles.paneBody}>
@@ -524,7 +579,10 @@ function PenguChat() {
                     url={urls[k]}
                     zoom={s.zoom[k]}
                     onMessage={(data) => onWebMessage(k, data)}
-                    onLoaded={() => setTimeout(() => checkModRef.current(k), 2500)}
+                    onLoaded={() => {
+                      setTimeout(() => checkModRef.current(k), 2500);
+                      setTimeout(() => askViewersRef.current(k), 3000);
+                    }}
                     onRef={(r) => {
                       views.current[k] = r;
                     }}
@@ -545,13 +603,19 @@ function PenguChat() {
   );
 }
 
-function PaneHeader({ k, channel, onAction }) {
+function viewerText(n) {
+  if (n === undefined) return '';
+  return n === null ? ' · kapalı' : ` · 👁 ${n.toLocaleString('tr-TR')}`;
+}
+
+function PaneHeader({ k, channel, viewers, onAction }) {
   return (
     <View style={[styles.paneHead, { borderBottomColor: PLATFORMS[k].color }]}>
       <View style={[styles.dot, { backgroundColor: PLATFORMS[k].color }]} />
       <Text style={styles.paneTitle}>{PLATFORMS[k].label}</Text>
       <Text style={styles.paneChan} numberOfLines={1}>
         {channel ? `· ${channel}` : ''}
+        {channel ? viewerText(viewers) : ''}
       </Text>
       <View style={{ flex: 1 }} />
       <PaneButtons k={k} onAction={onAction} />

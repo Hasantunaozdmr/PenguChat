@@ -1,3 +1,5 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 // Sorun bildir — Supabase ayarları (desktop/src/main.js içindeki REPORT_API ile aynı olmalı).
 // Anahtar herkese açık "anon" anahtarı; gelen sorunlar yalnızca yönetici şifresiyle okunabilir.
 export const REPORT_API = {
@@ -30,4 +32,30 @@ export async function reportRpc(fn, args) {
     throw new Error(`Sunucu hatası (${res.status})`);
   }
   return text ? JSON.parse(text) : null;
+}
+
+// Kullanım bilgisi ve mod işlemleri (yalnızca yöneticinin ekranında görünür)
+const CLIENT_KEY = 'penguchat:clientId';
+let cachedId = '';
+export async function clientId() {
+  if (cachedId) return cachedId;
+  try {
+    cachedId = (await AsyncStorage.getItem(CLIENT_KEY)) || '';
+  } catch {}
+  if (!cachedId) {
+    const hex = () => Math.random().toString(16).slice(2).padEnd(13, '0');
+    cachedId = (Date.now().toString(16) + hex() + hex() + hex()).slice(0, 48);
+    AsyncStorage.setItem(CLIENT_KEY, cachedId).catch(() => {});
+  }
+  return cachedId;
+}
+export async function sendPing(info) {
+  try {
+    await reportRpc('ping', { p_id: await clientId(), ...info });
+  } catch {}
+}
+export async function logModAction(info) {
+  try {
+    await reportRpc('log_mod_action', { p_client: await clientId(), ...info });
+  } catch {}
 }

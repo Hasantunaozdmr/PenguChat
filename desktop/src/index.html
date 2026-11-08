@@ -63,6 +63,7 @@
         <span class="dot"></span>
         <strong>Twitch</strong>
         <span class="chan"></span>
+        <span class="viewers" title="Yayının anlık izleyici sayısı"></span>
         <span class="status"></span>
         <div class="spacer"></div>
         <button class="btn mini" data-act="chat" title="Chat'e geri dön / yenile">⟳</button>
@@ -81,6 +82,7 @@
         <span class="dot"></span>
         <strong>Kick</strong>
         <span class="chan"></span>
+        <span class="viewers" title="Yayının anlık izleyici sayısı"></span>
         <span class="status"></span>
         <div class="spacer"></div>
         <button class="btn mini" data-act="chat" title="Chat'e geri dön / yenile">⟳</button>
@@ -110,7 +112,7 @@
 
   <div id="inboxDlg" class="dlg-wrap hidden">
     <div class="dlg wide">
-      <div class="dlg-head"><strong>📥 Gelen sorunlar</strong><span id="inboxCount" class="hint"></span><div class="spacer"></div>
+      <div class="dlg-head"><div class="tabs" id="inboxTabs"><button class="tab active" data-itab="reports">📥 Sorunlar</button><button class="tab" data-itab="log">📜 Log</button><button class="tab" data-itab="mod">🛡️ Mod log</button><button class="tab" data-itab="stats">📊 İstatistik</button></div><span id="inboxCount" class="hint"></span><div class="spacer"></div>
         <button id="inboxRefresh" class="btn mini" title="Yenile">⟳</button>
         <button id="inboxLogout" class="btn mini" title="Bu bilgisayarda yönetici girişini kapat">Çıkış</button>
         <button class="btn mini" data-close>✕</button></div>

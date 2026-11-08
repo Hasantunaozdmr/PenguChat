@@ -275,18 +275,20 @@ function ReportForm({ accounts, appVersion, onSent }) {
 }
 
 function Inbox({ admin, saveAdmin, onClose }) {
+  const [tab, setTab] = useState('reports'); // reports | log | mod | stats
   const [list, setList] = useState(null);
   const [error, setError] = useState(null);
   const [pw, setPw] = useState('');
   const [loginErr, setLoginErr] = useState(null);
 
-  const load = async (password = admin) => {
+  const load = async (password = admin, which = tab) => {
     setList(null);
     setError(null);
     try {
-      const data = (await reportRpc('get_reports', { p_password: password })) || [];
-      setList(data);
-      markSeen(data);
+      const fn = { reports: 'get_reports', log: 'get_log', mod: 'get_mod_log', stats: 'get_stats' }[which];
+      const data = await reportRpc(fn, { p_password: password });
+      setList(which === 'stats' ? data || {} : data || []);
+      if (which === 'reports') markSeen(data || []);
     } catch (e) {
       if (e.message === 'Şifre yanlış') {
         saveAdmin('');
@@ -347,22 +349,135 @@ function Inbox({ admin, saveAdmin, onClose }) {
 
   return (
     <>
-      <Head title={`📥 Gelen sorunlar${list?.length ? ` (${list.length})` : ''}`} onClose={onClose}>
+      <View style={s.head}>
+        {[
+          ['reports', '📥'],
+          ['log', '📜 Log'],
+          ['mod', '🛡️ Mod'],
+          ['stats', '📊'],
+        ].map(([k, label]) => (
+          <Pressable
+            key={k}
+            style={[s.tab, tab === k && s.tabOn]}
+            onPress={() => {
+              setTab(k);
+              load(admin, k);
+            }}
+          >
+            <Text style={[s.tabText, tab === k && { color: C.text }]}>{label}</Text>
+          </Pressable>
+        ))}
+        <View style={{ flex: 1 }} />
         <Pressable style={s.mini} onPress={() => load()} hitSlop={6}>
           <Text style={s.miniText}>⟳</Text>
         </Pressable>
         <Pressable style={s.mini} onPress={() => saveAdmin('')} hitSlop={6}>
           <Text style={s.miniText}>Çıkış</Text>
         </Pressable>
-      </Head>
+        <Pressable style={s.mini} onPress={onClose} hitSlop={8}>
+          <Text style={s.miniText}>✕</Text>
+        </Pressable>
+      </View>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ gap: 6 }}>
         {list === null && !error && <ActivityIndicator color={C.text} style={{ marginTop: 30 }} />}
-        {error && <Text style={s.empty}>Yüklenemedi: {error}</Text>}
-        {list?.length === 0 && <Text style={s.empty}>Henüz gelen sorun yok 🎉</Text>}
-        {list?.map((x) => (
-          <AdminItem key={x.id} x={x} admin={admin} onDelete={() => del(x.id)} onSaved={() => load()} />
-        ))}
+        {error && (
+          <Text style={s.empty}>
+            Yüklenemedi: {error}
+            {/\(404\)/.test(error) ? " — Supabase'e SQL çalıştırılmamış olabilir." : ''}
+          </Text>
+        )}
+        {tab === 'reports' && list?.length === 0 && <Text style={s.empty}>Henüz gelen sorun yok 🎉</Text>}
+        {tab === 'reports' &&
+          Array.isArray(list) &&
+          list.map((x) => <AdminItem key={x.id} x={x} admin={admin} onDelete={() => del(x.id)} onSaved={() => load()} />)}
+        {tab === 'log' && Array.isArray(list) && (list.length ? list.map((x) => <LogRow key={x.id} x={x} />) : <Text style={s.empty}>Henüz kayıt yok.</Text>)}
+        {tab === 'mod' && Array.isArray(list) && (list.length ? list.map((x) => <ModRow key={x.id} x={x} />) : <Text style={s.empty}>Henüz mod işlemi yok.</Text>)}
+        {tab === 'stats' && list && !Array.isArray(list) && <Stats d={list} />}
       </ScrollView>
+    </>
+  );
+}
+
+const LOG_KIND = { gonderildi: '📨 Gönderildi', onaylandi: '📋 Sıraya alındı', cozuldu: '✅ Çözüldü', reddedildi: '❌ Reddedildi', silindi: '🗑 Silindi' };
+function LogRow({ x }) {
+  return (
+    <View style={s.rep}>
+      <View style={s.repMeta}>
+        <Text style={s.repName}>{LOG_KIND[x.kind] || x.kind}</Text>
+        <Text style={s.repSmall}>{fmtDate(x.at)}</Text>
+      </View>
+      <Text style={s.repSmall}>{x.contact || 'İsimsiz'}</Text>
+      <Text style={s.repMsg}>{x.message}</Text>
+      {!!x.note && <Text style={s.repSmall}>Sebep: {x.note}</Text>}
+    </View>
+  );
+}
+function fmtDur(secs) {
+  if (!secs) return '';
+  if (secs % 86400 === 0) return secs / 86400 + ' gün';
+  if (secs % 3600 === 0) return secs / 3600 + ' saat';
+  if (secs % 60 === 0) return secs / 60 + ' dk';
+  return secs + ' sn';
+}
+function ModRow({ x }) {
+  const who = x.platform === 'twitch' ? x.mod_twitch : x.mod_kick;
+  return (
+    <View style={s.rep}>
+      <View style={s.repMeta}>
+        <Text style={s.repName}>
+          {x.action === 'ban' ? '⛔ Ban' : `⏱ Timeout ${fmtDur(x.secs)}`} · {x.target}
+        </Text>
+        <View style={{ flex: 1 }} />
+        <Text style={s.repSmall}>{fmtDate(x.at)}</Text>
+      </View>
+      <Text style={s.repSmall}>
+        {x.platform === 'twitch' ? 'Twitch' : 'Kick'} · mod: {who || x.mod_twitch || x.mod_kick || '?'}
+        {x.ok === false ? ' · ✗ gönderilemedi' : ''}
+      </Text>
+    </View>
+  );
+}
+function ago(iso) {
+  const m = Math.max(0, Math.round((Date.now() - new Date(iso)) / 60000));
+  if (m < 2) return 'şimdi';
+  if (m < 60) return m + ' dk önce';
+  if (m < 1440) return Math.round(m / 60) + ' sa önce';
+  return Math.round(m / 1440) + ' gün önce';
+}
+function Stats({ d }) {
+  const tile = (n, label) => (
+    <View style={[s.rep, { flexBasis: '31%', flexGrow: 1, alignItems: 'center' }]}>
+      <Text style={{ color: C.text, fontSize: 22, fontWeight: '700' }}>{Number(n) || 0}</Text>
+      <Text style={s.repSmall}>{label}</Text>
+    </View>
+  );
+  return (
+    <>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+        {tile(d.total, 'Toplam kullanıcı')}
+        {tile(d.online, 'Şu an açık')}
+        {tile(d.today, 'Son 24 saat')}
+        {tile(d.mods, 'Mod (7 gün)')}
+        {tile(d.bans, 'Ban')}
+        {tile(d.timeouts, 'Timeout')}
+      </View>
+      {(d.list || []).map((x, i) => {
+        const on = Date.now() - new Date(x.last_seen) < 10 * 60000;
+        return (
+          <View key={i} style={[s.rep, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}>
+            <Text style={{ color: on ? C.ok : C.muted }}>{on ? '●' : '○'}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={s.repName}>
+                {[x.twitch && 'Twitch: ' + x.twitch, x.kick && 'Kick: ' + x.kick].filter(Boolean).join(' · ') || 'Giriş yapılmamış'}
+                {x.is_mod ? ' 🛡️' : ''}
+              </Text>
+              <Text style={s.repSmall}>
+                {(x.platform || '').split(' ')[0]} · v{x.version || '?'} · {ago(x.last_seen)}
+              </Text>
+            </View>
+          </View>
+        );
+      })}
     </>
   );
 }
