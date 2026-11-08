@@ -303,23 +303,95 @@
     h.textContent = text || '';
     h.className = 'hint' + (cls ? ' ' + cls : '');
   }
+  // Bu cihazın gizli kimliği: kişi kendi gönderdiği sorunların durumunu görebilsin diye.
+  const TOKEN_KEY = 'penguchat:reporterToken';
+  function myToken(create) {
+    let t = '';
+    try { t = localStorage.getItem(TOKEN_KEY) || ''; } catch {}
+    if (!t && create) {
+      t = (crypto.randomUUID() + crypto.randomUUID()).replace(/-/g, '');
+      try { localStorage.setItem(TOKEN_KEY, t); } catch {}
+    }
+    return t;
+  }
+  const STATUS = {
+    bekliyor: '⏳ Bekliyor',
+    onaylandi: '👍 Onaylandı',
+    cozuldu: '✅ Çözüldü',
+    reddedildi: '❌ Reddedildi',
+  };
+  const stBadge = (st) => `<span class="st st-${esc(STATUS[st] ? st : 'bekliyor')}">${STATUS[st] || STATUS.bekliyor}</span>`;
+
+  // Cevap / durum değişikliği görüldü mü? (sorun no → son görülen güncelleme zamanı)
+  const MINE_SEEN_KEY = 'penguchat:mineSeen';
+  const getMineSeen = () => { try { return JSON.parse(localStorage.getItem(MINE_SEEN_KEY) || '{}'); } catch { return {}; } };
+  const isNews = (x, seen) => x.status !== 'bekliyor' && seen[x.id] !== x.updated_at;
+  function setMineDot(on) {
+    for (const id of ['#menuDot', '#reportDot', '#mineDot']) $(id).classList.toggle('hidden', !on);
+  }
+  async function checkMine() {
+    const t = myToken(false);
+    if (!t) return;
+    const r = await window.dualChat.myReports(t);
+    if (!r.ok) return;
+    const seen = getMineSeen();
+    setMineDot((r.data || []).some((x) => isNews(x, seen)));
+  }
+  setInterval(checkMine, 5 * 60 * 1000);
+  setTimeout(checkMine, 4000);
+
+  function showTab(tab) {
+    reportDlg.querySelectorAll('.tab').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
+    $('#tabNew').classList.toggle('hidden', tab !== 'new');
+    $('#tabMine').classList.toggle('hidden', tab !== 'mine');
+    if (tab === 'mine') loadMine();
+    else $('#reportText').focus();
+  }
+  reportDlg.querySelector('.tabs').addEventListener('click', (e) => {
+    const tab = e.target.closest('.tab')?.dataset.tab;
+    if (tab) showTab(tab);
+  });
+  async function loadMine() {
+    const box = $('#tabMine');
+    const t = myToken(false);
+    if (!t) { box.innerHTML = '<div class="empty">Bu cihazdan henüz sorun bildirmedin.</div>'; return; }
+    box.innerHTML = '<div class="empty">Yükleniyor…</div>';
+    const r = await window.dualChat.myReports(t);
+    if (!r.ok) { box.innerHTML = `<div class="empty">Yüklenemedi: ${esc(r.error)}</div>`; return; }
+    const list = r.data || [];
+    const seen = getMineSeen();
+    box.innerHTML = list.length
+      ? list.map((x) => `<div class="rep">
+          <div class="rep-meta">${stBadge(x.status)}<span>${esc(fmtDate(x.created_at))}</span>${isNews(x, seen) ? '<span class="dot-new"></span>' : ''}</div>
+          <div class="rep-msg">${esc(x.message)}</div>
+          ${x.admin_note ? `<div class="rep-note"><b>${x.status === 'reddedildi' ? 'Red sebebi' : 'Cevap'}:</b>${esc(x.admin_note)}</div>` : ''}
+        </div>`).join('')
+      : '<div class="empty">Bu cihazdan henüz sorun bildirmedin.</div>';
+    // Görüldü olarak işaretle
+    const next = {};
+    for (const x of list) next[x.id] = x.updated_at;
+    try { localStorage.setItem(MINE_SEEN_KEY, JSON.stringify(next)); } catch {}
+    setMineDot(false);
+  }
+
   function openReport() {
     reportHint('');
     $('#reportSend').disabled = false;
     reportDlg.classList.remove('hidden');
-    $('#reportText').focus();
+    // Cevap geldiyse doğrudan "Bildirdiklerim"i aç
+    showTab($('#reportDot').classList.contains('hidden') ? 'new' : 'mine');
   }
   $('#reportSend').addEventListener('click', async () => {
     const message = $('#reportText').value.trim();
     if (!message) { reportHint('Önce sorunu yaz.', 'err'); return; }
     $('#reportSend').disabled = true;
     reportHint('Gönderiliyor…');
-    const r = await window.dualChat.sendReport({ message, contact: $('#reportContact').value.trim() });
+    const r = await window.dualChat.sendReport({ message, contact: $('#reportContact').value.trim(), token: myToken(true) });
     $('#reportSend').disabled = false;
     if (!r.ok) { reportHint('Gönderilemedi: ' + r.error, 'err'); return; }
     $('#reportText').value = '';
-    reportHint('Teşekkürler, gönderildi! 🐧', 'ok');
-    setTimeout(() => reportDlg.classList.add('hidden'), 1500);
+    reportHint('Teşekkürler, gönderildi! Durumunu "Bildirdiklerim"den takip edebilirsin 🐧', 'ok');
+    setTimeout(() => showTab('mine'), 1800);
   });
 
   // Gizli giriş: 🐧 logosuna 3 saniye içinde 5 kez tıkla.
@@ -374,19 +446,57 @@
     markSeen(list);
     $('#inboxCount').textContent = list.length ? `${list.length} sorun` : '';
     if (!list.length) { inboxList.innerHTML = '<div class="empty">Henüz gelen sorun yok 🎉</div>'; return; }
-    inboxList.innerHTML = list.map((x) => `<div class="rep">
-        <div class="rep-meta"><b>${esc(x.contact || 'İsimsiz')}</b><span>${esc(fmtDate(x.created_at))}</span>
+    inboxList.innerHTML = list.map((x) => `<div class="rep" data-id="${Number(x.id)}">
+        <div class="rep-meta">${stBadge(x.status)}<b>${esc(x.contact || 'İsimsiz')}</b><span>${esc(fmtDate(x.created_at))}</span>
           <span>${esc(x.platform || '')} · v${esc(x.app_version || '?')}</span><div class="spacer"></div>
           <button class="btn mini" data-del="${Number(x.id)}" title="Sil">🗑</button></div>
         <div class="rep-msg">${esc(x.message)}</div>
+        ${x.admin_note ? `<div class="rep-note"><b>Senin notun:</b>${esc(x.admin_note)}</div>` : ''}
+        <div class="rep-acts">
+          ${['onaylandi', 'cozuldu', 'reddedildi'].map((st) => `<button class="btn mini ${x.status === st ? 'on' : ''}" data-st="${st}">${STATUS[st]}</button>`).join('')}
+          <button class="btn mini" data-st="${esc(x.status || 'bekliyor')}" data-noteonly="1">💬 Not / cevap</button>
+        </div>
+        <div class="rep-edit hidden">
+          <textarea maxlength="1000" placeholder="">${esc(x.admin_note || '')}</textarea>
+          <div class="row"><span class="hint"></span><div class="spacer"></div><button class="btn mini" data-cancel>Vazgeç</button><button class="btn mini primary" data-save>Kaydet</button></div>
+        </div>
       </div>`).join('');
   }
   inboxList.addEventListener('click', async (e) => {
-    const id = e.target.closest('[data-del]')?.dataset.del;
-    if (!id || !confirm('Bu sorun silinsin mi?')) return;
-    const r = await window.dualChat.deleteReport(getAdmin(), id);
-    if (!r.ok) { alert('Silinemedi: ' + r.error); return; }
-    loadInbox();
+    const card = e.target.closest('.rep');
+    const delId = e.target.closest('[data-del]')?.dataset.del;
+    if (delId) {
+      if (!confirm('Bu sorun silinsin mi?')) return;
+      const r = await window.dualChat.deleteReport(getAdmin(), delId);
+      if (!r.ok) { alert('Silinemedi: ' + r.error); return; }
+      return loadInbox();
+    }
+    if (!card) return;
+    const edit = card.querySelector('.rep-edit');
+    const stBtn = e.target.closest('[data-st]');
+    if (stBtn) {
+      // Durum seçildi: not kutusunu aç (reddederken sebep zorunlu)
+      edit.dataset.newst = stBtn.dataset.st;
+      edit.classList.remove('hidden');
+      const ta = edit.querySelector('textarea');
+      ta.placeholder = stBtn.dataset.st === 'reddedildi'
+        ? 'Red sebebi (zorunlu) — örn: Bu sorun uygulamayla değil, internetinle ilgili.'
+        : 'İsteğe bağlı not / cevap — gönderen kişi bunu görecek.';
+      edit.querySelector('.hint').textContent = `Yeni durum: ${STATUS[stBtn.dataset.st] || STATUS.bekliyor}`;
+      edit.querySelector('.hint').className = 'hint';
+      ta.focus();
+      return;
+    }
+    if (e.target.closest('[data-cancel]')) { edit.classList.add('hidden'); return; }
+    if (e.target.closest('[data-save]')) {
+      const note = edit.querySelector('textarea').value.trim();
+      const hint = edit.querySelector('.hint');
+      if (edit.dataset.newst === 'reddedildi' && !note) { hint.textContent = 'Red sebebini yaz.'; hint.className = 'hint err'; return; }
+      hint.textContent = 'Kaydediliyor…';
+      const r = await window.dualChat.setReportStatus(getAdmin(), card.dataset.id, edit.dataset.newst, note);
+      if (!r.ok) { hint.textContent = 'Kaydedilemedi: ' + r.error; hint.className = 'hint err'; return; }
+      loadInbox();
+    }
   });
   $('#inboxRefresh').addEventListener('click', loadInbox);
   $('#inboxLogout').addEventListener('click', () => { setAdmin(''); showLogin(); });

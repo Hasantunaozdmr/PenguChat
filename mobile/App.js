@@ -18,7 +18,7 @@ import * as Clipboard from 'expo-clipboard';
 import Constants from 'expo-constants';
 import { PLATFORMS, cleanChannel, hasLink, isInternalUrl, parseTargets } from './src/links';
 import { FIT_POPUPS_JS, PICK_USER_JS } from './src/injected';
-import ReportModal, { countNew, loadAdmin, storeAdmin } from './src/ReportModal';
+import ReportModal, { countNew, hasMineNews, loadAdmin, storeAdmin } from './src/ReportModal';
 import { OWNER_ACCOUNTS } from './src/report';
 
 const STORE_KEY = 'dualchat:settings';
@@ -104,6 +104,16 @@ function PenguChat() {
   const [reportMode, setReportMode] = useState(null); // null | 'report' | 'inbox'
   const [admin, setAdmin] = useState(''); // yönetici şifresi (yalnızca senin cihazında dolu)
   const [newReports, setNewReports] = useState(0);
+  const [mineNews, setMineNews] = useState(false); // gönderdiğim soruna cevap geldi mi
+  useEffect(() => {
+    const check = () => hasMineNews().then(setMineNews);
+    const first = setTimeout(check, 4000);
+    const t = setInterval(check, 5 * 60 * 1000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(t);
+    };
+  }, []);
   const [ownerOn, setOwnerOn] = useState({ twitch: false, kick: false }); // sahibin hesabıyla girilmiş mi
   useEffect(() => {
     loadAdmin().then(setAdmin);
@@ -382,6 +392,7 @@ function PenguChat() {
           accessibilityLabel="Sorun bildir"
         >
           <Text style={styles.iconText}>🐞</Text>
+          {mineNews && <View style={[styles.badge, { minWidth: 12, height: 12, top: -3, right: -3 }]} />}
         </Pressable>
         <Pressable
           style={styles.iconBtn}
@@ -391,7 +402,7 @@ function PenguChat() {
           <Text style={styles.iconText}>{tabs ? '▤' : '⇆'}</Text>
         </Pressable>
       </View>
-      {reportMode && <ReportModal mode={reportMode} onClose={() => setReportMode(null)} appVersion={APP_VERSION} admin={admin} onAdminChange={changeAdmin} />}
+      {reportMode && <ReportModal mode={reportMode} onClose={() => setReportMode(null)} appVersion={APP_VERSION} admin={admin} onAdminChange={changeAdmin} startTab={mineNews ? 'mine' : 'new'} onMineSeen={() => setMineNews(false)} />}
       {newVersion && (
         <Pressable style={styles.updateBar} onPress={() => Linking.openURL(`${RELEASE_BASE}/PenguChat.apk`)}>
           <Text style={styles.updateText}>⬆ Yeni sürüm var (v{newVersion}) · Güncellemek için dokun</Text>

@@ -307,3 +307,25 @@ kbd { color: var(--muted); font: inherit; font-size: 11px; }
   line-height: 16px;
   text-align: center;
 }
+
+/* ---------- Sorun durumları ---------- */
+#menuBtn { position: relative; }
+.dot-new { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #e0463d; margin-left: 6px; vertical-align: middle; }
+#menuBtn .dot-new { position: absolute; top: -3px; right: -3px; margin: 0; }
+.tabs { display: flex; gap: 4px; }
+.tab { background: transparent; border: 1px solid transparent; color: var(--muted); font: inherit; font-weight: 600; padding: 5px 10px; border-radius: 6px; cursor: pointer; }
+.tab.active { background: var(--input); border-color: var(--border); color: var(--text); }
+.tab-body { display: flex; flex-direction: column; gap: 8px; }
+.inbox.mine { max-height: 360px; min-height: 120px; }
+.st { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; color: #fff; }
+.st-bekliyor { background: #6b7280; }
+.st-onaylandi { background: #2563eb; }
+.st-cozuldu { background: #1f8f3a; }
+.st-reddedildi { background: #b3261e; }
+.rep-note { margin-top: 6px; padding: 6px 8px; border-left: 3px solid var(--border); background: rgba(0,0,0,.15); border-radius: 0 5px 5px 0; white-space: pre-wrap; word-break: break-word; }
+.rep-note b { color: var(--muted); font-size: 11px; display: block; }
+.rep-acts { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.rep-acts .btn.on { background: var(--border); }
+.rep-edit { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.rep-edit textarea { height: 60px; resize: vertical; }
+.rep-edit .row { display: flex; align-items: center; gap: 6px; }

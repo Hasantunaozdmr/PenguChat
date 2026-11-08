@@ -350,13 +350,24 @@ function reportHandler(fn) {
   };
 }
 
-ipcMain.handle('report-send', reportHandler((_e, { message, contact }) =>
-  reportRpc('submit_report', {
+ipcMain.handle('report-send', reportHandler(async (_e, { message, contact, token }) => {
+  const args = {
     p_message: String(message || '').slice(0, 2000),
     p_contact: String(contact || '').slice(0, 100),
     p_version: app.getVersion(),
     p_platform: `windows ${process.getSystemVersion ? process.getSystemVersion() : ''}`.trim().slice(0, 30),
-  })));
+  };
+  try {
+    return await reportRpc('submit_report', { ...args, p_token: String(token || '') });
+  } catch (e) {
+    // Sunucu eski kurulumdaysa (durum takibi yok) tokensız gönder
+    if (/\(404\)/.test(String(e.message))) return reportRpc('submit_report', args);
+    throw e;
+  }
+}));
+ipcMain.handle('report-mine', reportHandler((_e, token) => reportRpc('my_reports', { p_token: String(token || '') })));
+ipcMain.handle('report-set-status', reportHandler((_e, { password, id, status, note }) =>
+  reportRpc('set_report_status', { p_password: String(password || ''), p_id: Number(id), p_status: String(status), p_note: String(note || '').slice(0, 1000) })));
 ipcMain.handle('report-is-admin', reportHandler((_e, password) => reportRpc('is_admin', { p_password: String(password || '') })));
 ipcMain.handle('report-list', reportHandler((_e, password) => reportRpc('get_reports', { p_password: String(password || '') })));
 ipcMain.handle('report-delete', reportHandler((_e, { password, id }) =>

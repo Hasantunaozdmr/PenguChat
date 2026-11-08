@@ -32,13 +32,13 @@
       <button id="layoutBtn" class="btn icon" title="Yan yana / Alt alta">⇆</button>
       <button id="swapBtn" class="btn icon" title="Panellerin yerini değiştir">⇄</button>
       <input id="opacity" type="range" min="30" max="100" value="100" title="Pencere saydamlığı" />
-      <button id="menuBtn" class="btn icon" title="Diğer">⋯</button>
+      <button id="menuBtn" class="btn icon" title="Diğer">⋯<span id="menuDot" class="dot-new hidden"></span></button>
     </div>
 
     <div id="menu" class="menu hidden">
       <button data-action="reload-all">Her iki chat'i yenile <kbd>F5</kbd></button>
       <button data-action="check-update">Güncellemeleri kontrol et <kbd id="versionLabel"></kbd></button>
-      <button data-action="report">🐞 Sorun bildir</button>
+      <button data-action="report">🐞 Sorun bildir<span id="reportDot" class="dot-new hidden"></span></button>
       <button data-action="logout">Tüm hesaplardan çıkış yap</button>
     </div>
   </header>
@@ -96,11 +96,16 @@
 
   <div id="reportDlg" class="dlg-wrap hidden">
     <div class="dlg">
-      <div class="dlg-head"><strong>🐞 Sorun bildir</strong><div class="spacer"></div><button class="btn mini" data-close>✕</button></div>
-      <p class="dlg-note">Ne oldu? Ne yaparken oldu? Ne kadar ayrıntı yazarsan o kadar çabuk düzeltilir.</p>
-      <textarea id="reportText" maxlength="2000" placeholder="Örn: Kick chat'i açılmıyor, siyah ekran kalıyor…"></textarea>
-      <input id="reportContact" maxlength="100" placeholder="Adın / kullanıcı adın (isteğe bağlı)" spellcheck="false" />
-      <div class="dlg-foot"><span id="reportHint" class="hint"></span><div class="spacer"></div><button id="reportSend" class="btn primary">Gönder</button></div>
+      <div class="dlg-head">
+        <div class="tabs"><button class="tab active" data-tab="new">🐞 Sorun bildir</button><button class="tab" data-tab="mine">📋 Bildirdiklerim<span id="mineDot" class="dot-new hidden"></span></button></div>
+        <div class="spacer"></div><button class="btn mini" data-close>✕</button></div>
+      <div id="tabNew" class="tab-body">
+        <p class="dlg-note">Ne oldu? Ne yaparken oldu? Ne kadar ayrıntı yazarsan o kadar çabuk düzeltilir.</p>
+        <textarea id="reportText" maxlength="2000" placeholder="Örn: Kick chat'i açılmıyor, siyah ekran kalıyor…"></textarea>
+        <input id="reportContact" maxlength="100" placeholder="Adın / kullanıcı adın (isteğe bağlı)" spellcheck="false" />
+        <div class="dlg-foot"><span id="reportHint" class="hint"></span><div class="spacer"></div><button id="reportSend" class="btn primary">Gönder</button></div>
+      </div>
+      <div id="tabMine" class="tab-body inbox mine hidden"></div>
     </div>
   </div>
 
