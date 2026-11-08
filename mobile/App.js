@@ -115,6 +115,7 @@ function PenguChat() {
     };
   }, []);
   const [ownerOn, setOwnerOn] = useState({ twitch: false, kick: false }); // sahibin hesabıyla girilmiş mi
+  const [accounts, setAccounts] = useState({ twitch: '', kick: '' }); // giriş yapılmış hesap adları
   useEffect(() => {
     loadAdmin().then(setAdmin);
   }, []);
@@ -263,6 +264,8 @@ function PenguChat() {
         const { status, me } = JSON.parse(data.slice(13));
         const isOwner = OWNER_ACCOUNTS[k].includes(String(me || '').toLowerCase());
         setOwnerOn((o) => (o[k] === isOwner ? o : { ...o, [k]: isOwner }));
+        const name = String(me || '').slice(0, 40);
+        setAccounts((a) => (a[k] === name ? a : { ...a, [k]: name }));
         setModStatus((m) => ({ ...m, [k]: ['mod', 'viewer', 'unknown'].includes(status) ? status : 'unknown' }));
       } catch {}
     } else if (data.startsWith('__PENGU_PICK__')) {
@@ -386,7 +389,10 @@ function PenguChat() {
         )}
         <Pressable
           style={styles.iconBtn}
-          onPress={() => setReportMode('report')}
+          onPress={() => {
+            KEYS.forEach((k) => checkModRef.current(k)); // hesap adlarını tazele
+            setReportMode('report');
+          }}
           onLongPress={() => setReportMode('inbox')}
           delayLongPress={1500}
           accessibilityLabel="Sorun bildir"
@@ -402,7 +408,7 @@ function PenguChat() {
           <Text style={styles.iconText}>{tabs ? '▤' : '⇆'}</Text>
         </Pressable>
       </View>
-      {reportMode && <ReportModal mode={reportMode} onClose={() => setReportMode(null)} appVersion={APP_VERSION} admin={admin} onAdminChange={changeAdmin} startTab={mineNews ? 'mine' : 'new'} onMineSeen={() => setMineNews(false)} />}
+      {reportMode && <ReportModal accounts={accounts} mode={reportMode} onClose={() => setReportMode(null)} appVersion={APP_VERSION} admin={admin} onAdminChange={changeAdmin} startTab={mineNews ? 'mine' : 'new'} onMineSeen={() => setMineNews(false)} />}
       {newVersion && (
         <Pressable style={styles.updateBar} onPress={() => Linking.openURL(`${RELEASE_BASE}/PenguChat.apk`)}>
           <Text style={styles.updateText}>⬆ Yeni sürüm var (v{newVersion}) · Güncellemek için dokun</Text>

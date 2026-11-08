@@ -110,12 +110,12 @@ function Status({ st }) {
 }
 
 // mode: 'report' (herkes) | 'inbox' (yalnızca yönetici)
-export default function ReportModal({ mode, onClose, appVersion, admin, onAdminChange, startTab, onMineSeen }) {
+export default function ReportModal({ accounts, mode, onClose, appVersion, admin, onAdminChange, startTab, onMineSeen }) {
   return (
     <Modal visible={!!mode} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={s.wrap} onPress={onClose}>
         <Pressable style={[s.dlg, (mode === 'inbox' || mode === 'report') && s.tall]} onPress={() => {}}>
-          {mode === 'report' && <ReportTabs onClose={onClose} appVersion={appVersion} startTab={startTab} onMineSeen={onMineSeen} />}
+          {mode === 'report' && <ReportTabs accounts={accounts} onClose={onClose} appVersion={appVersion} startTab={startTab} onMineSeen={onMineSeen} />}
           {mode === 'inbox' && <Inbox admin={admin} saveAdmin={onAdminChange} onClose={onClose} />}
         </Pressable>
       </Pressable>
@@ -136,7 +136,7 @@ function Head({ title, onClose, children }) {
   );
 }
 
-function ReportTabs({ onClose, appVersion, startTab, onMineSeen }) {
+function ReportTabs({ accounts, onClose, appVersion, startTab, onMineSeen }) {
   const [tab, setTab] = useState(startTab || 'new');
   const T = (k, label) => (
     <Pressable style={[s.tab, tab === k && s.tabOn]} onPress={() => setTab(k)}>
@@ -154,7 +154,7 @@ function ReportTabs({ onClose, appVersion, startTab, onMineSeen }) {
         </Pressable>
       </View>
       {tab === 'new' ? (
-        <ReportForm appVersion={appVersion} onSent={() => setTimeout(() => setTab('mine'), 1500)} />
+        <ReportForm accounts={accounts} appVersion={appVersion} onSent={() => setTimeout(() => setTab('mine'), 1500)} />
       ) : (
         <Mine onMineSeen={onMineSeen} />
       )}
@@ -213,14 +213,15 @@ function Mine({ onMineSeen }) {
   );
 }
 
-function ReportForm({ appVersion, onSent }) {
+function ReportForm({ accounts, appVersion, onSent }) {
   const [message, setMessage] = useState('');
-  const [contact, setContact] = useState('');
+  // Kullanıcı adı elle yazılmaz: giriş yapılan Twitch / Kick hesabından gelir (trollemeyi önler)
+  const contact = [accounts?.twitch && 'Twitch: ' + accounts.twitch, accounts?.kick && 'Kick: ' + accounts.kick].filter(Boolean).join(' · ');
   const [hint, setHint] = useState(null);
   const [busy, setBusy] = useState(false);
   const send = async () => {
     if (!message.trim()) return setHint({ text: 'Önce sorunu yaz.', err: true });
-    if (!contact.trim()) return setHint({ text: 'Kullanıcı adını yaz.', err: true });
+    if (!contact) return setHint({ text: "Sorun bildirmek için chat'ten Twitch ya da Kick'e giriş yap.", err: true });
     setBusy(true);
     setHint({ text: 'Gönderiliyor…' });
     try {
@@ -258,16 +259,9 @@ function ReportForm({ appVersion, onSent }) {
         maxLength={2000}
         textAlignVertical="top"
       />
-      <TextInput
-        style={s.input}
-        value={contact}
-        onChangeText={setContact}
-        placeholder="Kullanıcı adın (zorunlu)"
-        placeholderTextColor="#a9e3de"
-        maxLength={100}
-        autoCapitalize="none"
-        autoCorrect={false}
-      />
+      <View style={[s.input, { opacity: 0.85 }]}>
+        <Text style={{ color: contact ? C.text : C.err, fontSize: 14 }}>{contact || 'Giriş yapılmamış'}</Text>
+      </View>
       <View style={s.head}>
         <Text style={[s.hint, hint?.ok && { color: C.ok }, hint?.err && { color: C.err }]} numberOfLines={2}>
           {hint?.text || ''}

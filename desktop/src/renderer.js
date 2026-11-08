@@ -260,6 +260,8 @@
   // 📥 tuşu: yönetici şifresi bu cihazda kayıtlıysa ya da sahibin Twitch/Kick hesabıyla girildiyse görünür.
   const OWNER_ACCOUNTS = { twitch: ['h1raeth0_'], kick: ['h1raeth0'] }; // küçük harfle
   const ownerOn = { twitch: false, kick: false };
+  // Giriş yapılmış Twitch / Kick hesap adları (sorun bildirirken kullanıcı adı buradan gelir)
+  const accounts = { twitch: '', kick: '' };
   function refreshInboxBtn() {
     $('#inboxBtn').classList.toggle('hidden', !(getAdmin() || ownerOn.twitch || ownerOn.kick));
   }
@@ -391,17 +393,27 @@
   // Pencerelerdeki bir kutuya tıklanınca da odağı garantile
   for (const d of [reportDlg, inboxDlg]) {
     d.addEventListener('mousedown', (e) => {
-      const f = e.target.closest('textarea, input');
+      const f = e.target.closest('textarea, input:not([readonly])');
       if (f) focusField(f);
     });
   }
   $('#reportBtn').addEventListener('click', () => openReport());
+  // Kullanıcı adı elle yazılmaz: giriş yapılan Twitch / Kick hesabından gelir (trollemeyi önler)
+  function accountText() {
+    return [accounts.twitch && 'Twitch: ' + accounts.twitch, accounts.kick && 'Kick: ' + accounts.kick].filter(Boolean).join(' · ');
+  }
+  function fillAccounts() {
+    const t = accountText();
+    $('#reportContact').value = t || 'Giriş yapılmamış';
+    $('#reportContact').classList.toggle('bad', !t);
+  }
   function openReport() {
     // Her açılışta boş başlasın
     $('#reportText').value = '';
-    $('#reportContact').value = '';
     reportHint('');
     $('#reportSend').disabled = false;
+    fillAccounts();
+    ['twitch', 'kick'].forEach(checkMod); // hesap adlarını tazele
     reportDlg.classList.remove('hidden');
     // Cevap geldiyse doğrudan "Bildirdiklerim"i aç
     showTab($('#reportDot').classList.contains('hidden') ? 'new' : 'mine');
@@ -409,14 +421,14 @@
   $('#reportSend').addEventListener('click', async () => {
     const message = $('#reportText').value.trim();
     if (!message) { reportHint('Önce sorunu yaz.', 'err'); return; }
-    if (!$('#reportContact').value.trim()) { reportHint('Kullanıcı adını yaz.', 'err'); $('#reportContact').focus(); return; }
+    const contact = accountText();
+    if (!contact) { reportHint('Sorun bildirmek için chat\'ten Twitch ya da Kick\'e giriş yap.', 'err'); return; }
     $('#reportSend').disabled = true;
     reportHint('Gönderiliyor…');
-    const r = await window.dualChat.sendReport({ message, contact: $('#reportContact').value.trim(), token: myToken(true) });
+    const r = await window.dualChat.sendReport({ message, contact, token: myToken(true) });
     $('#reportSend').disabled = false;
     if (!r.ok) { reportHint('Gönderilemedi: ' + r.error, 'err'); return; }
     $('#reportText').value = '';
-    $('#reportContact').value = '';
     reportHint('Gönderildi! Durumunu "Bildirdiklerim"den takip edebilirsin 🐧', 'ok');
     focusField($('#reportText'));
   });
@@ -587,7 +599,9 @@
     applyModUi();
     const me = await wv.executeJavaScript('window.__penguMe || ""').catch(() => '');
     ownerOn[p] = OWNER_ACCOUNTS[p].includes(String(me).toLowerCase());
+    accounts[p] = String(me || '').slice(0, 40);
     refreshInboxBtn();
+    if (!reportDlg.classList.contains('hidden')) fillAccounts();
   }
   // Sonradan modluk verilirse / alınırsa en geç 1 dakikada fark et
   setInterval(() => ['twitch', 'kick'].forEach(checkMod), 60 * 1000);

@@ -331,3 +331,5 @@ kbd { color: var(--muted); font: inherit; font-size: 11px; }
 .rep-edit .row { display: flex; align-items: center; gap: 6px; }
 .dlg-foot .hint { flex: 1; min-width: 0; white-space: normal; }
 .dlg-foot .spacer { display: none; }
+#reportContact { opacity: .85; cursor: default; }
+#reportContact.bad { color: #ff6b6b; }
