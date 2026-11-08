@@ -92,11 +92,11 @@ const NEXT = {
 };
 
 // Yönetici düğmelerinin yazısı
-const ACTION = { onaylandi: '📋 Sıraya al', cozuldu: '✅ Çözüldü', reddedildi: '❌ Reddet' };
+const ACTION = { onaylandi: '➡️ Sıraya al', cozuldu: '✅ Çözüldü', reddedildi: '❌ Reddet' };
 
 export const STATUS = {
   bekliyor: { label: '📨 Gönderildi', color: '#6b7280' },
-  onaylandi: { label: '👍 Onaylandı', color: '#2563eb' },
+  onaylandi: { label: '📋 Sırada', color: '#2563eb' },
   cozuldu: { label: '✅ Çözüldü', color: '#1f8f3a' },
   reddedildi: { label: '❌ Reddedildi', color: '#b3261e' },
 };

@@ -316,7 +316,7 @@
   }
   const STATUS = {
     bekliyor: '📨 Gönderildi',
-    onaylandi: '👍 Onaylandı',
+    onaylandi: '📋 Sırada',
     cozuldu: '✅ Çözüldü',
     reddedildi: '❌ Reddedildi',
   };
@@ -328,7 +328,7 @@
     reddedildi: [],
   };
   // Yönetici düğmelerinin yazısı
-  const ACTION = { onaylandi: '📋 Sıraya al', cozuldu: '✅ Çözüldü', reddedildi: '❌ Reddet' };
+  const ACTION = { onaylandi: '➡️ Sıraya al', cozuldu: '✅ Çözüldü', reddedildi: '❌ Reddet' };
   const stBadge = (st) => `<span class="st st-${esc(STATUS[st] ? st : 'bekliyor')}">${STATUS[st] || STATUS.bekliyor}</span>`;
 
   // Cevap / durum değişikliği görüldü mü? (sorun no → son görülen güncelleme zamanı)
