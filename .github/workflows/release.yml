@@ -98,10 +98,10 @@ jobs:
         with:
           tag_name: v${{ env.VERSION }}
           target_commitish: ${{ github.sha }}
-          name: PenguChat ${{ env.VERSION }}
+          name: PengusChat ${{ env.VERSION }}
           make_latest: true
           body: |
-            ## 🐧 PenguChat: Twitch + Kick chat tek pencerede
+            ## 🐧 PengusChat: Twitch + Kick chat tek pencerede
 
             | | İndir |
             |---|---|

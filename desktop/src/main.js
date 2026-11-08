@@ -52,7 +52,7 @@ function createWindow() {
     minWidth: 480,
     minHeight: 360,
     backgroundColor: '#0a6b67',
-    title: 'PenguChat — Twitch + Kick',
+    title: 'PengusChat — Twitch + Kick',
     icon: path.join(__dirname, 'icon.png'),
     autoHideMenuBar: true,
     webPreferences: {

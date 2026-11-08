@@ -1,4 +1,4 @@
-# 🐧 PenguChat
+# 🐧 PengusChat
 
 Twitch ve Kick'te aynı anda yayın yapan kanallar için **iki chat'i tek pencerede** açan uygulama.
 Paneller platformların resmi chat sayfalarıdır: hesabınla giriş yaptığında her şey normal sitedeki gibi çalışır.

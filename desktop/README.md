@@ -1,4 +1,4 @@
-# 🐧 PenguChat — Twitch + Kick tek pencerede
+# 🐧 PengusChat — Twitch + Kick tek pencerede
 
 Aynı anda Twitch ve Kick'te yayın yapan bir kanalın iki chat'ini **tek pencerede, yan yana** açan küçük bir masaüstü uygulaması.
 Paneller platformların **resmi popout chat'leridir**. Hesabınla giriş yaptığında moderatör araçlarının hepsi (ban, timeout, mesaj silme, mod menüsü, /komutlar) normal şekilde çalışır.
