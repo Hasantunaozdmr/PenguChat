@@ -83,6 +83,14 @@ export async function hasMineNews() {
   }
 }
 
+// Durumlar sadece ileri gider: çözülen / reddedilen kilitlenir
+const NEXT = {
+  bekliyor: ['onaylandi', 'cozuldu', 'reddedildi'],
+  onaylandi: ['cozuldu', 'reddedildi'],
+  cozuldu: [],
+  reddedildi: [],
+};
+
 export const STATUS = {
   bekliyor: { label: '⏳ Bekliyor', color: '#6b7280' },
   onaylandi: { label: '👍 Onaylandı', color: '#2563eb' },
@@ -379,7 +387,7 @@ function AdminItem({ x, admin, onDelete, onSaved }) {
   const btn = (st, label) => (
     <Pressable
       key={label}
-      style={[s.mini, x.status === st && label !== '💬' && { backgroundColor: C.border }]}
+      style={s.mini}
       onPress={() => {
         setEdit(st);
         // Başka bir duruma geçerken eski not (ör. red sebebi) taşınmasın
@@ -413,9 +421,8 @@ function AdminItem({ x, admin, onDelete, onSaved }) {
         </View>
       )}
       <View style={[s.repMeta, { flexWrap: 'wrap', marginTop: 6 }]}>
-        {btn('onaylandi', 'a')}
-        {btn('cozuldu', 'b')}
-        {btn('reddedildi', 'c')}
+        {(NEXT[x.status] || NEXT.bekliyor).map((st) => btn(st, st))}
+        {!(NEXT[x.status] || NEXT.bekliyor).length && <Text style={s.repSmall}>🔒 Kesinleşti</Text>}
         {btn(STATUS[x.status] ? x.status : 'bekliyor', '💬')}
       </View>
       {edit && (

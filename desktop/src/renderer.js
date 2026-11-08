@@ -320,6 +320,13 @@
     cozuldu: '✅ Çözüldü',
     reddedildi: '❌ Reddedildi',
   };
+  // Durumlar sadece ileri gider: çözülen / reddedilen kilitlenir
+  const NEXT = {
+    bekliyor: ['onaylandi', 'cozuldu', 'reddedildi'],
+    onaylandi: ['cozuldu', 'reddedildi'],
+    cozuldu: [],
+    reddedildi: [],
+  };
   const stBadge = (st) => `<span class="st st-${esc(STATUS[st] ? st : 'bekliyor')}">${STATUS[st] || STATUS.bekliyor}</span>`;
 
   // Cevap / durum değişikliği görüldü mü? (sorun no → son görülen güncelleme zamanı)
@@ -453,7 +460,8 @@
         <div class="rep-msg">${esc(x.message)}</div>
         ${x.admin_note ? `<div class="rep-note"><b>Senin notun:</b>${esc(x.admin_note)}</div>` : ''}
         <div class="rep-acts">
-          ${['onaylandi', 'cozuldu', 'reddedildi'].map((st) => `<button class="btn mini ${x.status === st ? 'on' : ''}" data-st="${st}">${STATUS[st]}</button>`).join('')}
+          ${(NEXT[x.status] || NEXT.bekliyor).map((st) => `<button class="btn mini" data-st="${st}">${STATUS[st]}</button>`).join('')}
+          ${(NEXT[x.status] || NEXT.bekliyor).length ? '' : '<span class="hint">🔒 Kesinleşti</span>'}
           <button class="btn mini" data-st="${esc(x.status || 'bekliyor')}" data-noteonly="1">💬 Not / cevap</button>
         </div>
         <div class="rep-edit hidden">
@@ -474,6 +482,7 @@
     if (!card) return;
     const edit = card.querySelector('.rep-edit');
     const stBtn = e.target.closest('[data-st]');
+    if (stBtn && !stBtn.dataset.noteonly && !(NEXT[card.dataset.status] || NEXT.bekliyor).includes(stBtn.dataset.st)) return;
     if (stBtn) {
       // Durum seçildi: not kutusunu aç (reddederken sebep zorunlu)
       edit.dataset.newst = stBtn.dataset.st;
