@@ -155,6 +155,36 @@
     return status;
   };
 
+  // ---- Telefon: sadece okuma modu ----
+  // Mesaj yazma kutusunu ekrandan gizler (ekran dışına taşır). Kutu sayfada kaldığı için
+  // hızlı timeout / ban komutları çalışmaya devam eder. Giriş yapılmamışsa dokunmaz,
+  // böylece chat'teki "Giriş yap" düğmesi görünür kalır.
+  const loggedIn = () => !!(isTwitch ? cookie('auth-token') : cookie('session_token'));
+  function hideComposer() {
+    if (!loggedIn()) return;
+    const input = findInput();
+    if (!input) return;
+    // Mesaj kutusunu ve gönder düğmesini içeren alt şeridi bul
+    let box = input;
+    for (let el = input.parentElement, i = 0; el && el !== document.body && i < 8; el = el.parentElement, i++) {
+      const r = el.getBoundingClientRect();
+      if (r.height > 220) break;
+      box = el;
+    }
+    if (box.__penguHidden) return;
+    box.__penguHidden = true;
+    box.style.setProperty('position', 'fixed', 'important');
+    box.style.setProperty('left', '-10000px', 'important');
+    box.style.setProperty('top', '0', 'important');
+    box.style.setProperty('width', '600px', 'important');
+  }
+  window.__penguReadOnly = () => {
+    if (window.__penguReadOnlyOn) return;
+    window.__penguReadOnlyOn = true;
+    hideComposer();
+    setInterval(hideComposer, 2000); // sayfa yeniden çizerse tekrar gizle
+  };
+
   // ---- Yayının anlık izleyici sayısı (yayın kapalıysa null) ----
   window.__penguViewers = async (channel) => {
     let n = null;

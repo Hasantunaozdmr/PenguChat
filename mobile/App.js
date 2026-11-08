@@ -101,7 +101,8 @@ function PenguChat() {
 
   // ---- Güncelleme kontrolü (Android: yeni APK indirilir) ----
   const [newVersion, setNewVersion] = useState(null);
-  const [reportMode, setReportMode] = useState(null); // null | 'report' | 'inbox'
+  const [reportMode, setReportMode] = useState(null); // null | 'report' | 'inbox' | 'streamer'
+  const [menuOpen, setMenuOpen] = useState(false);
   const [admin, setAdmin] = useState(''); // yönetici şifresi (yalnızca senin cihazında dolu)
   const [newReports, setNewReports] = useState(0);
   const [mineNews, setMineNews] = useState(false); // gönderdiğim soruna cevap geldi mi
@@ -436,49 +437,66 @@ function PenguChat() {
             <Text style={styles.iconText}>👤</Text>
           </Pressable>
         )}
-        {(streamerOn.twitch || streamerOn.kick) && (
-          <Pressable style={styles.iconBtn} onPress={() => setReportMode('streamer')} accessibilityLabel="Mod log">
-            <Text style={styles.iconText}>🛡️</Text>
-          </Pressable>
-        )}
-        {(!!admin || ownerOn.twitch || ownerOn.kick) && (
-          <Pressable
-            style={styles.iconBtn}
-            onPress={() => {
-              setNewReports(0);
-              setReportMode('inbox');
-            }}
-            accessibilityLabel="Gelen sorunlar"
-          >
-            <Text style={styles.iconText}>📥</Text>
-            {newReports > 0 && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{newReports > 9 ? '9+' : newReports}</Text>
-              </View>
-            )}
-          </Pressable>
-        )}
         <Pressable
-          style={styles.iconBtn}
-          onPress={() => {
-            KEYS.forEach((k) => checkModRef.current(k)); // hesap adlarını tazele
-            setReportMode('report');
-          }}
-          onLongPress={() => setReportMode('inbox')}
-          delayLongPress={1500}
-          accessibilityLabel="Sorun bildir"
+          style={[styles.iconBtn, menuOpen && styles.iconBtnActive]}
+          onPress={() => setMenuOpen((o) => !o)}
+          accessibilityLabel="Menü"
         >
-          <Text style={styles.iconText}>🐞</Text>
-          {mineNews && <View style={[styles.badge, { minWidth: 12, height: 12, top: -3, right: -3 }]} />}
-        </Pressable>
-        <Pressable
-          style={styles.iconBtn}
-          onPress={() => update({ layout: tabs ? 'split' : 'tabs' })}
-          accessibilityLabel="Görünümü değiştir"
-        >
-          <Text style={styles.iconText}>{tabs ? '▤' : '⇆'}</Text>
+          <Text style={styles.iconText}>⋯</Text>
+          {(mineNews || newReports > 0) && <View style={[styles.badge, { minWidth: 12, height: 12, top: -3, right: -3 }]} />}
         </Pressable>
       </View>
+      {menuOpen && (
+        <Pressable style={styles.menuBackdrop} onPress={() => setMenuOpen(false)}>
+          <View style={styles.menu}>
+            <MenuItem
+              icon="🐞"
+              label="Sorun bildir"
+              dot={mineNews}
+              onPress={() => {
+                setMenuOpen(false);
+                KEYS.forEach((k) => checkModRef.current(k)); // hesap adlarını tazele
+                setReportMode('report');
+              }}
+              onLongPress={() => {
+                setMenuOpen(false);
+                setReportMode('inbox');
+              }}
+            />
+            {(!!admin || ownerOn.twitch || ownerOn.kick) && (
+              <MenuItem
+                icon="📥"
+                label="Gelen sorunlar"
+                count={newReports}
+                onPress={() => {
+                  setMenuOpen(false);
+                  setNewReports(0);
+                  setReportMode('inbox');
+                }}
+              />
+            )}
+            {(streamerOn.twitch || streamerOn.kick) && (
+              <MenuItem
+                icon="🛡️"
+                label="Mod log"
+                onPress={() => {
+                  setMenuOpen(false);
+                  setReportMode('streamer');
+                }}
+              />
+            )}
+            <MenuItem
+              icon={tabs ? '▤' : '⇆'}
+              label={tabs ? 'Alt alta görünüm' : 'Sekmeli görünüm'}
+              onPress={() => {
+                setMenuOpen(false);
+                update({ layout: tabs ? 'split' : 'tabs' });
+              }}
+            />
+            <Text style={styles.menuFoot}>PengusChat · Beta</Text>
+          </View>
+        </Pressable>
+      )}
       {reportMode && <ReportModal accounts={accounts} streamerOn={streamerOn} mode={reportMode} onClose={() => setReportMode(null)} appVersion={APP_VERSION} admin={admin} onAdminChange={changeAdmin} startTab={mineNews ? 'mine' : 'new'} onMineSeen={() => setMineNews(false)} />}
       {newVersion && (
         <Pressable style={styles.updateBar} onPress={() => Linking.openURL(`${RELEASE_BASE}/PenguChat.apk`)}>
@@ -588,6 +606,8 @@ function PenguChat() {
                     zoom={s.zoom[k]}
                     onMessage={(data) => onWebMessage(k, data)}
                     onLoaded={() => {
+                      // Telefonda chat sadece okunur: mesaj kutusu gizlenir (komutlar yine çalışır)
+                      views.current[k]?.injectJavaScript('window.__penguReadOnly && window.__penguReadOnly(); true;');
                       setTimeout(() => checkModRef.current(k), 2500);
                       setTimeout(() => askViewersRef.current(k), 3000);
                     }}
@@ -608,6 +628,21 @@ function PenguChat() {
         })}
       </View>
     </View>
+  );
+}
+
+function MenuItem({ icon, label, dot, count, onPress, onLongPress }) {
+  return (
+    <Pressable style={styles.menuItem} onPress={onPress} onLongPress={onLongPress} delayLongPress={1500} accessibilityLabel={label}>
+      <Text style={styles.menuIcon}>{icon}</Text>
+      <Text style={styles.menuLabel}>{label}</Text>
+      {count > 0 && (
+        <View style={[styles.badge, { position: 'relative', top: 0, right: 0 }]}>
+          <Text style={styles.badgeText}>{count > 9 ? '9+' : count}</Text>
+        </View>
+      )}
+      {!!dot && <View style={[styles.badge, { position: 'relative', top: 0, right: 0, minWidth: 10, height: 10 }]} />}
+    </Pressable>
   );
 }
 
@@ -771,6 +806,26 @@ const styles = StyleSheet.create({
   },
   iconText: { color: C.text, fontSize: 18 },
   iconBtnActive: { backgroundColor: C.border },
+  menuBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50 },
+  menu: {
+    position: 'absolute',
+    top: 52,
+    right: 8,
+    minWidth: 220,
+    backgroundColor: C.panel2,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 10,
+    paddingVertical: 4,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+  },
+  menuItem: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 12 },
+  menuIcon: { fontSize: 18, width: 24, textAlign: 'center', color: C.text },
+  menuLabel: { flex: 1, color: C.text, fontSize: 15 },
+  menuFoot: { color: C.muted, fontSize: 11, paddingHorizontal: 14, paddingTop: 6, paddingBottom: 8 },
   badge: {
     position: 'absolute',
     top: -5,
