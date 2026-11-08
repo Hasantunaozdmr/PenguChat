@@ -7,7 +7,7 @@
     layout: 'horizontal', // horizontal = yan yana, vertical = alt alta
     swapped: false,
     show: { twitch: true, kick: true },
-    timeoutSecs: 919824,
+    timeoutSecs: 0,
     modBarOpen: true,
     zoom: { twitch: 1, kick: 1 },
     pinned: false,
@@ -576,6 +576,7 @@
   const toSecs = $('#toSecs');
   const modHint = $('#modHint');
   const targets = { twitch: false, kick: false };
+  state.timeoutSecs = 0; // her açılışta 0'dan başlar (süreyi mod kendisi yazar)
   toSecs.value = state.timeoutSecs;
 
   // ---- İzleyici / mod modu ----
@@ -660,7 +661,7 @@
   });
   toSecs.addEventListener('change', () => {
     const v = Math.round(Number(toSecs.value));
-    state.timeoutSecs = v > 0 ? Math.min(1209600, v) : 919824;
+    state.timeoutSecs = v > 0 ? Math.min(1209600, v) : 0;
     toSecs.value = state.timeoutSecs;
     save();
   });
@@ -718,6 +719,7 @@
     const user = cleanChannel(modUser.value);
     const list = ['twitch', 'kick'].filter((p) => targets[p]);
     if (!user || !list.length) return;
+    if (action === 'timeout' && !(state.timeoutSecs > 0)) { modMsg('Önce süreyi yaz (saniye).', 'err'); toSecs.focus(); toSecs.select(); return; }
     const names = list.map((p) => (p === 'twitch' ? 'Twitch' : 'Kick')).join(' + ');
     if (action === 'ban' && !confirm(`${user} ${names}'te BANLANSIN mı?`)) return;
     const results = [];

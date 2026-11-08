@@ -49,7 +49,7 @@ const DEFAULTS = {
   layout: 'split', // split = iki chat aynı ekranda, tabs = sekmeli
   tab: 'twitch',
   zoom: { twitch: 1, kick: 1 },
-  timeoutSecs: 919824,
+  timeoutSecs: 0,
 };
 
 // Chat sayfalarının telefonda mobil siteye yönlenmemesi için masaüstü tarayıcı kimliği.
@@ -146,7 +146,8 @@ function PenguChat() {
     AsyncStorage.getItem(STORE_KEY)
       .then((raw) => {
         const saved = raw ? JSON.parse(raw) : {};
-        const next = { ...DEFAULTS, ...saved, zoom: { ...DEFAULTS.zoom, ...(saved.zoom || {}) } };
+        // Timeout süresi her açılışta 0'dan başlar (süreyi mod kendisi yazar)
+        const next = { ...DEFAULTS, ...saved, timeoutSecs: 0, zoom: { ...DEFAULTS.zoom, ...(saved.zoom || {}) } };
         setS(next);
         setUrls({
           twitch: next.twitch ? PLATFORMS.twitch.chatUrl(next.twitch) : null,
@@ -301,17 +302,17 @@ function PenguChat() {
       );
     });
 
-  const buildCommand = (k, action, user) => {
+  const buildCommand = (k, action, user, secs) => {
     if (action === 'ban') return `/ban ${user}`;
     // Twitch saniye, Kick dakika ister
-    if (k === 'twitch') return `/timeout ${user} ${s.timeoutSecs}`;
-    return `/timeout ${user} ${Math.max(1, Math.ceil(s.timeoutSecs / 60))}`;
+    if (k === 'twitch') return `/timeout ${user} ${secs}`;
+    return `/timeout ${user} ${Math.max(1, Math.ceil(secs / 60))}`;
   };
 
-  const runPunish = async (action, user, list) => {
+  const runPunish = async (action, user, list, secs) => {
     const results = [];
     for (const k of list) {
-      const r = await sendCommand(k, buildCommand(k, action, user));
+      const r = await sendCommand(k, buildCommand(k, action, user, secs));
       results.push(`${PLATFORMS[k].label} ${r.ok ? '✓' : '✗ ' + r.err}`);
     }
     showHint(`${user} ${action === 'ban' ? 'ban' : 'timeout'}: ${results.join(' · ')}`, !results.some((x) => x.includes('✗')));
@@ -328,7 +329,15 @@ function PenguChat() {
         { text: 'Banla', style: 'destructive', onPress: () => runPunish('ban', user, list) },
       ]);
     } else {
-      runPunish('timeout', user, list);
+      // Kutuya yazılıp henüz onaylanmamış süreyi de kullan
+      const typed = secsText != null ? Math.round(Number(secsText)) : s.timeoutSecs;
+      const secs = typed > 0 ? Math.min(1209600, typed) : 0;
+      if (secsText != null) {
+        update({ timeoutSecs: secs });
+        setSecsText(null);
+      }
+      if (!secs) return showHint('Önce süreyi yaz (saniye).', false);
+      runPunish('timeout', user, list, secs);
     }
   };
 
@@ -456,7 +465,7 @@ function PenguChat() {
               onChangeText={setSecsText}
               onEndEditing={() => {
                 const v = Math.round(Number(secsText));
-                if (secsText != null) update({ timeoutSecs: v > 0 ? Math.min(1209600, v) : 919824 });
+                if (secsText != null) update({ timeoutSecs: v > 0 ? Math.min(1209600, v) : 0 });
                 setSecsText(null);
               }}
               keyboardType="number-pad"
