@@ -423,8 +423,8 @@ function PenguChat() {
             keyboardType="url"
             returnKeyType="go"
           />
-          <Pressable style={styles.pasteBtn} onPress={pasteFromClipboard}>
-            <Text style={styles.pasteText}>Yapıştır</Text>
+          <Pressable style={styles.pasteBtn} onPress={pasteFromClipboard} accessibilityLabel="Yapıştır">
+            <Text style={styles.pasteText}>📋</Text>
           </Pressable>
         </View>
         {anyModAccess && (
@@ -750,14 +750,15 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     overflow: 'hidden',
   },
-  linkInput: { flex: 1, color: C.text, fontSize: 14, paddingVertical: 0 },
+  linkInput: { flex: 1, minWidth: 0, color: C.text, fontSize: 14, paddingVertical: 0 },
   pasteBtn: {
+    flexShrink: 0,
     height: '100%',
     paddingHorizontal: 12,
     justifyContent: 'center',
     backgroundColor: PLATFORMS.twitch.color,
   },
-  pasteText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  pasteText: { color: '#fff', fontWeight: '700', fontSize: 17 },
   iconBtn: {
     width: 38,
     height: 38,
