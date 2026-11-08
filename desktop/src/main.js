@@ -122,6 +122,12 @@ ipcMain.handle('open-external', (_e, url) => {
   if (typeof url === 'string' && /^https:\/\//.test(url)) shell.openExternal(url);
 });
 
+// Pencere içi kutulara (sorun bildir vb.) klavye odağını geri ver: Windows'ta bir chat paneli
+// odaktayken açılan kutulara yazılamayabiliyor.
+ipcMain.handle('focus-host', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.focus();
+});
+
 ipcMain.handle('logout-all', async () => {
   await session.fromPartition(PARTITION).clearStorageData();
 });

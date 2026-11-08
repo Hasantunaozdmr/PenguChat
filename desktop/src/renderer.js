@@ -353,7 +353,7 @@
     $('#tabNew').classList.toggle('hidden', tab !== 'new');
     $('#tabMine').classList.toggle('hidden', tab !== 'mine');
     if (tab === 'mine') loadMine();
-    else $('#reportText').focus();
+    else focusField($('#reportText'));
   }
   reportDlg.querySelector('.tabs').addEventListener('click', (e) => {
     const tab = e.target.closest('.tab')?.dataset.tab;
@@ -382,6 +382,19 @@
     setMineDot(false);
   }
 
+  // Klavyeyi chat panelinden geri alıp kutuya ver
+  async function focusField(el) {
+    if (document.activeElement && document.activeElement.tagName === 'WEBVIEW') document.activeElement.blur();
+    await window.dualChat.focusHost();
+    el.focus();
+  }
+  // Pencerelerdeki bir kutuya tıklanınca da odağı garantile
+  for (const d of [reportDlg, inboxDlg]) {
+    d.addEventListener('mousedown', (e) => {
+      const f = e.target.closest('textarea, input');
+      if (f) focusField(f);
+    });
+  }
   $('#reportBtn').addEventListener('click', () => openReport());
   function openReport() {
     // Her açılışta boş başlasın
@@ -403,8 +416,9 @@
     $('#reportSend').disabled = false;
     if (!r.ok) { reportHint('Gönderilemedi: ' + r.error, 'err'); return; }
     $('#reportText').value = '';
+    $('#reportContact').value = '';
     reportHint('Gönderildi! Durumunu "Bildirdiklerim"den takip edebilirsin 🐧', 'ok');
-    setTimeout(() => showTab('mine'), 1800);
+    focusField($('#reportText'));
   });
 
   // Gizli giriş: 🐧 logosuna 3 saniye içinde 5 kez tıkla.
