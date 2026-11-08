@@ -1,8 +1,8 @@
 // Sorun bildir — Supabase ayarları (desktop/src/main.js içindeki REPORT_API ile aynı olmalı).
 // Anahtar herkese açık "anon" anahtarı; gelen sorunlar yalnızca yönetici şifresiyle okunabilir.
 export const REPORT_API = {
-  url: 'SUPABASE_URL_BURAYA',
-  key: 'SUPABASE_ANON_KEY_BURAYA',
+  url: 'https://squocugdzebbfovvibmq.supabase.co',
+  key: 'sb_publishable_vn8KFF_4jSrzvIa9jPNUIw_YC4dtKjq',
 };
 
 export async function reportRpc(fn, args) {

@@ -317,8 +317,8 @@ ipcMain.handle('measure-delay', async (_e, { twitch, kick, kickPlaybackUrl }) =>
 // Supabase projesi. Anahtar herkese açık "anon" anahtarı; gelen sorunlar
 // yalnızca yönetici şifresiyle okunabilir (şifre sunucuda kontrol edilir).
 const REPORT_API = {
-  url: process.env.PENGU_REPORT_URL || 'SUPABASE_URL_BURAYA',
-  key: process.env.PENGU_REPORT_KEY || 'SUPABASE_ANON_KEY_BURAYA',
+  url: process.env.PENGU_REPORT_URL || 'https://squocugdzebbfovvibmq.supabase.co',
+  key: process.env.PENGU_REPORT_KEY || 'sb_publishable_vn8KFF_4jSrzvIa9jPNUIw_YC4dtKjq',
 };
 
 async function reportRpc(fn, args) {
