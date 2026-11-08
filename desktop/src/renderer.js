@@ -446,7 +446,7 @@
     markSeen(list);
     $('#inboxCount').textContent = list.length ? `${list.length} sorun` : '';
     if (!list.length) { inboxList.innerHTML = '<div class="empty">Henüz gelen sorun yok 🎉</div>'; return; }
-    inboxList.innerHTML = list.map((x) => `<div class="rep" data-id="${Number(x.id)}">
+    inboxList.innerHTML = list.map((x) => `<div class="rep" data-id="${Number(x.id)}" data-status="${esc(x.status || 'bekliyor')}" data-note="${esc(x.admin_note || '')}">
         <div class="rep-meta">${stBadge(x.status)}<b>${esc(x.contact || 'İsimsiz')}</b><span>${esc(fmtDate(x.created_at))}</span>
           <span>${esc(x.platform || '')} · v${esc(x.app_version || '?')}</span><div class="spacer"></div>
           <button class="btn mini" data-del="${Number(x.id)}" title="Sil">🗑</button></div>
@@ -479,6 +479,9 @@
       edit.dataset.newst = stBtn.dataset.st;
       edit.classList.remove('hidden');
       const ta = edit.querySelector('textarea');
+      // Başka bir duruma geçerken eski not (ör. red sebebi) taşınmasın
+      const same = stBtn.dataset.noteonly || stBtn.dataset.st === card.dataset.status;
+      ta.value = same ? card.dataset.note || '' : '';
       ta.placeholder = stBtn.dataset.st === 'reddedildi'
         ? 'Red sebebi (zorunlu) — örn: Bu sorun uygulamayla değil, internetinle ilgili.'
         : 'İsteğe bağlı not / cevap — gönderen kişi bunu görecek.';

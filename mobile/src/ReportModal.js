@@ -382,6 +382,8 @@ function AdminItem({ x, admin, onDelete, onSaved }) {
       style={[s.mini, x.status === st && label !== '💬' && { backgroundColor: C.border }]}
       onPress={() => {
         setEdit(st);
+        // Başka bir duruma geçerken eski not (ör. red sebebi) taşınmasın
+        setNote(st === x.status ? x.admin_note || '' : '');
         setHint(null);
       }}
     >
