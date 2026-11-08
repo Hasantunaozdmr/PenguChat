@@ -242,3 +242,52 @@ kbd { color: var(--muted); font: inherit; font-size: 11px; }
 .delay-tag.muted { color: var(--muted); font-weight: 400; }
 #modToggle.active { background: var(--border); }
 .btn.chip:disabled { opacity: .25; cursor: not-allowed; }
+
+/* ---------- Sorun bildir ---------- */
+.dlg-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: rgba(0,0,0,.55);
+  padding: 16px;
+}
+.dlg {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(440px, 100%);
+  max-height: 100%;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  box-shadow: 0 12px 32px rgba(0,0,0,.6);
+  user-select: text;
+}
+.dlg.wide { width: min(640px, 100%); height: min(560px, 100%); }
+.dlg-head, .dlg-foot { display: flex; align-items: center; gap: 6px; }
+.dlg-head strong { font-size: 14px; }
+.dlg-note { margin: 0; color: var(--muted); font-size: 12px; }
+.dlg textarea, .dlg input {
+  background: var(--input);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font: inherit;
+  padding: 7px 9px;
+  outline: 0;
+}
+.dlg textarea { height: 130px; resize: vertical; }
+.dlg textarea:focus, .dlg input:focus { border-color: var(--text); }
+.dlg textarea::placeholder, .dlg input::placeholder { color: var(--muted); opacity: .8; }
+.inbox { flex: 1; overflow: auto; display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+.inbox .empty { color: var(--muted); text-align: center; padding: 30px 10px; }
+.rep { background: var(--input); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; }
+.rep-meta { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 11px; margin-bottom: 4px; }
+.rep-meta b { color: var(--text); font-size: 12px; }
+.rep-msg { white-space: pre-wrap; word-break: break-word; }
+#adminForm { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+#adminForm p { margin: 0; }
+#adminForm input { width: 220px; }

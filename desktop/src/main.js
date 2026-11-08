@@ -313,6 +313,55 @@ ipcMain.handle('measure-delay', async (_e, { twitch, kick, kickPlaybackUrl }) =>
   return out;
 });
 
+// ---------- Sorun bildir ----------
+// Supabase projesi. Anahtar herkese açık "anon" anahtarı; gelen sorunlar
+// yalnızca yönetici şifresiyle okunabilir (şifre sunucuda kontrol edilir).
+const REPORT_API = {
+  url: process.env.PENGU_REPORT_URL || 'SUPABASE_URL_BURAYA',
+  key: process.env.PENGU_REPORT_KEY || 'SUPABASE_ANON_KEY_BURAYA',
+};
+
+async function reportRpc(fn, args) {
+  if (!/^https?:\/\//.test(REPORT_API.url)) throw new Error('Sorun bildirme henüz ayarlanmadı');
+  const res = await net.fetch(`${REPORT_API.url}/rest/v1/rpc/${fn}`, {
+    method: 'POST',
+    headers: {
+      apikey: REPORT_API.key,
+      Authorization: `Bearer ${REPORT_API.key}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(args),
+  });
+  const text = await res.text();
+  if (!res.ok) {
+    if (/yetkisiz/.test(text)) throw new Error('Şifre yanlış');
+    throw new Error(`Sunucu hatası (${res.status})`);
+  }
+  return text ? JSON.parse(text) : null;
+}
+
+function reportHandler(fn) {
+  return async (...a) => {
+    try {
+      return { ok: true, data: await fn(...a) };
+    } catch (e) {
+      return { ok: false, error: String((e && e.message) || e) };
+    }
+  };
+}
+
+ipcMain.handle('report-send', reportHandler((_e, { message, contact }) =>
+  reportRpc('submit_report', {
+    p_message: String(message || '').slice(0, 2000),
+    p_contact: String(contact || '').slice(0, 100),
+    p_version: app.getVersion(),
+    p_platform: `windows ${process.getSystemVersion ? process.getSystemVersion() : ''}`.trim().slice(0, 30),
+  })));
+ipcMain.handle('report-is-admin', reportHandler((_e, password) => reportRpc('is_admin', { p_password: String(password || '') })));
+ipcMain.handle('report-list', reportHandler((_e, password) => reportRpc('get_reports', { p_password: String(password || '') })));
+ipcMain.handle('report-delete', reportHandler((_e, { password, id }) =>
+  reportRpc('delete_report', { p_password: String(password || ''), p_id: Number(id) })));
+
 ipcMain.handle('update-check', () => checkForUpdates());
 ipcMain.handle('update-status', () => updateState);
 ipcMain.handle('update-install', () => {

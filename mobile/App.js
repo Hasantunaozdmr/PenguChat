@@ -18,6 +18,7 @@ import * as Clipboard from 'expo-clipboard';
 import Constants from 'expo-constants';
 import { PLATFORMS, cleanChannel, hasLink, isInternalUrl, parseTargets } from './src/links';
 import { FIT_POPUPS_JS, PICK_USER_JS } from './src/injected';
+import ReportModal from './src/ReportModal';
 
 const STORE_KEY = 'dualchat:settings';
 const RELEASE_BASE = 'https://github.com/Hasantunaozdmr/PenguChat/releases/latest/download';
@@ -99,6 +100,7 @@ function PenguChat() {
 
   // ---- Güncelleme kontrolü (Android: yeni APK indirilir) ----
   const [newVersion, setNewVersion] = useState(null);
+  const [reportMode, setReportMode] = useState(null); // null | 'report' | 'inbox'
   useEffect(() => {
     if (Platform.OS !== 'android') return;
     const check = () =>
@@ -337,12 +339,22 @@ function PenguChat() {
         )}
         <Pressable
           style={styles.iconBtn}
+          onPress={() => setReportMode('report')}
+          onLongPress={() => setReportMode('inbox')}
+          delayLongPress={1500}
+          accessibilityLabel="Sorun bildir"
+        >
+          <Text style={styles.iconText}>🐞</Text>
+        </Pressable>
+        <Pressable
+          style={styles.iconBtn}
           onPress={() => update({ layout: tabs ? 'split' : 'tabs' })}
           accessibilityLabel="Görünümü değiştir"
         >
           <Text style={styles.iconText}>{tabs ? '▤' : '⇆'}</Text>
         </Pressable>
       </View>
+      {reportMode && <ReportModal mode={reportMode} onClose={() => setReportMode(null)} appVersion={APP_VERSION} />}
       {newVersion && (
         <Pressable style={styles.updateBar} onPress={() => Linking.openURL(`${RELEASE_BASE}/PenguChat.apk`)}>
           <Text style={styles.updateText}>⬆ Yeni sürüm var (v{newVersion}) · Güncellemek için dokun</Text>

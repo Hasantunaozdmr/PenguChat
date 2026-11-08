@@ -9,5 +9,9 @@ contextBridge.exposeInMainWorld('dualChat', {
   checkUpdates: () => ipcRenderer.invoke('update-check'),
   getUpdateStatus: () => ipcRenderer.invoke('update-status'),
   installUpdate: () => ipcRenderer.invoke('update-install'),
+  sendReport: (r) => ipcRenderer.invoke('report-send', r),
+  reportIsAdmin: (pw) => ipcRenderer.invoke('report-is-admin', pw),
+  listReports: (pw) => ipcRenderer.invoke('report-list', pw),
+  deleteReport: (pw, id) => ipcRenderer.invoke('report-delete', { password: pw, id }),
   onUpdate: (cb) => ipcRenderer.on('update-status', (_e, s) => cb(s)),
 });

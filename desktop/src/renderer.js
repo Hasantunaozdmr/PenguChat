@@ -235,6 +235,8 @@
   menu.addEventListener('click', async (e) => {
     const action = e.target.closest('button')?.dataset.action;
     if (action === 'reload-all') { openChat('twitch'); openChat('kick'); }
+    if (action === 'report') openReport();
+    if (action === 'inbox') openInbox();
     if (action === 'check-update') { manualCheck = true; window.dualChat.checkUpdates(); }
     if (action === 'logout' && confirm('Twitch ve Kick hesaplarından çıkış yapılsın mı?')) {
       await window.dualChat.logoutAll();
@@ -248,6 +250,122 @@
       openChat('twitch'); openChat('kick');
     }
   });
+
+  // ---------- Sorun bildir ----------
+  const ADMIN_KEY = 'penguchat:admin';
+  const getAdmin = () => { try { return localStorage.getItem(ADMIN_KEY) || ''; } catch { return ''; } };
+  const setAdmin = (v) => {
+    try { v ? localStorage.setItem(ADMIN_KEY, v) : localStorage.removeItem(ADMIN_KEY); } catch {}
+    $('#inboxItem').classList.toggle('hidden', !v);
+  };
+  setAdmin(getAdmin());
+
+  const reportDlg = $('#reportDlg');
+  const inboxDlg = $('#inboxDlg');
+  for (const d of [reportDlg, inboxDlg]) {
+    d.addEventListener('click', (e) => {
+      if (e.target === d || e.target.closest('[data-close]')) d.classList.add('hidden');
+    });
+  }
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { reportDlg.classList.add('hidden'); inboxDlg.classList.add('hidden'); }
+  });
+
+  function reportHint(text, cls) {
+    const h = $('#reportHint');
+    h.textContent = text || '';
+    h.className = 'hint' + (cls ? ' ' + cls : '');
+  }
+  function openReport() {
+    reportHint('');
+    $('#reportSend').disabled = false;
+    reportDlg.classList.remove('hidden');
+    $('#reportText').focus();
+  }
+  $('#reportSend').addEventListener('click', async () => {
+    const message = $('#reportText').value.trim();
+    if (!message) { reportHint('Önce sorunu yaz.', 'err'); return; }
+    $('#reportSend').disabled = true;
+    reportHint('Gönderiliyor…');
+    const r = await window.dualChat.sendReport({ message, contact: $('#reportContact').value.trim() });
+    $('#reportSend').disabled = false;
+    if (!r.ok) { reportHint('Gönderilemedi: ' + r.error, 'err'); return; }
+    $('#reportText').value = '';
+    reportHint('Teşekkürler, gönderildi! 🐧', 'ok');
+    setTimeout(() => reportDlg.classList.add('hidden'), 1500);
+  });
+
+  // Gizli giriş: 🐧 logosuna 3 saniye içinde 5 kez tıkla.
+  let brandClicks = [];
+  $('#brand').addEventListener('click', () => {
+    const now = Date.now();
+    brandClicks = brandClicks.filter((t) => now - t < 3000).concat(now);
+    if (brandClicks.length >= 5) { brandClicks = []; openInbox(); }
+  });
+
+  const inboxList = $('#inboxList');
+  const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  function fmtDate(iso) {
+    const d = new Date(iso);
+    return isNaN(d) ? '' : d.toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+  function showLogin(err) {
+    $('#inboxCount').textContent = '';
+    $('#inboxLogout').classList.add('hidden');
+    $('#inboxRefresh').classList.add('hidden');
+    inboxList.innerHTML = `<form class="empty" id="adminForm">
+        <p>Yönetici şifresini gir.</p>
+        <input id="adminPw" type="password" placeholder="Şifre" autocomplete="off" />
+        <button class="btn primary" type="submit">Giriş</button>
+        <p class="hint ${err ? 'err' : ''}">${esc(err || '')}</p>
+      </form>`;
+    $('#adminPw').focus();
+    $('#adminForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const pw = $('#adminPw').value;
+      if (!pw) return;
+      const r = await window.dualChat.reportIsAdmin(pw);
+      if (!r.ok) return showLogin(r.error);
+      if (r.data !== true) return showLogin('Şifre yanlış');
+      setAdmin(pw);
+      loadInbox();
+    });
+  }
+  async function loadInbox() {
+    const pw = getAdmin();
+    if (!pw) return showLogin();
+    $('#inboxLogout').classList.remove('hidden');
+    $('#inboxRefresh').classList.remove('hidden');
+    inboxList.innerHTML = '<div class="empty">Yükleniyor…</div>';
+    const r = await window.dualChat.listReports(pw);
+    if (!r.ok) {
+      if (r.error === 'Şifre yanlış') { setAdmin(''); return showLogin('Şifre değişmiş, yeniden gir.'); }
+      inboxList.innerHTML = `<div class="empty">Yüklenemedi: ${esc(r.error)}</div>`;
+      return;
+    }
+    const list = r.data || [];
+    $('#inboxCount').textContent = list.length ? `${list.length} sorun` : '';
+    if (!list.length) { inboxList.innerHTML = '<div class="empty">Henüz gelen sorun yok 🎉</div>'; return; }
+    inboxList.innerHTML = list.map((x) => `<div class="rep">
+        <div class="rep-meta"><b>${esc(x.contact || 'İsimsiz')}</b><span>${esc(fmtDate(x.created_at))}</span>
+          <span>${esc(x.platform || '')} · v${esc(x.app_version || '?')}</span><div class="spacer"></div>
+          <button class="btn mini" data-del="${Number(x.id)}" title="Sil">🗑</button></div>
+        <div class="rep-msg">${esc(x.message)}</div>
+      </div>`).join('');
+  }
+  inboxList.addEventListener('click', async (e) => {
+    const id = e.target.closest('[data-del]')?.dataset.del;
+    if (!id || !confirm('Bu sorun silinsin mi?')) return;
+    const r = await window.dualChat.deleteReport(getAdmin(), id);
+    if (!r.ok) { alert('Silinemedi: ' + r.error); return; }
+    loadInbox();
+  });
+  $('#inboxRefresh').addEventListener('click', loadInbox);
+  $('#inboxLogout').addEventListener('click', () => { setAdmin(''); showLogin(); });
+  function openInbox() {
+    inboxDlg.classList.remove('hidden');
+    loadInbox();
+  }
 
   // ---------- Güncelleme ----------
   const updateBtn = $('#updateBtn');

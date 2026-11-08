@@ -8,7 +8,7 @@
 </head>
 <body>
   <header class="toolbar">
-    <div class="brand">🐧 Pengu<span>Chat</span></div>
+    <div class="brand" id="brand">🐧 Pengu<span>Chat</span></div>
 
     <form id="linkForm" class="linkbar">
       <span class="dot twitch-dot"></span><span class="dot kick-dot"></span>
@@ -37,6 +37,8 @@
     <div id="menu" class="menu hidden">
       <button data-action="reload-all">Her iki chat'i yenile <kbd>F5</kbd></button>
       <button data-action="check-update">Güncellemeleri kontrol et <kbd id="versionLabel"></kbd></button>
+      <button data-action="report">🐞 Sorun bildir</button>
+      <button data-action="inbox" id="inboxItem" class="hidden">📥 Gelen sorunlar</button>
       <button data-action="logout">Tüm hesaplardan çıkış yap</button>
     </div>
   </header>
@@ -91,6 +93,26 @@
       </div>
     </section>
   </main>
+
+  <div id="reportDlg" class="dlg-wrap hidden">
+    <div class="dlg">
+      <div class="dlg-head"><strong>🐞 Sorun bildir</strong><div class="spacer"></div><button class="btn mini" data-close>✕</button></div>
+      <p class="dlg-note">Ne oldu? Ne yaparken oldu? Ne kadar ayrıntı yazarsan o kadar çabuk düzeltilir.</p>
+      <textarea id="reportText" maxlength="2000" placeholder="Örn: Kick chat'i açılmıyor, siyah ekran kalıyor…"></textarea>
+      <input id="reportContact" maxlength="100" placeholder="Adın / kullanıcı adın (isteğe bağlı)" spellcheck="false" />
+      <div class="dlg-foot"><span id="reportHint" class="hint"></span><div class="spacer"></div><button id="reportSend" class="btn primary">Gönder</button></div>
+    </div>
+  </div>
+
+  <div id="inboxDlg" class="dlg-wrap hidden">
+    <div class="dlg wide">
+      <div class="dlg-head"><strong>📥 Gelen sorunlar</strong><span id="inboxCount" class="hint"></span><div class="spacer"></div>
+        <button id="inboxRefresh" class="btn mini" title="Yenile">⟳</button>
+        <button id="inboxLogout" class="btn mini" title="Bu bilgisayarda yönetici girişini kapat">Çıkış</button>
+        <button class="btn mini" data-close>✕</button></div>
+      <div id="inboxList" class="inbox"></div>
+    </div>
+  </div>
 
   <script src="renderer.js"></script>
 </body>
