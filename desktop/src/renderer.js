@@ -255,9 +255,15 @@
   const getAdmin = () => { try { return localStorage.getItem(ADMIN_KEY) || ''; } catch { return ''; } };
   const setAdmin = (v) => {
     try { v ? localStorage.setItem(ADMIN_KEY, v) : localStorage.removeItem(ADMIN_KEY); } catch {}
-    $('#inboxBtn').classList.toggle('hidden', !v);
+    refreshInboxBtn();
     if (v) checkNew(); else setBadge(0);
   };
+  // 📥 tuşu: yönetici şifresi bu cihazda kayıtlıysa ya da sahibin Twitch/Kick hesabıyla girildiyse görünür.
+  const OWNER_ACCOUNTS = { twitch: [], kick: [] }; // küçük harfle
+  const ownerOn = { twitch: false, kick: false };
+  function refreshInboxBtn() {
+    $('#inboxBtn').classList.toggle('hidden', !(getAdmin() || ownerOn.twitch || ownerOn.kick));
+  }
 
   // 📥 tuşundaki yeni sorun sayısı: en son görülen sorunun numarasından büyük olanlar.
   const SEEN_KEY = 'penguchat:seenReport';
@@ -440,6 +446,9 @@
       .catch(() => 'unknown');
     modStatus[p] = ['mod', 'viewer', 'unknown'].includes(res) ? res : 'unknown';
     applyModUi();
+    const me = await wv.executeJavaScript('window.__penguMe || ""').catch(() => '');
+    ownerOn[p] = OWNER_ACCOUNTS[p].includes(String(me).toLowerCase());
+    refreshInboxBtn();
   }
   // Sonradan modluk verilirse / alınırsa en geç 1 dakikada fark et
   setInterval(() => ['twitch', 'kick'].forEach(checkMod), 60 * 1000);

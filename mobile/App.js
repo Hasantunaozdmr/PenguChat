@@ -19,6 +19,7 @@ import Constants from 'expo-constants';
 import { PLATFORMS, cleanChannel, hasLink, isInternalUrl, parseTargets } from './src/links';
 import { FIT_POPUPS_JS, PICK_USER_JS } from './src/injected';
 import ReportModal, { countNew, loadAdmin, storeAdmin } from './src/ReportModal';
+import { OWNER_ACCOUNTS } from './src/report';
 
 const STORE_KEY = 'dualchat:settings';
 const RELEASE_BASE = 'https://github.com/Hasantunaozdmr/PenguChat/releases/latest/download';
@@ -103,6 +104,7 @@ function PenguChat() {
   const [reportMode, setReportMode] = useState(null); // null | 'report' | 'inbox'
   const [admin, setAdmin] = useState(''); // yönetici şifresi (yalnızca senin cihazında dolu)
   const [newReports, setNewReports] = useState(0);
+  const [ownerOn, setOwnerOn] = useState({ twitch: false, kick: false }); // sahibin hesabıyla girilmiş mi
   useEffect(() => {
     loadAdmin().then(setAdmin);
   }, []);
@@ -248,7 +250,9 @@ function PenguChat() {
     if (typeof data !== 'string') return;
     if (data.startsWith('__PENGU_MOD__')) {
       try {
-        const { status } = JSON.parse(data.slice(13));
+        const { status, me } = JSON.parse(data.slice(13));
+        const isOwner = OWNER_ACCOUNTS[k].includes(String(me || '').toLowerCase());
+        setOwnerOn((o) => (o[k] === isOwner ? o : { ...o, [k]: isOwner }));
         setModStatus((m) => ({ ...m, [k]: ['mod', 'viewer', 'unknown'].includes(status) ? status : 'unknown' }));
       } catch {}
     } else if (data.startsWith('__PENGU_PICK__')) {
@@ -353,7 +357,7 @@ function PenguChat() {
             <Text style={styles.iconText}>👤</Text>
           </Pressable>
         )}
-        {!!admin && (
+        {(!!admin || ownerOn.twitch || ownerOn.kick) && (
           <Pressable
             style={styles.iconBtn}
             onPress={() => {

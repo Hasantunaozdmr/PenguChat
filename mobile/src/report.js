@@ -5,6 +5,9 @@ export const REPORT_API = {
   key: 'sb_publishable_vn8KFF_4jSrzvIa9jPNUIw_YC4dtKjq',
 };
 
+// Sahibin hesapları (küçük harfle): bu hesaplarla girilince 📥 tuşu kendiliğinden çıkar.
+export const OWNER_ACCOUNTS = { twitch: [], kick: [] };
+
 export async function reportRpc(fn, args) {
   if (!/^https?:\/\//.test(REPORT_API.url)) throw new Error('Sorun bildirme henüz ayarlanmadı');
   let res;

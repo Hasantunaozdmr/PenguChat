@@ -117,6 +117,7 @@
         }),
       });
       const d = (await res.json()).data;
+      if (d && d.currentUser) window.__penguMe = String(d.currentUser.login || '');
       if (d && d.currentUser && d.currentUser.login === login) return 'mod'; // kanal sahibi
       if (d && d.user && d.user.self) return d.user.self.isModerator ? 'mod' : 'viewer';
     } catch {}
@@ -127,6 +128,12 @@
     const token = cookie('session_token');
     const headers = { Accept: 'application/json' };
     if (token) headers.Authorization = 'Bearer ' + token;
+    // Giriş yapan hesabın kullanıcı adı (📥 tuşu sahibin hesabında kendiliğinden çıksın diye)
+    if (token)
+      fetch('/api/v1/user', { credentials: 'include', headers })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((u) => { if (u && u.username) window.__penguMe = String(u.username); })
+        .catch(() => {});
     try {
       const res = await fetch('/api/v2/channels/' + encodeURIComponent(slug) + '/me', { credentials: 'include', headers });
       if (res.status === 401 || res.status === 403) return token ? (hasModUi() ? 'mod' : 'unknown') : 'viewer';
@@ -141,7 +148,10 @@
 
   window.__penguModStatus = async (channel) => {
     const status = isTwitch ? await twitchModStatus(channel) : await kickModStatus(channel);
-    if (window.ReactNativeWebView) post('__PENGU_MOD__' + JSON.stringify({ status }));
+    if (window.ReactNativeWebView) {
+      await new Promise((r) => setTimeout(r, 300)); // Kick kullanıcı adı isteği bitsin
+      post('__PENGU_MOD__' + JSON.stringify({ status, me: window.__penguMe || '' }));
+    }
     return status;
   };
 
