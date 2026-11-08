@@ -377,6 +377,8 @@ ipcMain.handle('report-set-status', reportHandler((_e, { password, id, status, n
 ipcMain.handle('report-log', reportHandler((_e, password) => reportRpc('get_log', { p_password: String(password || '') })));
 ipcMain.handle('report-stats', reportHandler((_e, password) => reportRpc('get_stats', { p_password: String(password || '') })));
 ipcMain.handle('report-modlog', reportHandler((_e, password) => reportRpc('get_mod_log', { p_password: String(password || '') })));
+ipcMain.handle('streamer-modlog', reportHandler((_e, { twitch, kick }) =>
+  reportRpc('get_mod_log_streamer', { p_twitch: String(twitch || ''), p_kick: String(kick || '') })));
 ipcMain.handle('mod-action', reportHandler((_e, a) =>
   reportRpc('log_mod_action', {
     p_client: String(a.client || ''),

@@ -28,6 +28,7 @@
     </div>
     <div class="group">
       <button id="reportBtn" class="btn icon" title="Sorun bildir">🐞<span id="reportDot" class="dot-new hidden"></span></button>
+      <button id="streamerBtn" class="btn icon hidden" title="Mod log (bu uygulamadan atılan timeout / ban)">🛡️</button>
       <button id="inboxBtn" class="btn icon hidden" title="Gelen sorunlar">📥<span id="inboxBadge" class="badge hidden"></span></button>
       <button id="modToggle" class="btn icon hidden" title="Mod araçları (timeout / ban) aç / kapat">👤</button>
       <button id="layoutBtn" class="btn icon" title="Yan yana / Alt alta">⇆</button>
@@ -117,6 +118,15 @@
         <button id="inboxLogout" class="btn mini" title="Bu bilgisayarda yönetici girişini kapat">Çıkış</button>
         <button class="btn mini" data-close>✕</button></div>
       <div id="inboxList" class="inbox"></div>
+    </div>
+  </div>
+
+  <div id="streamerDlg" class="dlg-wrap hidden">
+    <div class="dlg wide">
+      <div class="dlg-head"><strong>🛡️ Mod log</strong><span id="streamerCount" class="hint"></span><div class="spacer"></div>
+        <button id="streamerRefresh" class="btn mini" title="Yenile">⟳</button>
+        <button class="btn mini" data-close>✕</button></div>
+      <div id="streamerList" class="inbox"></div>
     </div>
   </div>
 

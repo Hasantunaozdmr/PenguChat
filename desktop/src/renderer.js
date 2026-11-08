@@ -255,6 +255,9 @@
   };
   // 📥 tuşu: yönetici şifresi bu cihazda kayıtlıysa ya da sahibin Twitch/Kick hesabıyla girildiyse görünür.
   const OWNER_ACCOUNTS = { twitch: ['h1raeth0_'], kick: ['h1raeth0'] }; // küçük harfle
+  // Yayıncı: şifresiz, sadece mod log'u görür (sunucu da bu adları kontrol eder)
+  const STREAMER_ACCOUNTS = { twitch: ['feyzask'], kick: ['feyzaskk'] };
+  const streamerOn = { twitch: false, kick: false };
   const ownerOn = { twitch: false, kick: false };
   // Giriş yapılmış Twitch / Kick hesap adları (sorun bildirirken kullanıcı adı buradan gelir)
   const accounts = { twitch: '', kick: '' };
@@ -292,7 +295,7 @@
     });
   }
   window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') { reportDlg.classList.add('hidden'); inboxDlg.classList.add('hidden'); }
+    if (e.key === 'Escape') { reportDlg.classList.add('hidden'); inboxDlg.classList.add('hidden'); $('#streamerDlg').classList.add('hidden'); }
   });
 
   function reportHint(text, cls) {
@@ -582,9 +585,11 @@
   async function loadModLog(pw) {
     const r = await window.dualChat.modLog(pw);
     if (!r.ok) return failed(r);
-    const list = r.data || [];
-    $('#inboxCount').textContent = list.length ? `${list.length} işlem` : '';
-    inboxList.innerHTML = list.length
+    renderModLog(r.data || [], inboxList, $('#inboxCount'));
+  }
+  function renderModLog(list, box, countEl) {
+    countEl.textContent = list.length ? `${list.length} işlem` : '';
+    box.innerHTML = list.length
       ? list.map((x) => {
           const who = (x.platform === 'twitch' ? x.mod_twitch : x.mod_kick) || x.mod_twitch || x.mod_kick || '?';
           return `<div class="log-row"><span class="t">${esc(fmtDate(x.at))}</span>
@@ -621,6 +626,24 @@
         <td>${x.is_mod ? '🛡️' : ''}</td><td>${esc((x.platform || '').split(' ')[0])}</td><td>v${esc(x.version || '?')}</td><td>${esc(ago(x.last_seen))}</td></tr>`).join('')}
       </table>`;
   }
+
+  // ---- Yayıncının mod log ekranı (şifresiz, sadece yayıncı hesabıyla) ----
+  const streamerDlg = $('#streamerDlg');
+  streamerDlg.addEventListener('click', (e) => {
+    if (e.target === streamerDlg || e.target.closest('[data-close]')) streamerDlg.classList.add('hidden');
+  });
+  async function loadStreamerLog() {
+    const box = $('#streamerList');
+    box.innerHTML = '<div class="empty">Yükleniyor…</div>';
+    const r = await window.dualChat.streamerModLog({
+      twitch: streamerOn.twitch ? accounts.twitch : '',
+      kick: streamerOn.kick ? accounts.kick : '',
+    });
+    if (!r.ok) { box.innerHTML = `<div class="empty">Yüklenemedi: ${esc(r.error)}</div>`; return; }
+    renderModLog(r.data || [], box, $('#streamerCount'));
+  }
+  $('#streamerBtn').addEventListener('click', () => { streamerDlg.classList.remove('hidden'); loadStreamerLog(); });
+  $('#streamerRefresh').addEventListener('click', loadStreamerLog);
 
   $('#inboxRefresh').addEventListener('click', loadInbox);
   $('#inboxLogout').addEventListener('click', () => { setAdmin(''); showLogin(); });
@@ -688,6 +711,8 @@
     applyModUi();
     const me = await wv.executeJavaScript('window.__penguMe || ""').catch(() => '');
     ownerOn[p] = OWNER_ACCOUNTS[p].includes(String(me).toLowerCase());
+    streamerOn[p] = STREAMER_ACCOUNTS[p].includes(String(me).toLowerCase());
+    $('#streamerBtn').classList.toggle('hidden', !(streamerOn.twitch || streamerOn.kick));
     accounts[p] = String(me || '').slice(0, 40);
     refreshInboxBtn();
     if (!reportDlg.classList.contains('hidden')) fillAccounts();

@@ -9,6 +9,8 @@ export const REPORT_API = {
 
 // Sahibin hesapları (küçük harfle): bu hesaplarla girilince 📥 tuşu kendiliğinden çıkar.
 export const OWNER_ACCOUNTS = { twitch: ['h1raeth0_'], kick: ['h1raeth0'] };
+// Yayıncı: şifresiz, sadece mod log'u görür (sunucu da bu adları kontrol eder)
+export const STREAMER_ACCOUNTS = { twitch: ['feyzask'], kick: ['feyzaskk'] };
 
 export async function reportRpc(fn, args) {
   if (!/^https?:\/\//.test(REPORT_API.url)) throw new Error('Sorun bildirme henüz ayarlanmadı');

@@ -110,12 +110,13 @@ function Status({ st }) {
 }
 
 // mode: 'report' (herkes) | 'inbox' (yalnızca yönetici)
-export default function ReportModal({ accounts, mode, onClose, appVersion, admin, onAdminChange, startTab, onMineSeen }) {
+export default function ReportModal({ accounts, streamerOn, mode, onClose, appVersion, admin, onAdminChange, startTab, onMineSeen }) {
   return (
     <Modal visible={!!mode} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={s.wrap} onPress={onClose}>
-        <Pressable style={[s.dlg, (mode === 'inbox' || mode === 'report') && s.tall]} onPress={() => {}}>
+        <Pressable style={[s.dlg, s.tall]} onPress={() => {}}>
           {mode === 'report' && <ReportTabs accounts={accounts} onClose={onClose} appVersion={appVersion} startTab={startTab} onMineSeen={onMineSeen} />}
+          {mode === 'streamer' && <StreamerLog accounts={accounts} streamerOn={streamerOn} onClose={onClose} />}
           {mode === 'inbox' && <Inbox admin={admin} saveAdmin={onAdminChange} onClose={onClose} />}
         </Pressable>
       </Pressable>
@@ -393,6 +394,44 @@ function Inbox({ admin, saveAdmin, onClose }) {
         {tab === 'log' && Array.isArray(list) && (list.length ? list.map((x) => <LogRow key={x.id} x={x} />) : <Text style={s.empty}>Henüz kayıt yok.</Text>)}
         {tab === 'mod' && Array.isArray(list) && (list.length ? list.map((x) => <ModRow key={x.id} x={x} />) : <Text style={s.empty}>Henüz mod işlemi yok.</Text>)}
         {tab === 'stats' && list && !Array.isArray(list) && <Stats d={list} />}
+      </ScrollView>
+    </>
+  );
+}
+
+// Yayıncının mod log ekranı (şifresiz; sunucu hesap adını kontrol eder)
+function StreamerLog({ accounts, streamerOn, onClose }) {
+  const [list, setList] = useState(null);
+  const [error, setError] = useState(null);
+  const load = async () => {
+    setList(null);
+    setError(null);
+    try {
+      const data = await reportRpc('get_mod_log_streamer', {
+        p_twitch: streamerOn?.twitch ? accounts.twitch : '',
+        p_kick: streamerOn?.kick ? accounts.kick : '',
+      });
+      setList(data || []);
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return (
+    <>
+      <Head title="🛡️ Mod log" onClose={onClose}>
+        <Pressable style={s.mini} onPress={load} hitSlop={6}>
+          <Text style={s.miniText}>⟳</Text>
+        </Pressable>
+      </Head>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ gap: 6 }}>
+        {list === null && !error && <ActivityIndicator color={C.text} style={{ marginTop: 30 }} />}
+        {error && <Text style={s.empty}>Yüklenemedi: {error}</Text>}
+        {list?.length === 0 && <Text style={s.empty}>Henüz mod işlemi yok.</Text>}
+        {list?.map((x) => <ModRow key={x.id} x={x} />)}
       </ScrollView>
     </>
   );
