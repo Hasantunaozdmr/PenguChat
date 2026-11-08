@@ -235,7 +235,6 @@
   menu.addEventListener('click', async (e) => {
     const action = e.target.closest('button')?.dataset.action;
     if (action === 'reload-all') { openChat('twitch'); openChat('kick'); }
-    if (action === 'report') openReport();
     if (action === 'check-update') { manualCheck = true; window.dualChat.checkUpdates(); }
     if (action === 'logout' && confirm('Twitch ve Kick hesaplarından çıkış yapılsın mı?')) {
       await window.dualChat.logoutAll();
@@ -336,7 +335,7 @@
   const getMineSeen = () => { try { return JSON.parse(localStorage.getItem(MINE_SEEN_KEY) || '{}'); } catch { return {}; } };
   const isNews = (x, seen) => x.status !== 'bekliyor' && seen[x.id] !== x.updated_at;
   function setMineDot(on) {
-    for (const id of ['#menuDot', '#reportDot', '#mineDot']) $(id).classList.toggle('hidden', !on);
+    for (const id of ['#reportDot', '#mineDot']) $(id).classList.toggle('hidden', !on);
   }
   async function checkMine() {
     const t = myToken(false);
@@ -383,7 +382,11 @@
     setMineDot(false);
   }
 
+  $('#reportBtn').addEventListener('click', () => openReport());
   function openReport() {
+    // Her açılışta boş başlasın
+    $('#reportText').value = '';
+    $('#reportContact').value = '';
     reportHint('');
     $('#reportSend').disabled = false;
     reportDlg.classList.remove('hidden');
@@ -393,6 +396,7 @@
   $('#reportSend').addEventListener('click', async () => {
     const message = $('#reportText').value.trim();
     if (!message) { reportHint('Önce sorunu yaz.', 'err'); return; }
+    if (!$('#reportContact').value.trim()) { reportHint('Kullanıcı adını yaz.', 'err'); $('#reportContact').focus(); return; }
     $('#reportSend').disabled = true;
     reportHint('Gönderiliyor…');
     const r = await window.dualChat.sendReport({ message, contact: $('#reportContact').value.trim(), token: myToken(true) });

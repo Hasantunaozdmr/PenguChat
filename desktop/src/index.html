@@ -27,18 +27,18 @@
       <button id="toggleKick" class="btn chip kick active" title="Kick panelini göster/gizle">Kick</button>
     </div>
     <div class="group">
+      <button id="reportBtn" class="btn icon" title="Sorun bildir">🐞<span id="reportDot" class="dot-new hidden"></span></button>
       <button id="inboxBtn" class="btn icon hidden" title="Gelen sorunlar">📥<span id="inboxBadge" class="badge hidden"></span></button>
       <button id="modToggle" class="btn icon hidden" title="Mod araçları (timeout / ban) aç / kapat">👤</button>
       <button id="layoutBtn" class="btn icon" title="Yan yana / Alt alta">⇆</button>
       <button id="swapBtn" class="btn icon" title="Panellerin yerini değiştir">⇄</button>
       <input id="opacity" type="range" min="30" max="100" value="100" title="Pencere saydamlığı" />
-      <button id="menuBtn" class="btn icon" title="Diğer">⋯<span id="menuDot" class="dot-new hidden"></span></button>
+      <button id="menuBtn" class="btn icon" title="Diğer">⋯</button>
     </div>
 
     <div id="menu" class="menu hidden">
       <button data-action="reload-all">Her iki chat'i yenile <kbd>F5</kbd></button>
       <button data-action="check-update">Güncellemeleri kontrol et <kbd id="versionLabel"></kbd></button>
-      <button data-action="report">🐞 Sorun bildir<span id="reportDot" class="dot-new hidden"></span></button>
       <button data-action="logout">Tüm hesaplardan çıkış yap</button>
     </div>
   </header>
@@ -102,7 +102,7 @@
       <div id="tabNew" class="tab-body">
         <p class="dlg-note">Ne oldu? Ne yaparken oldu? Ne kadar ayrıntı yazarsan o kadar çabuk düzeltilir.</p>
         <textarea id="reportText" maxlength="2000" placeholder="Örn: Kick chat'i açılmıyor, siyah ekran kalıyor…"></textarea>
-        <input id="reportContact" maxlength="100" placeholder="Adın / kullanıcı adın (isteğe bağlı)" spellcheck="false" />
+        <input id="reportContact" maxlength="100" placeholder="Kullanıcı adın (zorunlu)" spellcheck="false" />
         <div class="dlg-foot"><span id="reportHint" class="hint"></span><div class="spacer"></div><button id="reportSend" class="btn primary">Gönder</button></div>
       </div>
       <div id="tabMine" class="tab-body inbox mine hidden"></div>

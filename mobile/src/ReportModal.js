@@ -220,6 +220,7 @@ function ReportForm({ appVersion, onSent }) {
   const [busy, setBusy] = useState(false);
   const send = async () => {
     if (!message.trim()) return setHint({ text: 'Önce sorunu yaz.', err: true });
+    if (!contact.trim()) return setHint({ text: 'Kullanıcı adını yaz.', err: true });
     setBusy(true);
     setHint({ text: 'Gönderiliyor…' });
     try {
@@ -261,7 +262,7 @@ function ReportForm({ appVersion, onSent }) {
         style={s.input}
         value={contact}
         onChangeText={setContact}
-        placeholder="Adın / kullanıcı adın (isteğe bağlı)"
+        placeholder="Kullanıcı adın (zorunlu)"
         placeholderTextColor="#a9e3de"
         maxLength={100}
         autoCapitalize="none"
