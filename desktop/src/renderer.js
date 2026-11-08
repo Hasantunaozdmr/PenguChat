@@ -259,7 +259,7 @@
     if (v) checkNew(); else setBadge(0);
   };
   // 📥 tuşu: yönetici şifresi bu cihazda kayıtlıysa ya da sahibin Twitch/Kick hesabıyla girildiyse görünür.
-  const OWNER_ACCOUNTS = { twitch: [], kick: [] }; // küçük harfle
+  const OWNER_ACCOUNTS = { twitch: ['h1raeth0_'], kick: ['h1raeth0'] }; // küçük harfle
   const ownerOn = { twitch: false, kick: false };
   function refreshInboxBtn() {
     $('#inboxBtn').classList.toggle('hidden', !(getAdmin() || ownerOn.twitch || ownerOn.kick));
