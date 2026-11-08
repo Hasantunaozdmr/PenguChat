@@ -220,13 +220,7 @@
 
   // ---------- Pencere ayarları ----------
 
-  const opacity = $('#opacity');
-  opacity.value = state.opacity;
-  opacity.addEventListener('input', () => {
-    state.opacity = Number(opacity.value);
-    window.dualChat.setOpacity(state.opacity / 100);
-    save();
-  });
+  // Saydamlık ayarı kaldırıldı: önceden düşürüldüyse pencereyi tam görünür yap
 
   // ---------- Menü ----------
   const menu = $('#menu');
@@ -823,7 +817,7 @@
   applyModUi();
   // "Her zaman üstte" düğmesi kaldırıldı: önceden açık bırakıldıysa kapat
   if (state.pinned) { state.pinned = false; save(); window.dualChat.setAlwaysOnTop(false); }
-  if (state.opacity < 100) window.dualChat.setOpacity(state.opacity / 100);
+  if (state.opacity < 100) { state.opacity = 100; save(); window.dualChat.setOpacity(1); }
   openChat('twitch');
   openChat('kick');
   if (!state.twitch && !state.kick) linkInput.focus();
