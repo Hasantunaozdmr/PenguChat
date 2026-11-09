@@ -109,6 +109,7 @@
     const channel = state[p];
     pane.chan.textContent = channel ? '· ' + channel : '';
     $('.viewers', pane.el).textContent = '';
+    $('.cat', pane.el).textContent = '';
     if (!channel) {
       if (pane.view) { pane.view.remove(); pane.view = null; }
       pane.placeholder.classList.remove('hidden');
@@ -1097,9 +1098,15 @@
     const el = $('.viewers', panes[p].el);
     const wv = panes[p].view;
     if (!wv || !state[p]) { el.textContent = ''; return; }
-    const n = await wv.executeJavaScript(`window.__penguViewers ? window.__penguViewers(${JSON.stringify(state[p])}) : -1`).catch(() => -1);
-    if (n == null) { el.textContent = '· kapalı'; el.classList.add('off'); }
-    else if (n >= 0) { el.textContent = `👁 ${fmtNum(n)}`; el.classList.remove('off'); }
+    const catEl = $('.cat', panes[p].el);
+    const r = await wv.executeJavaScript(`window.__penguViewers ? window.__penguViewers(${JSON.stringify(state[p])}).then((n) => ({ n, cat: window.__penguCat || '' })) : { n: -1 }`).catch(() => ({ n: -1 }));
+    const n = r.n;
+    if (n == null) { el.textContent = '· kapalı'; el.classList.add('off'); catEl.textContent = ''; }
+    else if (n >= 0) {
+      el.textContent = `👁 ${fmtNum(n)}`; el.classList.remove('off');
+      catEl.textContent = r.cat ? `🎮 ${r.cat}` : '';
+      catEl.title = r.cat ? 'Yayının şu anki kategorisi: ' + r.cat : '';
+    }
   }
   setInterval(() => ['twitch', 'kick'].forEach(updateViewers), 30 * 1000);
 

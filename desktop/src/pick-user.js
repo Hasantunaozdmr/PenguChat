@@ -188,25 +188,30 @@
   // ---- Yayının anlık izleyici sayısı (yayın kapalıysa null) ----
   window.__penguViewers = async (channel) => {
     let n = null;
+    window.__penguCat = '';
     try {
       if (isTwitch) {
         const res = await fetch('https://gql.twitch.tv/gql', {
           method: 'POST',
           headers: { 'Client-Id': 'kimne78kx3ncx6brgo4mv6wki5h1ko' },
-          body: JSON.stringify({ query: 'query($l: String!) { user(login: $l) { stream { viewersCount } } }', variables: { l: channel } }),
+          body: JSON.stringify({ query: 'query($l: String!) { user(login: $l) { stream { viewersCount game { displayName } } } }', variables: { l: channel } }),
         });
         const d = (await res.json()).data;
         const st = d && d.user && d.user.stream;
         n = st ? Number(st.viewersCount) || 0 : null;
+        window.__penguCat = (st && st.game && st.game.displayName) || '';
       } else {
         const res = await fetch('/api/v2/channels/' + encodeURIComponent(channel), { credentials: 'include', headers: { Accept: 'application/json' } });
         const j = res.ok ? await res.json() : null;
         n = j && j.livestream ? Number(j.livestream.viewer_count) || 0 : null;
+        const cats = (j && j.livestream && j.livestream.categories) || [];
+        window.__penguCat = (cats[0] && cats[0].name) || '';
       }
     } catch {
       n = undefined; // ölçülemedi
     }
-    if (window.ReactNativeWebView) post('__PENGU_VIEW__' + JSON.stringify({ n: n === undefined ? -1 : n }));
+    if (n == null) window.__penguCat = ''; // yayın kapalı / ölçülemedi: kategori yok
+    if (window.ReactNativeWebView) post('__PENGU_VIEW__' + JSON.stringify({ n: n === undefined ? -1 : n, cat: window.__penguCat || '' }));
     return n === undefined ? -1 : n;
   };
 

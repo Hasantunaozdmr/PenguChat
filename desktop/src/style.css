@@ -337,6 +337,7 @@ kbd { color: var(--muted); font: inherit; font-size: 11px; }
 /* ---------- İzleyici sayısı / log / istatistik ---------- */
 .pane-head .viewers { color: var(--text); font-size: 12px; font-weight: 600; white-space: nowrap; }
 .pane-head .viewers.off { color: var(--muted); font-weight: 400; }
+.pane-head .cat { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; max-width: 220px; }
 .log-row { display: flex; gap: 8px; align-items: baseline; padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,.08); }
 .log-row .t { color: var(--muted); font-size: 11px; white-space: nowrap; min-width: 92px; }
 .log-row .k { font-weight: 700; white-space: nowrap; }

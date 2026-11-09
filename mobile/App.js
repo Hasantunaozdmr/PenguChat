@@ -167,6 +167,7 @@ function PenguChat() {
       .catch(() => {});
   }, [accounts.twitch, accounts.kick]);
   const [viewers, setViewers] = useState({ twitch: undefined, kick: undefined }); // yayın izleyici sayısı (null = kapalı)
+  const [cats, setCats] = useState({ twitch: '', kick: '' }); // yayının şu anki kategorisi (oyun / Just Chatting)
   useEffect(() => {
     loadAdmin().then(setAdmin);
   }, []);
@@ -362,8 +363,11 @@ function PenguChat() {
     if (typeof data !== 'string') return;
     if (data.startsWith('__PENGU_VIEW__')) {
       try {
-        const { n } = JSON.parse(data.slice(14));
-        if (n !== -1) setViewers((v) => ({ ...v, [k]: n }));
+        const { n, cat } = JSON.parse(data.slice(14));
+        if (n !== -1) {
+          setViewers((v) => ({ ...v, [k]: n }));
+          setCats((c) => ({ ...c, [k]: n == null ? '' : String(cat || '').slice(0, 40) }));
+        }
       } catch {}
       return;
     }
@@ -700,7 +704,7 @@ function PenguChat() {
               <Text style={[styles.tabText, s.tab === k && styles.tabTextActive]}>
                 {PLATFORMS[k].label}
                 {s[k] ? ` · ${s[k]}` : ''}
-                {viewerText(viewers[k])}
+                {viewerText(viewers[k], cats[k])}
               </Text>
             </Pressable>
           ))}
@@ -719,7 +723,7 @@ function PenguChat() {
             ) : null,
             <View key={k} style={[styles.pane, !visible && styles.hidden]}>
               {!tabs && (
-                <PaneHeader k={k} channel={s[k]} viewers={viewers[k]} onAction={paneAction} />
+                <PaneHeader k={k} channel={s[k]} viewers={viewers[k]} cat={cats[k]} onAction={paneAction} />
               )}
               {tabs && <PaneToolbar k={k} onAction={paneAction} />}
               <View style={styles.paneBody}>
@@ -776,19 +780,21 @@ function Act({ label, on, dot, count, onPress, onLongPress }) {
   );
 }
 
-function viewerText(n) {
+function viewerText(n, cat) {
   if (n === undefined) return '';
-  return n === null ? ' · kapalı' : ` · 👁 ${n.toLocaleString('tr-TR')}`;
+  if (n === null) return ' · kapalı';
+  const c = cat ? ` · 🎮 ${cat.length > 22 ? cat.slice(0, 21) + '…' : cat}` : '';
+  return ` · 👁 ${n.toLocaleString('tr-TR')}${c}`;
 }
 
-function PaneHeader({ k, channel, viewers, onAction }) {
+function PaneHeader({ k, channel, viewers, cat, onAction }) {
   return (
     <View style={[styles.paneHead, { borderBottomColor: PLATFORMS[k].color }]}>
       <View style={[styles.dot, { backgroundColor: PLATFORMS[k].color }]} />
       <Text style={styles.paneTitle}>{PLATFORMS[k].label}</Text>
       <Text style={styles.paneChan} numberOfLines={1}>
         {channel ? `· ${channel}` : ''}
-        {channel ? viewerText(viewers) : ''}
+        {channel ? viewerText(viewers, cat) : ''}
       </Text>
       <View style={{ flex: 1 }} />
       <PaneButtons k={k} onAction={onAction} />
