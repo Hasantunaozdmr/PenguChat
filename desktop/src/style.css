@@ -391,3 +391,11 @@ kbd { color: var(--muted); font: inherit; font-size: 11px; }
 .side .tab { display: block; width: 100%; text-align: left; padding: 10px 12px; font-size: 14px; border-radius: 8px; }
 .side .tab:hover { background: rgba(255,255,255,.07); color: var(--text); }
 .admin-wrap .inbox { flex: 1; min-width: 0; }
+
+/* ---------- Yazılı düğme sırası ---------- */
+.actionbar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 5px 10px; background: var(--panel-2); border-bottom: 1px solid var(--border); }
+.btn.act { height: 28px; padding: 0 10px; font-size: 13px; position: relative; white-space: nowrap; }
+.btn.act kbd { margin-left: 4px; }
+.btn.act.active, #modToggle.active { background: var(--border); }
+#reportBtn .dot-new { position: absolute; top: -3px; right: -3px; margin: 0; }
+#inboxBtn .badge { top: -6px; right: -6px; }

@@ -194,7 +194,7 @@
     panesEl.classList.toggle('horizontal', state.layout === 'horizontal');
     panesEl.classList.toggle('vertical', state.layout === 'vertical');
     panesEl.classList.toggle('swapped', state.swapped);
-    $('#layoutBtn').textContent = state.layout === 'horizontal' ? '⇆' : '⇅';
+    $('#layoutBtn').textContent = state.layout === 'horizontal' ? '⇅ Alt alta yap' : '⇆ Yan yana yap';
     $('#layoutBtn').title = state.layout === 'horizontal' ? 'Şu an: yan yana (alt alta yap)' : 'Şu an: alt alta (yan yana yap)';
 
     const both = state.show.twitch && state.show.kick;
@@ -230,8 +230,6 @@
 
   // ---------- Menü ----------
   const menu = $('#menu');
-  $('#menuBtn').addEventListener('click', (e) => { e.stopPropagation(); menu.classList.toggle('hidden'); });
-  document.addEventListener('click', () => menu.classList.add('hidden'));
   menu.addEventListener('click', async (e) => {
     const action = e.target.closest('button')?.dataset.action;
     if (action === 'reload-all') { openChat('twitch'); openChat('kick'); }

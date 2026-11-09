@@ -4,6 +4,7 @@ import {
   Linking,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -102,7 +103,6 @@ function PenguChat() {
   // ---- Güncelleme kontrolü (Android: yeni APK indirilir) ----
   const [newVersion, setNewVersion] = useState(null);
   const [reportMode, setReportMode] = useState(null); // null | 'report' | 'inbox'
-  const [menuOpen, setMenuOpen] = useState(false);
   const [admin, setAdmin] = useState(''); // yönetici şifresi (yalnızca senin cihazında dolu)
   const [newReports, setNewReports] = useState(0);
   const [mineNews, setMineNews] = useState(false); // gönderdiğim soruna cevap geldi mi
@@ -521,65 +521,37 @@ function PenguChat() {
             <Text style={styles.pasteText}>📋</Text>
           </Pressable>
         </View>
-        {anyModAccess && (
-          <Pressable
-            style={[styles.iconBtn, mod.open && styles.iconBtnActive]}
-            onPress={() => setMod((m) => ({ ...m, open: !m.open }))}
-            accessibilityLabel="Hızlı ceza çubuğu"
-          >
-            <Text style={styles.iconText}>👤</Text>
-          </Pressable>
-        )}
-        <Pressable
-          style={[styles.iconBtn, menuOpen && styles.iconBtnActive]}
-          onPress={() => setMenuOpen((o) => !o)}
-          accessibilityLabel="Menü"
-        >
-          <Text style={styles.iconText}>⋯</Text>
-          {(mineNews || newReports > 0) && <View style={[styles.badge, { minWidth: 12, height: 12, top: -3, right: -3 }]} />}
-        </Pressable>
       </View>
-      {menuOpen && (
-        <Pressable style={styles.menuBackdrop} onPress={() => setMenuOpen(false)}>
-          <View style={styles.menu}>
-            <MenuItem
-              icon="🐞"
-              label="Sorun bildir"
-              dot={mineNews}
-              onPress={() => {
-                setMenuOpen(false);
-                KEYS.forEach((k) => checkModRef.current(k)); // hesap adlarını tazele
-                setReportMode('report');
-              }}
-              onLongPress={() => {
-                setMenuOpen(false);
-                setReportMode('inbox');
-              }}
-            />
-            {(!!admin || ownerOn.twitch || ownerOn.kick || anyRole) && (
-              <MenuItem
-                icon="⚙️"
-                label="Yönetim"
-                count={newReports}
-                onPress={() => {
-                  setMenuOpen(false);
-                  setNewReports(0);
-                  setReportMode('inbox');
-                }}
-              />
-            )}
-            <MenuItem
-              icon={tabs ? '▤' : '⇆'}
-              label={tabs ? 'Alt alta görünüm' : 'Sekmeli görünüm'}
-              onPress={() => {
-                setMenuOpen(false);
-                update({ layout: tabs ? 'split' : 'tabs' });
-              }}
-            />
-            <Text style={styles.menuFoot}>PengusChat · Beta</Text>
-          </View>
-        </Pressable>
-      )}
+      {/* ---- Yazılı düğme sırası: bütün işlevler görünür (gizli menü yok) ---- */}
+      <View style={styles.actBar}>
+        {anyModAccess && (
+          <Act
+            label="👤 Mod"
+            on={mod.open}
+            onPress={() => setMod((m) => ({ ...m, open: !m.open }))}
+          />
+        )}
+        <Act
+          label="🐞 Sorun bildir"
+          dot={mineNews}
+          onPress={() => {
+            KEYS.forEach((k) => checkModRef.current(k)); // hesap adlarını tazele
+            setReportMode('report');
+          }}
+          onLongPress={() => setReportMode('inbox')}
+        />
+        {(!!admin || ownerOn.twitch || ownerOn.kick || anyRole) && (
+          <Act
+            label="⚙️ Yönetim"
+            count={newReports}
+            onPress={() => {
+              setNewReports(0);
+              setReportMode('inbox');
+            }}
+          />
+        )}
+        <Act label={tabs ? '▤ Alt alta' : '⇆ Sekmeli'} onPress={() => update({ layout: tabs ? 'split' : 'tabs' })} />
+      </View>
       {maint.maintenance && !(admin || ownerOn.twitch || ownerOn.kick) && (
         <View style={styles.maint}>
           <Text style={{ fontSize: 64 }}>🛠️</Text>
@@ -747,17 +719,22 @@ function PenguChat() {
   );
 }
 
-function MenuItem({ icon, label, dot, count, onPress, onLongPress }) {
+function Act({ label, on, dot, count, onPress, onLongPress }) {
   return (
-    <Pressable style={styles.menuItem} onPress={onPress} onLongPress={onLongPress} delayLongPress={1500} accessibilityLabel={label}>
-      <Text style={styles.menuIcon}>{icon}</Text>
-      <Text style={styles.menuLabel}>{label}</Text>
+    <Pressable
+      style={[styles.act, on && styles.iconBtnActive]}
+      onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={1500}
+      accessibilityLabel={label.replace(/^\S+\s/, '')}
+    >
+      <Text style={styles.actText}>{label}</Text>
       {count > 0 && (
-        <View style={[styles.badge, { position: 'relative', top: 0, right: 0 }]}>
+        <View style={styles.badge}>
           <Text style={styles.badgeText}>{count > 9 ? '9+' : count}</Text>
         </View>
       )}
-      {!!dot && <View style={[styles.badge, { position: 'relative', top: 0, right: 0, minWidth: 10, height: 10 }]} />}
+      {!!dot && <View style={[styles.badge, { minWidth: 12, height: 12, top: -3, right: -3 }]} />}
     </Pressable>
   );
 }
@@ -940,6 +917,10 @@ const styles = StyleSheet.create({
   maintTitle: { color: C.text, fontSize: 30, fontWeight: '800', marginTop: 8 },
   maintMsg: { color: C.text, fontSize: 16, textAlign: 'center', marginTop: 10 },
   maintSmall: { color: C.muted, fontSize: 12, marginTop: 14 },
+  // Sığmazsa alt satıra geçer; hiçbir düğme ekran dışında kalmaz
+  actBar: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 8, paddingVertical: 6, backgroundColor: C.panel2, borderBottomWidth: 1, borderBottomColor: C.border },
+  act: { height: 32, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1, borderColor: C.border, backgroundColor: C.panel, justifyContent: 'center' },
+  actText: { color: C.text, fontSize: 13, fontWeight: '600' },
   menuBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50 },
   menu: {
     position: 'absolute',

@@ -26,21 +26,21 @@
       <button id="toggleTwitch" class="btn chip twitch active" title="Twitch panelini göster/gizle">Twitch</button>
       <button id="toggleKick" class="btn chip kick active" title="Kick panelini göster/gizle">Kick</button>
     </div>
-    <div class="group">
-      <button id="reportBtn" class="btn icon" title="Sorun bildir">🐞<span id="reportDot" class="dot-new hidden"></span></button>
-      <button id="inboxBtn" class="btn icon hidden" title="Yönetim">⚙️<span id="inboxBadge" class="badge hidden"></span></button>
-      <button id="modToggle" class="btn icon hidden" title="Mod araçları (timeout / ban) aç / kapat">👤</button>
-      <button id="layoutBtn" class="btn icon" title="Yan yana / Alt alta">⇆</button>
-      <button id="swapBtn" class="btn icon" title="Panellerin yerini değiştir">⇄</button>
-      <button id="menuBtn" class="btn icon" title="Diğer">⋯</button>
-    </div>
-
-    <div id="menu" class="menu hidden">
-      <button data-action="reload-all">Her iki chat'i yenile <kbd>F5</kbd></button>
-      <button data-action="check-update">Güncellemeleri kontrol et <kbd id="versionLabel"></kbd></button>
-      <button data-action="logout">Tüm hesaplardan çıkış yap</button>
-    </div>
   </header>
+
+  <!-- Bütün işlevler yazılı düğmeler olarak görünür (gizli menü yok) -->
+  <nav class="actionbar" id="menu">
+    <button id="modToggle" class="btn act hidden" title="Hızlı timeout / ban çubuğunu aç / kapat">👤 Mod araçları</button>
+    <button id="reportBtn" class="btn act" title="Bir sorun bildir">🐞 Sorun bildir<span id="reportDot" class="dot-new hidden"></span></button>
+    <button id="inboxBtn" class="btn act hidden" title="Sorunlar, mod log, istatistik…">⚙️ Yönetim<span id="inboxBadge" class="badge hidden"></span></button>
+    <span class="mb-sep"></span>
+    <button id="layoutBtn" class="btn act" title="Yan yana / Alt alta">⇆ Yan yana</button>
+    <button id="swapBtn" class="btn act" title="Panellerin yerini değiştir">⇄ Yer değiştir</button>
+    <button class="btn act" data-action="reload-all" title="Her iki chat'i yenile (F5)">⟳ Chat'leri yenile</button>
+    <div class="spacer"></div>
+    <button class="btn act" data-action="check-update" title="Güncellemeleri kontrol et">⬆ Güncelleme <kbd id="versionLabel"></kbd></button>
+    <button class="btn act" data-action="logout" title="Twitch ve Kick hesaplarından çıkış yap">🚪 Hesaplardan çık</button>
+  </nav>
 
   <div id="announce" class="announce hidden"><span>📢</span><span id="announceText"></span><div class="spacer"></div><button class="btn mini" id="announceClose" title="Kapat">✕</button></div>
 
