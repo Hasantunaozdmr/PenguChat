@@ -709,7 +709,7 @@ function fmtDur(secs) {
   if (secs % 60 === 0) return secs / 60 + ' dk';
   return secs + ' sn';
 }
-const MOD_KIND = { ban: '⛔ Ban', untimeout: '↩ Timeout kaldırıldı', unban: '↩ Ban kaldırıldı' };
+const MOD_KIND = { ban: '⛔ Ban', untimeout: '↩ Timeout kaldırıldı', unban: '↩ Ban kaldırıldı', delete: '🗑 Mesaj silindi' };
 function ModRow({ x, undone, onUndo }) {
   const who = x.platform === 'twitch' ? x.mod_twitch : x.mod_kick;
   const canUndo = !!onUndo && (x.action === 'timeout' || x.action === 'ban') && x.ok !== false && !undone;

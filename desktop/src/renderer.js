@@ -649,7 +649,7 @@
     if (!r.ok) return failed(r);
     renderModLog(r.data || [], inboxList, $('#inboxCount'));
   }
-  const MOD_KIND = { ban: '⛔ Ban', untimeout: '↩ Timeout kaldırıldı', unban: '↩ Ban kaldırıldı' };
+  const MOD_KIND = { ban: '⛔ Ban', untimeout: '↩ Timeout kaldırıldı', unban: '↩ Ban kaldırıldı', delete: '🗑 Mesaj silindi' };
   function renderModLog(list, box, countEl) {
     countEl.textContent = list.length ? `${list.length} işlem` : '';
     // Sonradan geri alınmış cezaları bul (liste yeniden eskiye sıralı)
@@ -669,7 +669,7 @@
             <span class="d"><b>${esc(x.target)}</b> · ${x.platform === 'twitch' ? 'Twitch' : 'Kick'}<small>mod: ${esc(who)}${x.ok === false ? ' · ✗ gönderilemedi' : ''}${undone.has(x.id) ? ' · geri alındı' : ''}</small></span>
             ${canUndo ? `<button class="btn mini undo" data-undo="${esc(x.action)}" data-p="${esc(x.platform)}" data-t="${esc(x.target)}" title="Bu cezayı kaldır">↩ Geri al</button>` : ''}</div>`;
         }).join('')
-      : '<div class="empty">Henüz mod işlemi yok. (Sadece bu uygulamadan atılan timeout / ban kaydedilir.)</div>';
+      : '<div class="empty">Henüz mod işlemi yok. (Sadece bu uygulamadan yapılan timeout / ban / mesaj silme kaydedilir.)</div>';
   }
   inboxList.addEventListener('click', async (e) => {
     const b = e.target.closest('[data-undo]');
@@ -882,7 +882,24 @@
     targets.kick = p === 'kick' && canMod('kick');
     renderTargets();
     showRecord(name);
+    msgPick = { p: fromPlatform, user: name };
+    $('#delBtn').disabled = !canMod(fromPlatform);
   }
+  // ---- 🗑 Seçilen mesajı sil (adına tıklanan mesaj, tıklandığı chat'te) ----
+  let msgPick = null;
+  $('#delBtn').addEventListener('click', async () => {
+    if (!msgPick) { modMsg("Önce chat'te silinecek mesajın sahibinin adına tıkla.", 'err'); return; }
+    const { p, user } = msgPick;
+    const name = p === 'twitch' ? 'Twitch' : 'Kick';
+    const wv = panes[p].view;
+    if (!wv || !state[p]) { modMsg(`${name} chat'i açık değil.`, 'err'); return; }
+    if (!canMod(p)) { modMsg(`${name} kanalında mod değilsin.`, 'err'); return; }
+    const r = await wv.executeJavaScript('window.__penguDeleteMsg ? window.__penguDeleteMsg() : { ok: false, err: "sayfa hazır değil" }').catch((e) => ({ ok: false, err: String(e.message || e) }));
+    if (r.ok) msgPick = null;
+    else reportError('mesaj-silinemedi', `${name}: ${r.err}`);
+    window.dualChat.modAction({ client: clientId(), twitch: accounts.twitch, kick: accounts.kick, platform: p, action: 'delete', target: user, secs: null, ok: !!r.ok }).catch(() => {});
+    modMsg(r.ok ? `🗑 ${user} mesajı silindi (${name}).` : `🗑 Silinemedi: ${r.err}`, r.ok ? 'ok' : 'err');
+  });
   // ---- Kişinin sicili: bu uygulamadan kaç timeout / ban yemiş ----
   let recTimer = null;
   let recFor = '';
@@ -903,7 +920,7 @@
 
   $('#tgtTwitch').addEventListener('click', () => { if (canMod('twitch')) targets.twitch = !targets.twitch; renderTargets(); });
   $('#tgtKick').addEventListener('click', () => { if (canMod('kick')) targets.kick = !targets.kick; renderTargets(); });
-  $('#modClear').addEventListener('click', () => { modUser.value = ''; showRecord(''); targets.twitch = targets.kick = false; renderTargets(); });
+  $('#modClear').addEventListener('click', () => { modUser.value = ''; showRecord(''); msgPick = null; targets.twitch = targets.kick = false; renderTargets(); });
   modUser.addEventListener('input', () => {
     clearTimeout(recTimer);
     recTimer = setTimeout(() => showRecord(modUser.value), 600);
