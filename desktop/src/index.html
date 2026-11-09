@@ -28,7 +28,7 @@
     </div>
     <div class="group">
       <button id="reportBtn" class="btn icon" title="Sorun bildir">🐞<span id="reportDot" class="dot-new hidden"></span></button>
-      <button id="inboxBtn" class="btn icon hidden" title="Gelen sorunlar">📥<span id="inboxBadge" class="badge hidden"></span></button>
+      <button id="inboxBtn" class="btn icon hidden" title="Yönetim">⚙️<span id="inboxBadge" class="badge hidden"></span></button>
       <button id="modToggle" class="btn icon hidden" title="Mod araçları (timeout / ban) aç / kapat">👤</button>
       <button id="layoutBtn" class="btn icon" title="Yan yana / Alt alta">⇆</button>
       <button id="swapBtn" class="btn icon" title="Panellerin yerini değiştir">⇄</button>
@@ -114,12 +114,24 @@
   </div>
 
   <div id="inboxDlg" class="dlg-wrap hidden">
-    <div class="dlg wide">
-      <div class="dlg-head"><div class="tabs" id="inboxTabs"><button class="tab active" data-itab="reports">📥 Sorunlar</button><button class="tab" data-itab="log">📜 Log</button><button class="tab" data-itab="mod">🛡️ Mod log</button><button class="tab" data-itab="stats">📊 İstatistik</button><button class="tab" data-itab="roles">👥 Yetkiler</button><button class="tab" data-itab="errors">⚠️ Hatalar</button><button class="tab" data-itab="maint">📢 Duyuru · Bakım</button></div><span id="inboxCount" class="hint"></span><div class="spacer"></div>
-        <button id="inboxRefresh" class="btn mini" title="Yenile">⟳</button>
+    <div class="dlg admin">
+      <div class="dlg-head"><strong id="inboxTitle">⚙️ Yönetim</strong><span id="inboxCount" class="hint"></span><div class="spacer"></div>
+        <button id="inboxRefresh" class="btn mini" title="Yenile">⟳ Yenile</button>
         <button id="inboxLogout" class="btn mini" title="Bu bilgisayarda yönetici girişini kapat">Çıkış</button>
         <button class="btn mini" data-close>✕</button></div>
-      <div id="inboxList" class="inbox"></div>
+      <div class="admin-wrap">
+        <nav class="side" id="inboxTabs">
+          <button class="tab active" data-itab="reports">📥 Sorunlar</button>
+          <button class="tab" data-itab="log">📜 Log</button>
+          <button class="tab" data-itab="mod">🛡️ Mod log</button>
+          <button class="tab" data-itab="stats">📊 İstatistik</button>
+          <button class="tab" data-itab="roles">👥 Yetkiler</button>
+          <button class="tab" data-itab="ann">📢 Duyuru</button>
+          <button class="tab" data-itab="maint">🛠️ Bakım</button>
+          <button class="tab" data-itab="errors">⚠️ Hatalar</button>
+        </nav>
+        <div id="inboxList" class="inbox"></div>
+      </div>
     </div>
   </div>
 

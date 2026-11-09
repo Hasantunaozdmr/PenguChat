@@ -509,6 +509,7 @@
     if (inboxTab === 'mod') return loadModLog(pw);
     if (inboxTab === 'roles') return loadRoles(pw);
     if (inboxTab === 'maint') return loadMaint();
+    if (inboxTab === 'ann') return loadAnn();
     if (inboxTab === 'errors') return loadErrors(pw);
     const r = pw ? await window.dualChat.listReports(pw) : await window.dualChat.rpc('role_reports', roleArgs());
     if (!r.ok) {
@@ -1149,18 +1150,22 @@
   checkMaint();
   setInterval(checkMaint, 30 * 1000);
   setInterval(applyMaint, 3000); // hesap adı sonradan okununca yöneticiyi tanı
-  async function loadMaint() {
+  async function loadAnn() {
     $('#inboxCount').textContent = '';
     await checkMaint();
-    const on = maintState.maintenance;
-    inboxList.innerHTML = `<div class="maint-form" style="margin-bottom:10px">
+    inboxList.innerHTML = `<div class="maint-form">
         <div class="maint-state">📢 Duyuru ${annNow.text ? '— şu an yayında' : ''}</div>
         <textarea id="annText" maxlength="300" placeholder="Herkesin ekranının üstünde görünecek duyuru — örn: Yeni sürüm geldi, mod log'u deneyin!">${esc(annNow.text)}</textarea>
         <div class="dlg-foot"><span class="hint" id="annHint"></span><div class="spacer"></div>
           ${annNow.text ? '<button class="btn mini" id="annOff">Duyuruyu kaldır</button>' : ''}<button class="btn primary" id="annOn">📢 Duyuruyu yayınla</button></div>
         <p class="dlg-note">Duyuru uygulamayı kapatmaz; herkes kendi ekranından ✕ ile kapatabilir. Yeni bir duyuru yayınlayınca yine görünür.</p>
-      </div>
-      <div class="maint-form">
+      </div>`;
+  }
+  async function loadMaint() {
+    $('#inboxCount').textContent = '';
+    await checkMaint();
+    const on = maintState.maintenance;
+    inboxList.innerHTML = `<div class="maint-form">
         <div class="maint-state">${on ? '🛠️ Bakım modu AÇIK — uygulama sadece sende çalışıyor' : '✅ Uygulama herkese açık'}</div>
         <label>Sebep (zorunlu · kullanıcılar görür)</label>
         <textarea id="maintText" maxlength="300" placeholder="örn: Yeni özellik ekleniyor">${esc(maintState.message)}</textarea>
@@ -1179,7 +1184,7 @@
       if (id === 'annOn' && !text) { $('#annHint').textContent = 'Duyuru metnini yaz.'; $('#annHint').className = 'hint err'; return; }
       const r = await window.dualChat.rpc('set_announcement', { p_password: getAdmin(), p_text: text });
       if (!r.ok) { $('#annHint').textContent = 'Kaydedilemedi: ' + r.error; $('#annHint').className = 'hint err'; return; }
-      return loadMaint();
+      return loadAnn();
     }
     if (!['maintOn', 'maintOff', 'maintSave'].includes(id)) return;
     if (id !== 'maintOff') {

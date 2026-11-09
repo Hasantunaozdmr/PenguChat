@@ -383,3 +383,11 @@ kbd { color: var(--muted); font: inherit; font-size: 11px; }
 .announce #announceText { white-space: pre-wrap; word-break: break-word; }
 .log-row .undo { margin-left: 6px; }
 .log-row.undone { opacity: .6; }
+
+/* ---------- Yönetim penceresi: yan menü ---------- */
+.dlg.admin { width: min(900px, 100%); height: min(620px, 100%); }
+.admin-wrap { display: flex; gap: 12px; flex: 1; min-height: 0; }
+.side { display: flex; flex-direction: column; gap: 4px; width: 168px; flex: none; overflow-y: auto; padding-right: 10px; border-right: 1px solid var(--border); }
+.side .tab { display: block; width: 100%; text-align: left; padding: 10px 12px; font-size: 14px; border-radius: 8px; }
+.side .tab:hover { background: rgba(255,255,255,.07); color: var(--text); }
+.admin-wrap .inbox { flex: 1; min-width: 0; }

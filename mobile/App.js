@@ -558,8 +558,8 @@ function PenguChat() {
             />
             {(!!admin || ownerOn.twitch || ownerOn.kick || anyRole) && (
               <MenuItem
-                icon="📥"
-                label={admin || ownerOn.twitch || ownerOn.kick || roles.reports ? 'Gelen sorunlar' : 'Mod log / istatistik'}
+                icon="⚙️"
+                label="Yönetim"
                 count={newReports}
                 onPress={() => {
                   setMenuOpen(false);

@@ -279,8 +279,8 @@ function Inbox({ admin, saveAdmin, onClose, roles, accounts, onUndo, annNow }) {
   const roleArgs = { p_twitch: accounts?.twitch || '', p_kick: accounts?.kick || '' };
   // Hangi sekmeyi kim görür: yönetici hepsini, yetkili kişi kendine verilenleri
   const allowed = (t) => !!admin || !!{ reports: roles?.reports, mod: roles?.modlog, stats: roles?.stats }[t];
-  const firstTab = ['reports', 'mod', 'stats'].find(allowed) || 'reports';
-  const [tab, setTab] = useState(firstTab); // reports | log | mod | stats | roles
+  // Önce menü (yan menünün telefondaki hali) açılır; bir bölüme dokununca o bölüm gelir
+  const [tab, setTab] = useState(null); // null (menü) | reports | log | mod | stats | roles | ann | maint | errors
   const [list, setList] = useState(null);
   const [error, setError] = useState(null);
   const [pw, setPw] = useState('');
@@ -291,10 +291,10 @@ function Inbox({ admin, saveAdmin, onClose, roles, accounts, onUndo, annNow }) {
     setError(null);
     try {
       const fn = password
-        ? { reports: 'get_reports', log: 'get_log', mod: 'get_mod_log', stats: 'get_stats', roles: 'list_roles', maint: 'app_status', errors: 'get_errors' }[which]
+        ? { reports: 'get_reports', log: 'get_log', mod: 'get_mod_log', stats: 'get_stats', roles: 'list_roles', maint: 'app_status', ann: 'app_status', errors: 'get_errors' }[which]
         : { reports: 'role_reports', mod: 'role_mod_log', stats: 'role_stats' }[which];
-      const data = await reportRpc(fn, which === 'maint' ? {} : password ? { p_password: password } : roleArgs);
-      setList(which === 'stats' || which === 'maint' ? data || {} : data || []);
+      const data = await reportRpc(fn, which === 'maint' || which === 'ann' ? {} : password ? { p_password: password } : roleArgs);
+      setList(which === 'stats' || which === 'maint' || which === 'ann' ? data || {} : data || []);
       if (which === 'reports' && password) markSeen(data || []);
     } catch (e) {
       if (e.message === 'Şifre yanlış' && !password) setError('Bu bölüm için yetkin yok.');
@@ -305,7 +305,7 @@ function Inbox({ admin, saveAdmin, onClose, roles, accounts, onUndo, annNow }) {
     }
   };
   useEffect(() => {
-    if (admin || anyRole) load();
+    // Menüden seçilince yüklenir
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -358,34 +358,20 @@ function Inbox({ admin, saveAdmin, onClose, roles, accounts, onUndo, annNow }) {
   return (
     <>
       <View style={s.head}>
-        <ScrollView horizontal style={{ flex: 1 }} contentContainerStyle={{ gap: 4 }} showsHorizontalScrollIndicator={false}>
-        {[
-          ['reports', '📥'],
-          ['log', '📜'],
-          ['mod', '🛡️'],
-          ['stats', '📊'],
-          ['roles', '👥'],
-          ['errors', '⚠️'],
-          ['maint', '📢'],
-        ]
-          .filter(([k]) => allowed(k))
-          .map(([k, label]) => (
-          <Pressable
-            key={k}
-            style={[s.tab, tab === k && s.tabOn]}
-            onPress={() => {
-              setTab(k);
-              load(admin, k);
-            }}
-          >
-            <Text style={[s.tabText, tab === k && { color: C.text }]}>{label}</Text>
+        {tab ? (
+          <Pressable style={s.mini} onPress={() => setTab(null)} hitSlop={8}>
+            <Text style={s.miniText}>‹ Geri</Text>
           </Pressable>
-        ))}
-        </ScrollView>
-        <Pressable style={s.mini} onPress={() => load()} hitSlop={6}>
-          <Text style={s.miniText}>⟳</Text>
-        </Pressable>
-        {!!admin && (
+        ) : null}
+        <Text style={[s.title, { flex: 1 }]} numberOfLines={1}>
+          {tab ? SECTIONS.find(([k]) => k === tab)?.[1] : '⚙️ Yönetim'}
+        </Text>
+        {!!tab && (
+          <Pressable style={s.mini} onPress={() => load()} hitSlop={6}>
+            <Text style={s.miniText}>⟳</Text>
+          </Pressable>
+        )}
+        {!!admin && !tab && (
           <Pressable style={s.mini} onPress={() => saveAdmin('')} hitSlop={6}>
             <Text style={s.miniText}>Çıkış</Text>
           </Pressable>
@@ -394,6 +380,24 @@ function Inbox({ admin, saveAdmin, onClose, roles, accounts, onUndo, annNow }) {
           <Text style={s.miniText}>✕</Text>
         </Pressable>
       </View>
+      {!tab && (
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ gap: 8 }}>
+          {SECTIONS.filter(([k]) => allowed(k)).map(([k, label, desc]) => (
+            <Pressable
+              key={k}
+              style={s.menuBtn}
+              onPress={() => {
+                setTab(k);
+                load(admin, k);
+              }}
+            >
+              <Text style={s.menuBtnText}>{label}</Text>
+              <Text style={s.repSmall}>{desc}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      )}
+      {!!tab && (
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ gap: 6 }}>
         {list === null && !error && <ActivityIndicator color={C.text} style={{ marginTop: 30 }} />}
         {error && (
@@ -463,9 +467,10 @@ function Inbox({ admin, saveAdmin, onClose, roles, accounts, onUndo, annNow }) {
         )}
         {tab === 'stats' && list && !Array.isArray(list) && <Stats d={list} />}
         {tab === 'roles' && Array.isArray(list) && <Roles list={list} admin={admin} onChanged={() => load()} />}
-        {tab === 'maint' && list && !Array.isArray(list) && <Announce d={list} admin={admin} onChanged={() => load()} />}
+        {tab === 'ann' && list && !Array.isArray(list) && <Announce d={list} admin={admin} onChanged={() => load()} />}
         {tab === 'maint' && list && !Array.isArray(list) && <Maint d={list} admin={admin} onChanged={() => load()} />}
       </ScrollView>
+      )}
     </>
   );
 }
@@ -667,6 +672,17 @@ function Roles({ list, admin, onChanged }) {
   );
 }
 
+const SECTIONS = [
+  ['reports', '📥 Sorunlar', 'Gelen sorunlar: sıraya al, çöz, reddet'],
+  ['log', '📜 Log', 'Sorunlarla ilgili her şey saatiyle'],
+  ['mod', '🛡️ Mod log', 'Uygulamadan atılan timeout / ban, geri alma'],
+  ['stats', '📊 İstatistik', 'Kaç kişi kullanıyor, kim mod, hangi sürüm'],
+  ['roles', '👥 Yetkiler', 'Kime hangi bölümün açık olacağı'],
+  ['ann', '📢 Duyuru', 'Herkesin ekranının üstünde duyuru'],
+  ['maint', '🛠️ Bakım', 'Uygulamayı senin dışında herkese kapat'],
+  ['errors', '⚠️ Hatalar', 'Uygulamada otomatik yakalanan hatalar'],
+];
+
 const LOG_KIND = { gonderildi: '📨 Gönderildi', onaylandi: '📋 Sıraya alındı', cozuldu: '✅ Çözüldü', reddedildi: '❌ Reddedildi', silindi: '🗑 Silindi' };
 function LogRow({ x }) {
   return (
@@ -851,6 +867,8 @@ function AdminItem({ x, admin, roleArgs, onDelete, onSaved }) {
 }
 
 const s = StyleSheet.create({
+  menuBtn: { backgroundColor: C.input, borderWidth: 1, borderColor: C.border, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, gap: 2 },
+  menuBtnText: { color: C.text, fontSize: 16, fontWeight: '700' },
   tab: { paddingHorizontal: 10, height: 32, justifyContent: 'center', borderRadius: 7, borderWidth: 1, borderColor: 'transparent' },
   tabOn: { backgroundColor: C.input, borderColor: C.border },
   tabText: { color: C.muted, fontWeight: '700', fontSize: 14 },
