@@ -381,14 +381,8 @@ function PenguChat() {
       try {
         const { name, restream } = JSON.parse(data.slice(14));
         const p = restream ? 'twitch' : k; // Restream mesajının sahibi Twitch'te
-        setMod({ open: true, user: name, twitch: p === 'twitch' && canMod('twitch'), kick: p === 'kick' && canMod('kick'), msgFrom: k });
+        setMod({ open: true, user: name, twitch: p === 'twitch' && canMod('twitch'), kick: p === 'kick' && canMod('kick') });
         loadRecord(name);
-      } catch {}
-    } else if (data.startsWith('__PENGU_DEL__')) {
-      try {
-        const r = JSON.parse(data.slice(13));
-        pending.current[r.id]?.(r);
-        delete pending.current[r.id];
       } catch {}
     } else if (data.startsWith('__PENGU_SENT__')) {
       try {
@@ -474,34 +468,6 @@ function PenguChat() {
         },
       ]);
     });
-
-  // 🗑 Adına dokunulan mesajı, dokunulduğu chat'te siler
-  const deleteMsg = () => {
-    const k = mod.msgFrom;
-    const user = cleanChannel(mod.user);
-    if (!k || !user) return showHint("Önce chat'te silinecek mesajın sahibinin adına dokun.", false);
-    if (!canMod(k)) return showHint(`${PLATFORMS[k].label} kanalında mod değilsin.`, false);
-    const wv = views.current[k];
-    if (!wv || !s[k]) return showHint(`${PLATFORMS[k].label} chat'i açık değil.`, false);
-    const id = `del-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-    new Promise((resolve) => {
-      pending.current[id] = resolve;
-      setTimeout(() => {
-        if (pending.current[id]) {
-          delete pending.current[id];
-          resolve({ ok: false, err: 'yanıt yok' });
-        }
-      }, 8000);
-      wv.injectJavaScript(
-        `window.__penguDeleteMsg ? window.__penguDeleteMsg(${JSON.stringify(id)}) : window.ReactNativeWebView.postMessage('__PENGU_DEL__' + JSON.stringify({ id: ${JSON.stringify(id)}, ok: false, err: 'sayfa hazır değil' })); true;`
-      );
-    }).then((r) => {
-      if (r.ok) setMod((m) => ({ ...m, msgFrom: null }));
-      else reportErrorRef.current?.('mesaj-silinemedi', `${PLATFORMS[k].label}: ${r.err}`);
-      logModAction({ p_mod_twitch: accounts.twitch, p_mod_kick: accounts.kick, p_platform: k, p_action: 'delete', p_target: user, p_secs: null, p_ok: !!r.ok });
-      showHint(r.ok ? `🗑 ${user} mesajı silindi (${PLATFORMS[k].label}).` : `🗑 Silinemedi: ${r.err}`, !!r.ok);
-    });
-  };
 
   const punish = (action) => {
     const user = cleanChannel(mod.user);
@@ -677,9 +643,6 @@ function PenguChat() {
               <Text style={styles.modBtnText}>⛔ Ban</Text>
             </Pressable>
           </View>
-          <Pressable style={[styles.modBtn, { alignSelf: 'flex-start' }, !mod.msgFrom && styles.disabled]} onPress={deleteMsg}>
-            <Text style={styles.modBtnText}>🗑 Mesajı sil</Text>
-          </Pressable>
         </View>
       )}
       {hint && (

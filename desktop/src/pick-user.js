@@ -264,110 +264,11 @@
     setTimeout(next, 150);
   };
 
-  // ---- 🗑 Mesaj silme ----
-  // Bir ada tıklanınca o adın bulunduğu mesaj satırı hatırlanır; "Mesajı sil" o mesajı siler.
-  let lastLine = null;
-  const lineOf = (el) =>
-    el.closest('[data-a-target="chat-line-message"], .chat-line__message, [data-chat-entry], [data-index]') ||
-    (() => {
-      // Bilinen bir işaret yoksa: chat listesinin bir satırı (çok büyümeden yukarı çık)
-      let row = el;
-      for (let i = 0; row.parentElement && i < 8; i++) {
-        if ((row.parentElement.textContent || '').length > 600 || row.parentElement.children.length > 20) break;
-        row = row.parentElement;
-      }
-      return row;
-    })();
-  // Sitenin kendi (React) verisinden mesaj kimliğini bul
-  function fiberMsgId(el) {
-    for (let node = el, d = 0; node && d < 4; node = node.firstElementChild, d++) {
-      const key = Object.keys(node).find((k) => k.startsWith('__reactFiber$') || k.startsWith('__reactInternalInstance$'));
-      for (let f = key && node[key], i = 0; f && i < 40; f = f.return, i++) {
-        const pr = f.memoizedProps;
-        if (!pr || typeof pr !== 'object') continue;
-        for (const v of [pr.message, pr.msg, pr.chatEntry, pr.data, pr.item]) {
-          if (v && typeof v === 'object' && typeof v.id === 'string' && v.id.length >= 8) return v.id;
-        }
-        if (typeof pr.messageId === 'string') return pr.messageId;
-        if (typeof pr.messageID === 'string') return pr.messageID;
-      }
-    }
-    return null;
-  }
-  const channelFromUrl = () => (location.pathname.match(/^\/(?:popout\/)?([^/]+)/) || [])[1] || '';
-  async function apiDelete(id) {
-    const channel = channelFromUrl();
-    if (isTwitch) {
-      const token = cookie('auth-token');
-      const gql = (query, variables) =>
-        fetch('https://gql.twitch.tv/gql', {
-          method: 'POST',
-          headers: { 'Client-Id': 'kimne78kx3ncx6brgo4mv6wki5h1ko', Authorization: 'OAuth ' + token },
-          body: JSON.stringify({ query, variables }),
-        }).then((r) => r.json());
-      const u = await gql('query($l: String!) { user(login: $l) { id } }', { l: channel });
-      const cid = u && u.data && u.data.user && u.data.user.id;
-      if (!cid) throw new Error('kanal bulunamadı');
-      const r = await gql('mutation($i: DeleteChatMessageInput!) { deleteChatMessage(input: $i) { __typename } }', { i: { channelID: cid, messageID: id } });
-      if (r.errors || !r.data || !r.data.deleteChatMessage) throw new Error('Twitch silmeyi kabul etmedi');
-      return;
-    }
-    const headers = { Accept: 'application/json', Authorization: 'Bearer ' + cookie('session_token') };
-    const x = cookie('XSRF-TOKEN');
-    if (x) headers['X-XSRF-TOKEN'] = x;
-    const ch = await fetch('/api/v2/channels/' + encodeURIComponent(channel), { credentials: 'include', headers }).then((r) => (r.ok ? r.json() : null));
-    const room = ch && ch.chatroom && ch.chatroom.id;
-    if (!room) throw new Error('chat odası bulunamadı');
-    const res = await fetch('/api/v2/chatrooms/' + room + '/messages/' + encodeURIComponent(id), { method: 'DELETE', credentials: 'include', headers });
-    if (!res.ok) throw new Error('Kick silmeyi kabul etmedi (' + res.status + ')');
-  }
-  // Yedek: sitenin mesajın üstüne gelince çıkan kendi "Sil" düğmesine bas
-  async function clickSiteDelete(line) {
-    const opts = { bubbles: true };
-    for (const t of ['pointerover', 'pointerenter', 'mouseover', 'mouseenter', 'mousemove']) line.dispatchEvent(new MouseEvent(t, opts));
-    await new Promise((r) => setTimeout(r, 250));
-    const isDel = (b) => /(^|\b)(delete|sil|mesajı sil|remove)/i.test(b.getAttribute('aria-label') || b.getAttribute('title') || b.getAttribute('data-a-target') || b.textContent || '');
-    let btn = [...line.querySelectorAll('button, [role="button"]')].find(isDel);
-    if (!btn) return false;
-    btn.click();
-    await new Promise((r) => setTimeout(r, 300));
-    // Onay penceresi çıkarsa onu da onayla
-    const ok = [...document.querySelectorAll('[role="dialog"] button, [role="alertdialog"] button')].find(isDel);
-    if (ok) ok.click();
-    return true;
-  }
-  window.__penguHasMsg = () => !!(lastLine && lastLine.isConnected);
-  window.__penguDeleteMsg = async (reqId) => {
-    const done = (ok, err) => {
-      if (reqId) post('__PENGU_DEL__' + JSON.stringify({ id: reqId, ok, err: err || null }));
-      return { ok, err: err || null };
-    };
-    if (!lastLine || !lastLine.isConnected) return done(false, 'önce chat\'te silinecek mesajın sahibinin adına tıkla');
-    const line = lastLine;
-    let err = 'mesaj kimliği bulunamadı';
-    const id = (line.getAttribute && line.getAttribute('data-chat-entry')) || fiberMsgId(line);
-    if (id) {
-      try {
-        await apiDelete(id);
-        lastLine = null;
-        return done(true);
-      } catch (e) {
-        err = String((e && e.message) || e);
-      }
-    }
-    if (await clickSiteDelete(line)) {
-      lastLine = null;
-      return done(true);
-    }
-    return done(false, err);
-  };
-
   document.addEventListener(
     'click',
     (e) => {
       const n = nameFrom(e.target);
       if (!n) return;
-      try { lastLine = lineOf(e.target); } catch { lastLine = null; }
       if (typeof n === 'object') send(n.name, true);
       else send(n.match(NAME) ? n.match(NAME)[1] : n, false);
     },
