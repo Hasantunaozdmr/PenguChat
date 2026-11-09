@@ -477,12 +477,14 @@ function Inbox({ admin, saveAdmin, onClose, roles, accounts, onUndo, annNow }) {
 
 // 📢 Duyuru (sadece yönetici)
 function Announce({ d, admin, onChanged }) {
-  const [text, setText] = useState(d.announcement || '');
+  const [text, setText] = useState('');
   const [hint, setHint] = useState(null);
   const save = async (t) => {
     if (t !== '' && !t.trim()) return setHint('Duyuru metnini yaz.');
     try {
       await reportRpc('set_announcement', { p_password: admin, p_text: t });
+      setText('');
+      setHint(null);
       onChanged();
     } catch (e) {
       setHint('Kaydedilemedi: ' + e.message);
@@ -490,12 +492,13 @@ function Announce({ d, admin, onChanged }) {
   };
   return (
     <View style={[s.rep, { gap: 10 }]}>
-      <Text style={[s.repName, { fontSize: 15 }]}>📢 Duyuru{d.announcement ? ' — şu an yayında' : ''}</Text>
+      <Text style={[s.repName, { fontSize: 15 }]}>📢 Duyuru</Text>
+      {!!(d.announcement || '').trim() && <Text style={s.note}>Şu an yayında: {d.announcement}</Text>}
       <TextInput
         style={[s.input, { height: 70 }]}
         value={text}
         onChangeText={setText}
-        placeholder="Herkesin ekranının üstünde görünecek duyuru"
+        placeholder={d.announcement ? 'Yeni duyuru yaz — eskisinin yerine geçer' : 'Herkesin ekranının üstünde görünecek duyuru'}
         placeholderTextColor="#a9e3de"
         multiline
         maxLength={300}
@@ -519,9 +522,10 @@ function Announce({ d, admin, onChanged }) {
 
 // 🛠️ Bakım modu (sadece yönetici)
 function Maint({ d, admin, onChanged }) {
-  const [msg, setMsg] = useState(d.message || '');
+  // Bakım kapalıyken kutular boş başlar (eski sebep/saat kalmasın)
+  const [msg, setMsg] = useState(d.maintenance ? d.message || '' : '');
   const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
-  const [eta, setEta] = useState(TIME.test(d.eta || '') ? d.eta : '');
+  const [eta, setEta] = useState(d.maintenance && TIME.test(d.eta || '') ? d.eta : '');
   // Sadece saat: rakam dışı silinir, 2 rakamdan sonra ':' kendiliğinden eklenir (örn 2230 → 22:30)
   const onEta = (t) => {
     const d4 = t.replace(/\D/g, '').slice(0, 4);
@@ -531,7 +535,8 @@ function Maint({ d, admin, onChanged }) {
   const on = !!d.maintenance;
   const save = async (next) => {
     try {
-      await reportRpc('set_maintenance', { p_password: admin, p_on: next, p_message: msg, p_eta: eta });
+      await reportRpc('set_maintenance', { p_password: admin, p_on: next, p_message: next ? msg : '', p_eta: next ? eta : '' });
+      if (!next) { setMsg(''); setEta(''); }
       onChanged();
     } catch (e) {
       setHint('Kaydedilemedi: ' + e.message);

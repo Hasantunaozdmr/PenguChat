@@ -1174,8 +1174,9 @@
     $('#inboxCount').textContent = '';
     await checkMaint();
     inboxList.innerHTML = `<div class="maint-form">
-        <div class="maint-state">📢 Duyuru ${annNow.text ? '— şu an yayında' : ''}</div>
-        <textarea id="annText" maxlength="300" placeholder="Herkesin ekranının üstünde görünecek duyuru — örn: Yeni sürüm geldi, mod log'u deneyin!">${esc(annNow.text)}</textarea>
+        <div class="maint-state">📢 Duyuru</div>
+        ${annNow.text ? `<div class="log-row"><span class="k">Şu an yayında:</span><span class="d">${esc(annNow.text)}</span></div>` : ''}
+        <textarea id="annText" maxlength="300" placeholder="${annNow.text ? 'Yeni duyuru yaz — yayınlayınca eskisinin yerine geçer' : 'Herkesin ekranının üstünde görünecek duyuru — örn: Yeni sürüm geldi, mod log\'u deneyin!'}"></textarea>
         <div class="dlg-foot"><span class="hint" id="annHint"></span><div class="spacer"></div>
           ${annNow.text ? '<button class="btn mini" id="annOff">Duyuruyu kaldır</button>' : ''}<button class="btn primary" id="annOn">📢 Duyuruyu yayınla</button></div>
         <p class="dlg-note">Duyuru uygulamayı kapatmaz; herkes kendi ekranından ✕ ile kapatabilir. Yeni bir duyuru yayınlayınca yine görünür.</p>
@@ -1188,9 +1189,9 @@
     inboxList.innerHTML = `<div class="maint-form">
         <div class="maint-state">${on ? '🛠️ Bakım modu AÇIK — uygulama sadece sende çalışıyor' : '✅ Uygulama herkese açık'}</div>
         <label>Sebep (zorunlu · kullanıcılar görür)</label>
-        <textarea id="maintText" maxlength="300" placeholder="örn: Yeni özellik ekleniyor">${esc(maintState.message)}</textarea>
+        <textarea id="maintText" maxlength="300" placeholder="örn: Yeni özellik ekleniyor">${on ? esc(maintState.message) : ''}</textarea>
         <label>⏰ Tahmini açılış (zorunlu · kullanıcılar görür)</label>
-        <input id="maintEtaIn" type="time" value="${/^([01]\d|2[0-3]):[0-5]\d$/.test(maintState.eta) ? esc(maintState.eta) : ''}" />
+        <input id="maintEtaIn" type="time" value="${on && /^([01]\d|2[0-3]):[0-5]\d$/.test(maintState.eta) ? esc(maintState.eta) : ''}" />
         <div class="dlg-foot"><span class="hint" id="maintHint"></span><div class="spacer"></div>
           ${on ? '<button class="btn mini" id="maintSave">Bilgiyi güncelle</button><button class="btn primary" id="maintOff">Bakımı kapat</button>'
                : '<button class="btn mod danger" id="maintOn">🛠️ Bakıma al</button>'}</div>
@@ -1215,7 +1216,7 @@
     }
     if (id === 'maintOn' && !confirm('Uygulama senin dışındaki herkese kapansın mı?')) return;
     const on = id === 'maintOff' ? false : true;
-    const r = await window.dualChat.rpc('set_maintenance', { p_password: getAdmin(), p_on: on, p_message: $('#maintText').value, p_eta: $('#maintEtaIn').value });
+    const r = await window.dualChat.rpc('set_maintenance', { p_password: getAdmin(), p_on: on, p_message: on ? $('#maintText').value : '', p_eta: on ? $('#maintEtaIn').value : '' });
     if (!r.ok) { $('#maintHint').textContent = 'Kaydedilemedi: ' + r.error; $('#maintHint').className = 'hint err'; return; }
     loadMaint();
   });
