@@ -398,15 +398,37 @@
 
   // Klavyeyi chat panelinden geri alıp kutuya ver
   async function focusField(el) {
+    document.querySelectorAll('webview').forEach((wv) => { try { wv.blur(); } catch {} });
     if (document.activeElement && document.activeElement.tagName === 'WEBVIEW') document.activeElement.blur();
     await window.dualChat.focusHost();
     el.focus();
+    // Bazı Windows makinelerinde odak bir an sonra chat'e geri kaçıyor: kısa süre sonra tekrar dene
+    setTimeout(() => { if (document.activeElement !== el) { window.dualChat.focusHost().then(() => el.focus()); } }, 120);
+  }
+  // Bir pencere (sorun bildir, yönetim) açıkken chat panelleri tıklama / klavye almasın
+  const dialogs = [...document.querySelectorAll('.dlg-wrap')];
+  function syncDialogState() {
+    const open = dialogs.some((d) => !d.classList.contains('hidden'));
+    document.body.classList.toggle('dialog-open', open);
+    if (open) {
+      document.querySelectorAll('webview').forEach((wv) => { try { wv.blur(); } catch {} });
+      window.dualChat.focusHost();
+    }
+  }
+  const dlgObserver = new MutationObserver(syncDialogState);
+  dialogs.forEach((d) => dlgObserver.observe(d, { attributes: true, attributeFilter: ['class'] }));
+  // Pencere içindeki herhangi bir kutuya odaklanılınca (Tab ile de) klavyeyi garantile
+  for (const d of dialogs) {
+    d.addEventListener('focusin', (e) => {
+      const f = e.target.closest && e.target.closest('textarea, input:not([readonly])');
+      if (f && !f.__penguFocusing) { f.__penguFocusing = true; window.dualChat.focusHost().finally(() => { f.__penguFocusing = false; }); }
+    });
   }
   // Pencerelerdeki bir kutuya tıklanınca da odağı garantile
   for (const d of [reportDlg, inboxDlg]) {
     d.addEventListener('mousedown', (e) => {
       const f = e.target.closest('textarea, input:not([readonly])');
-      if (f) focusField(f);
+      if (f) { e.preventDefault(); focusField(f); }
     });
   }
   $('#reportBtn').addEventListener('click', () => openReport());

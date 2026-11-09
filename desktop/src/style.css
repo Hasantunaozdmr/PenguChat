@@ -399,3 +399,6 @@ kbd { color: var(--muted); font: inherit; font-size: 11px; }
 .btn.act.active, #modToggle.active { background: var(--border); }
 #reportBtn .dot-new { position: absolute; top: -3px; right: -3px; margin: 0; }
 #inboxBtn .badge { top: -6px; right: -6px; }
+
+/* Pencere açıkken chat panelleri tıklama almasın (odak çakışmasın) */
+.dialog-open .pane-body webview { pointer-events: none; }

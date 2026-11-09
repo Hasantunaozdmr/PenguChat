@@ -125,7 +125,10 @@ ipcMain.handle('open-external', (_e, url) => {
 // Pencere içi kutulara (sorun bildir vb.) klavye odağını geri ver: Windows'ta bir chat paneli
 // odaktayken açılan kutulara yazılamayabiliyor.
 ipcMain.handle('focus-host', () => {
-  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.focus();
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  // Windows'ta odak bazen chat panelinde (webview) takılı kalıyor: pencereyi ve ana sayfayı yeniden odakla
+  if (!mainWindow.isFocused()) mainWindow.focus();
+  mainWindow.webContents.focus();
 });
 
 ipcMain.handle('logout-all', async () => {
