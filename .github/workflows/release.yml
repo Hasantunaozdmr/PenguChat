@@ -35,9 +35,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm install --no-audit --no-fund
+      - name: npm install --no-audit --no-fund
+        shell: bash
+        # İnternetten indirme yapan adım: GitHub'ın indirme sunucusu bazen 504/503 veriyor, 4 kez dene
+        run: |
+          for i in 1 2 3 4; do npm install --no-audit --no-fund && exit 0; echo "Deneme $i başarısız, 30 sn sonra tekrar"; sleep 30; done; exit 1
       - run: npm version ${{ env.VERSION }} --no-git-tag-version --allow-same-version
-      - run: npm run dist:win
+      - name: npm run dist:win
+        shell: bash
+        # İnternetten indirme yapan adım: GitHub'ın indirme sunucusu bazen 504/503 veriyor, 4 kez dene
+        run: |
+          for i in 1 2 3 4; do npm run dist:win && exit 0; echo "Deneme $i başarısız, 30 sn sonra tekrar"; sleep 30; done; exit 1
       - name: Collect
         shell: bash
         run: |
@@ -64,7 +72,11 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
-      - run: npm ci --no-audit --no-fund
+      - name: npm ci --no-audit --no-fund
+        shell: bash
+        # İnternetten indirme yapan adım: GitHub'ın indirme sunucusu bazen 504/503 veriyor, 4 kez dene
+        run: |
+          for i in 1 2 3 4; do npm ci --no-audit --no-fund && exit 0; echo "Deneme $i başarısız, 30 sn sonra tekrar"; sleep 30; done; exit 1
       - name: Set version
         run: |
           node -e "
@@ -78,8 +90,11 @@ jobs:
             console.log(j.expo.version, j.expo.android.versionCode);
           "
       - run: npx expo prebuild --platform android --no-install
-      - working-directory: mobile/android
-        run: ./gradlew assembleRelease --no-daemon
+      - name: ./gradlew assembleRelease
+        working-directory: mobile/android
+        # İnternetten indirme yapan adım: GitHub'ın indirme sunucusu bazen 504/503 veriyor, 4 kez dene
+        run: |
+          for i in 1 2 3 4; do ./gradlew assembleRelease --no-daemon && exit 0; echo "Deneme $i başarısız, 30 sn sonra tekrar"; sleep 30; done; exit 1
       - run: mkdir -p out && cp android/app/build/outputs/apk/release/app-release.apk out/PenguChat.apk
       - uses: actions/upload-artifact@v4
         with:
