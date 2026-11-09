@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PengusChat — Twitch + Kick chat tek ekranda</title>
+  <meta name="description" content="Twitch ve Kick chat'ini yan yana gösteren, modlar için tek tıkla timeout/ban, gecikme ve izleyici sayısı sunan ücretsiz uygulama. Windows ve Android." />
+  <meta property="og:title" content="PengusChat — Twitch + Kick chat tek ekranda" />
+  <meta property="og:description" content="Modların yeni en iyi arkadaşı. Windows ve Android için ücretsiz." />
+  <meta property="og:image" content="media/tanitim.jpg" />
+  <link rel="icon" href="media/icon.png" />
+  <style>
+    :root {
+      --bg: #0a6b67; --bg2: #063f3d; --panel: #0e8f8a; --panel2: #0b7c77; --border: #23bdb5;
+      --text: #ffffff; --muted: #c9f3ef; --twitch: #9146ff; --kick: #53fc18;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; background: var(--bg2); }
+    body { margin: 0; min-height: 100vh; font: 16px/1.55 "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; color: var(--text);
+      background: radial-gradient(1200px 700px at 50% -10%, #13a39d, var(--bg) 45%, var(--bg2) 100%) no-repeat, var(--bg2); }
+    a { color: inherit; }
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 0 16px; }
+    header.hero { text-align: center; padding: 56px 0 32px; }
+    .hero img.logo { width: 120px; height: 120px; filter: drop-shadow(0 10px 25px rgba(0,0,0,.35)); }
+    .hero h1 { font-size: clamp(40px, 8vw, 68px); margin: 8px 0 4px; letter-spacing: .5px; }
+    .hero h1 span { color: #062f2d; }
+    .hero p.tag { font-size: clamp(18px, 3.5vw, 24px); color: var(--muted); margin: 0 0 24px; }
+    .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; background: rgba(0,0,0,.25); border: 1px solid var(--border); font-size: 13px; font-weight: 700; margin-bottom: 14px; }
+    .dl { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+    .btn { display: inline-flex; align-items: center; gap: 10px; padding: 14px 22px; border-radius: 12px; font-weight: 700; font-size: 17px; text-decoration: none;
+      border: 2px solid transparent; transition: transform .12s ease, filter .12s ease; }
+    .btn:hover { transform: translateY(-2px); filter: brightness(1.08); }
+    .btn small { display: block; font-weight: 500; font-size: 12px; opacity: .85; }
+    .btn.win { background: #ffffff; color: #0a6b67; }
+    .btn.and { background: var(--twitch); color: #fff; }
+    .btn.ghost { background: transparent; border-color: var(--border); color: #fff; }
+    .note { color: var(--muted); font-size: 13px; margin-top: 12px; }
+    section { padding: 36px 0; }
+    h2 { font-size: 28px; margin: 0 0 18px; text-align: center; }
+    .video { display: grid; grid-template-columns: 2.2fr 1fr; gap: 16px; align-items: start; }
+    .video figure { margin: 0; background: rgba(0,0,0,.25); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+    .video video { display: block; width: 100%; height: auto; background: #000; }
+    .video figcaption { padding: 8px 12px; font-size: 13px; color: var(--muted); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+    .card { background: rgba(0,0,0,.2); border: 1px solid var(--border); border-radius: 14px; padding: 16px; }
+    .card .i { font-size: 26px; }
+    .card h3 { margin: 6px 0 4px; font-size: 17px; }
+    .card p { margin: 0; color: var(--muted); font-size: 14px; }
+    ol.steps { max-width: 760px; margin: 0 auto; padding-left: 22px; }
+    ol.steps li { margin: 8px 0; }
+    .faq { max-width: 760px; margin: 0 auto; }
+    details { background: rgba(0,0,0,.2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; margin: 8px 0; }
+    summary { cursor: pointer; font-weight: 700; }
+    details p { color: var(--muted); margin: 8px 0 2px; }
+    footer { text-align: center; padding: 30px 0 40px; color: var(--muted); font-size: 13px; }
+    @media (max-width: 760px) { .video { grid-template-columns: 1fr; } .video figure.phone { max-width: 360px; margin: 0 auto; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <img class="logo" src="media/icon.png" alt="PengusChat penguen simgesi" />
+      <h1>Pengus<span>Chat</span></h1>
+      <p class="tag">Twitch + Kick chat'i tek ekranda — modların yeni en iyi arkadaşı</p>
+      <div class="badge">🧪 Beta · Ücretsiz</div>
+      <div class="dl">
+        <a class="btn win" href="https://github.com/Hasantunaozdmr/PenguChat/releases/latest/download/PenguChat-Setup.exe">🪟 <span>Windows için indir<small>PenguChat-Setup.exe</small></span></a>
+        <a class="btn and" href="https://github.com/Hasantunaozdmr/PenguChat/releases/latest/download/PenguChat.apk">🤖 <span>Android için indir<small>PenguChat.apk</small></span></a>
+        <a class="btn ghost" href="#nasil">❓ <span>Nasıl kurulur?<small>2 dakika</small></span></a>
+      </div>
+      <p class="note">iPhone sürümü hazırlanıyor. Kurduktan sonra güncellemeler uygulamanın içinden gelir.</p>
+    </header>
+
+    <section>
+      <h2>🎬 İş başında</h2>
+      <div class="video">
+        <figure>
+          <video src="media/tanitim.mp4" poster="media/tanitim.jpg" controls muted playsinline preload="metadata"></video>
+          <figcaption>Windows sürümü — 1 dakikada tüm özellikler</figcaption>
+        </figure>
+        <figure class="phone">
+          <video src="media/telefon.mp4" poster="media/telefon.jpg" controls muted playsinline preload="metadata"></video>
+          <figcaption>Android sürümü</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section>
+      <h2>✨ Neler yapabiliyor?</h2>
+      <div class="grid">
+        <div class="card"><div class="i">💬</div><h3>İki chat yan yana</h3><p>Twitch ve Kick'in resmi chat'leri tek pencerede. Linki yapıştır, ikisi birden açılsın.</p></div>
+        <div class="card"><div class="i">⏱</div><h3>Tek tıkla ceza</h3><p>Kullanıcı adına tıkla, timeout ya da ban'ı Twitch ve Kick'e aynı anda gönder. Twitch'e saniye, Kick'e dakika otomatik.</p></div>
+        <div class="card"><div class="i">📋</div><h3>Kişinin sicili</h3><p>Tıkladığın kişinin daha önce kaç timeout / ban yediğini anında gör.</p></div>
+        <div class="card"><div class="i">↩</div><h3>Cezayı geri al</h3><p>Yanlış kişiye mi gitti? Mod log'dan tek tıkla kaldır.</p></div>
+        <div class="card"><div class="i">📡</div><h3>Gecikme ve izleyici</h3><p>Yayının gecikmesini ve iki platformdaki canlı izleyici sayısını gösterir.</p></div>
+        <div class="card"><div class="i">🛡️</div><h3>Sadece modlara</h3><p>Mod araçları sadece mod hesaplarında çıkar; normal izleyici sade bir chat görür.</p></div>
+        <div class="card"><div class="i">🐞</div><h3>Sorun bildir</h3><p>Uygulamanın içinden sorun gönder, durumunu takip et: Gönderildi → Sırada → Çözüldü.</p></div>
+        <div class="card"><div class="i">🔄</div><h3>Kendi kendine güncellenir</h3><p>Windows'ta otomatik; Android'de tek dokunuş.</p></div>
+      </div>
+    </section>
+
+    <section id="nasil">
+      <h2>🧰 Nasıl kurulur?</h2>
+      <ol class="steps">
+        <li><b>Windows:</b> PenguChat-Setup.exe'yi indir ve aç. "Windows kişisel bilgisayarınızı korudu" çıkarsa <b>Ek bilgi → Yine de çalıştır</b> de (uygulama henüz imzasız olduğu için normal).</li>
+        <li><b>Android:</b> PenguChat.apk'yı indir ve aç. Telefon "bilinmeyen kaynaklar" izni isterse izin ver.</li>
+        <li>Üstteki kutuya yayıncının Twitch ya da Kick linkini (veya sadece kanal adını) yaz.</li>
+        <li>Chat'lerin içindeki <b>Giriş yap</b> ile hesabına bir kez gir. Twitch'te Google ile giriş çalışmaz; kullanıcı adı ve şifre kullan.</li>
+        <li>Mod hesabınla girdiysen 👤 düğmesiyle hızlı ceza çubuğu açılır. Hepsi bu!</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>❔ Sık sorulanlar</h2>
+      <div class="faq">
+        <details><summary>Ücretli mi?</summary><p>Hayır, tamamen ücretsiz.</p></details>
+        <details><summary>Şifremi uygulama görüyor mu?</summary><p>Hayır. Girişi Twitch ve Kick'in kendi sayfalarında yaparsın; uygulama şifreni hiç görmez ve kaydetmez.</p></details>
+        <details><summary>Mod değilim, işime yarar mı?</summary><p>Evet — iki chat'i aynı anda takip etmek için. Mod araçları sadece mod hesaplarında görünür.</p></details>
+        <details><summary>iPhone sürümü var mı?</summary><p>Henüz yok, hazırlanıyor.</p></details>
+        <details><summary>Bir sorun buldum, ne yapayım?</summary><p>Uygulamadaki 🐞 düğmesinden bildir; durumunu "Bildirdiklerim"den takip edebilirsin.</p></details>
+      </div>
+    </section>
+
+    <footer>🐧 PengusChat · Beta · Twitch ve Kick'in resmi uygulaması değildir.</footer>
+  </div>
+</body>
+</html>

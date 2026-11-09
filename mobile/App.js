@@ -19,7 +19,7 @@ import Constants from 'expo-constants';
 import { PLATFORMS, cleanChannel, hasLink, isInternalUrl, parseTargets } from './src/links';
 import { FIT_POPUPS_JS, PICK_USER_JS } from './src/injected';
 import ReportModal, { countNew, hasMineNews, loadAdmin, storeAdmin } from './src/ReportModal';
-import { OWNER_ACCOUNTS, logModAction, reportRpc, sendPing } from './src/report';
+import { OWNER_ACCOUNTS, logError, logModAction, reportRpc, sendPing } from './src/report';
 
 const STORE_KEY = 'dualchat:settings';
 const RELEASE_BASE = 'https://github.com/Hasantunaozdmr/PenguChat/releases/latest/download';
@@ -121,11 +121,40 @@ function PenguChat() {
   const [roles, setRoles] = useState({ modlog: false, reports: false, stats: false });
   const anyRole = roles.modlog || roles.reports || roles.stats;
   // Bakım modu: açıkken uygulama herkese kapalı; yönetici (şifre ya da kendi hesabı) kullanmaya devam eder
+  // ---- Otomatik hata kaydı ----
+  const reportErrorRef = useRef(null);
+  reportErrorRef.current = (kind, detail) =>
+    logError({
+      p_platform: `${Platform.OS} ${Platform.Version}`.slice(0, 30),
+      p_version: APP_VERSION,
+      p_account: [accounts.twitch && 'Twitch: ' + accounts.twitch, accounts.kick && 'Kick: ' + accounts.kick].filter(Boolean).join(' · '),
+      p_kind: kind,
+      p_detail: detail,
+    });
+  const reportError = (kind, detail) => reportErrorRef.current(kind, detail);
+  useEffect(() => {
+    const EU = global.ErrorUtils;
+    if (!EU || !EU.setGlobalHandler) return;
+    const prev = EU.getGlobalHandler && EU.getGlobalHandler();
+    EU.setGlobalHandler((err, fatal) => {
+      reportErrorRef.current(fatal ? 'uygulama-coktu' : 'uygulama', String((err && (err.stack || err.message)) || err).slice(0, 400));
+      prev && prev(err, fatal);
+    });
+  }, []);
+  // ---- 📢 Duyuru ----
+  const [ann, setAnn] = useState({ text: '', at: '', seen: '' });
+  useEffect(() => {
+    AsyncStorage.getItem('penguchat:annSeen').then((v) => v && setAnn((a) => ({ ...a, seen: v }))).catch(() => {});
+  }, []);
   const [maint, setMaint] = useState({ maintenance: false, message: '', eta: '' });
   useEffect(() => {
     const check = () =>
       reportRpc('app_status', {})
-        .then((r) => r && setMaint({ maintenance: !!r.maintenance, message: r.message || '', eta: r.eta || '' }))
+        .then((r) => {
+          if (!r) return;
+          setMaint({ maintenance: !!r.maintenance, message: r.message || '', eta: r.eta || '' });
+          setAnn((a) => ({ ...a, text: r.announcement || '', at: r.announcement_at || '' }));
+        })
         .catch(() => {}); // sunucuya ulaşılamazsa son bilinen durum kalır
     check();
     const t = setInterval(check, 30 * 1000);
@@ -252,6 +281,18 @@ function PenguChat() {
   // Chat'te bir ada dokununca kullanıcı seçilir, ⏱ / ⛔ ile komut o chat'e yazılıp gönderilir
   const [mod, setMod] = useState({ open: false, user: '', twitch: false, kick: false });
   const [secsText, setSecsText] = useState(null);
+  // ---- Kişinin sicili: bu uygulamadan kaç timeout / ban yemiş ----
+  const [record, setRecord] = useState(null);
+  const recTimer = useRef(null);
+  const recFor = useRef('');
+  const loadRecord = (name) => {
+    const user = cleanChannel(name || '');
+    recFor.current = user;
+    if (!user) return setRecord(null);
+    reportRpc('target_record', { p_target: user })
+      .then((r) => recFor.current === user && setRecord(r || null))
+      .catch(() => setRecord(null));
+  };
   const pending = useRef({});
 
   // ---- İzleyici / mod modu ----
@@ -341,6 +382,7 @@ function PenguChat() {
         const { name, restream } = JSON.parse(data.slice(14));
         const p = restream ? 'twitch' : k; // Restream mesajının sahibi Twitch'te
         setMod({ open: true, user: name, twitch: p === 'twitch' && canMod('twitch'), kick: p === 'kick' && canMod('kick') });
+        loadRecord(name);
       } catch {}
     } else if (data.startsWith('__PENGU_SENT__')) {
       try {
@@ -388,10 +430,44 @@ function PenguChat() {
         p_secs: action === 'timeout' ? secs : null,
         p_ok: !!r.ok,
       });
+      if (!r.ok) reportError('komut-gitmedi', `${PLATFORMS[k].label} ${action}: ${r.err}`);
       results.push(`${PLATFORMS[k].label} ${r.ok ? '✓' : '✗ ' + r.err}`);
     }
     showHint(`${user} ${action === 'ban' ? 'ban' : 'timeout'}: ${results.join(' · ')}`, !results.some((x) => x.includes('✗')));
+    setTimeout(() => loadRecord(user), 1500);
   };
+
+  // ---- Cezayı geri al (mod log'dan) ----
+  const undoAction = (x) =>
+    new Promise((resolve) => {
+      const k = x.platform;
+      const name = PLATFORMS[k].label;
+      if (!views.current[k] || !s[k]) {
+        Alert.alert('Geri al', `Geri almak için önce ${name} chat'ini aç (ceza atılan kanalı).`);
+        return resolve(false);
+      }
+      if (!canMod(k)) {
+        Alert.alert('Geri al', `${name} kanalında mod değilsin, ceza kaldırılamaz.`);
+        return resolve(false);
+      }
+      Alert.alert('Geri al', `${x.target} için ${x.action === 'ban' ? 'ban' : 'timeout'} ${name}'te kaldırılsın mı?`, [
+        { text: 'Vazgeç', style: 'cancel', onPress: () => resolve(false) },
+        {
+          text: 'Kaldır',
+          onPress: async () => {
+            // Twitch: /untimeout ya da /unban; Kick: /unban ikisini de kaldırır
+            const cmd = k === 'twitch' && x.action === 'timeout' ? `/untimeout ${x.target}` : `/unban ${x.target}`;
+            const r = await sendCommand(k, cmd);
+            logModAction({ p_mod_twitch: accounts.twitch, p_mod_kick: accounts.kick, p_platform: k, p_action: x.action === 'ban' ? 'unban' : 'untimeout', p_target: x.target, p_secs: null, p_ok: !!r.ok });
+            if (!r.ok) {
+              reportError('geri-al', `${name}: ${r.err}`);
+              Alert.alert('Geri alınamadı', r.err);
+            }
+            resolve(!!r.ok);
+          },
+        },
+      ]);
+    });
 
   const punish = (action) => {
     const user = cleanChannel(mod.user);
@@ -513,7 +589,21 @@ function PenguChat() {
           <Text style={styles.maintSmall}>Her 30 saniyede bir kontrol ediliyor…</Text>
         </View>
       )}
-      {reportMode && <ReportModal accounts={accounts} roles={roles} mode={reportMode} onClose={() => setReportMode(null)} appVersion={APP_VERSION} admin={admin} onAdminChange={changeAdmin} startTab={mineNews ? 'mine' : 'new'} onMineSeen={() => setMineNews(false)} />}
+      {reportMode && <ReportModal accounts={accounts} roles={roles} onUndo={undoAction} annNow={ann} mode={reportMode} onClose={() => setReportMode(null)} appVersion={APP_VERSION} admin={admin} onAdminChange={changeAdmin} startTab={mineNews ? 'mine' : 'new'} onMineSeen={() => setMineNews(false)} />}
+      {!!ann.text && ann.seen !== ann.at && (
+        <View style={styles.annBar}>
+          <Text style={styles.annText}>📢 {ann.text}</Text>
+          <Pressable
+            hitSlop={10}
+            onPress={() => {
+              AsyncStorage.setItem('penguchat:annSeen', ann.at).catch(() => {});
+              setAnn((a) => ({ ...a, seen: a.at }));
+            }}
+          >
+            <Text style={styles.updateClose}>✕</Text>
+          </Pressable>
+        </View>
+      )}
       {newVersion && (
         <Pressable style={styles.updateBar} onPress={() => Linking.openURL(`${RELEASE_BASE}/PenguChat.apk`)}>
           <Text style={styles.updateText}>⬆ Yeni sürüm var · Güncellemek için dokun</Text>
@@ -528,13 +618,15 @@ function PenguChat() {
             <TextInput
               style={[styles.modInput, { flex: 1 }]}
               value={mod.user}
-              onChangeText={(t) =>
+              onChangeText={(t) => {
                 setMod((m) => ({
                   ...m,
                   user: t,
                   ...(!m.twitch && !m.kick ? { twitch: canMod('twitch'), kick: canMod('kick') } : {}),
-                }))
-              }
+                }));
+                clearTimeout(recTimer.current);
+                recTimer.current = setTimeout(() => loadRecord(t), 600);
+              }}
               placeholder="Chat'te bir ada dokun"
               placeholderTextColor="#a9e3de"
               autoCapitalize="none"
@@ -551,6 +643,13 @@ function PenguChat() {
               </Pressable>
             ))}
           </View>
+          {!!record && !!mod.user && (
+            <Text style={[styles.modUnit, { marginLeft: 0, fontWeight: '700', color: record.timeouts || record.bans ? '#ffb84d' : C.muted }]}>
+              {Number(record.timeouts) || Number(record.bans)
+                ? `📋 Sicil: ${[record.timeouts ? record.timeouts + ' timeout' : '', record.bans ? record.bans + ' ban' : ''].filter(Boolean).join(' · ')}`
+                : '📋 Temiz sicil'}
+            </Text>
+          )}
           <View style={styles.modRow}>
             <Pressable style={[styles.modBtn, !(mod.user && (mod.twitch || mod.kick)) && styles.disabled]} onPress={() => punish('timeout')}>
               <Text style={styles.modBtnText}>⏱ Timeout</Text>
@@ -621,6 +720,7 @@ function PenguChat() {
                     url={urls[k]}
                     zoom={s.zoom[k]}
                     onMessage={(data) => onWebMessage(k, data)}
+                    onFail={(d) => reportError('chat-acilmadi', `${d} (${s[k]})`)}
                     onLoaded={() => {
                       // Telefonda chat sadece okunur: mesaj kutusu gizlenir (komutlar yine çalışır)
                       views.current[k]?.injectJavaScript('window.__penguReadOnly && window.__penguReadOnly(); true;');
@@ -705,7 +805,7 @@ function PaneButtons({ k, onAction }) {
   );
 }
 
-function ChatView({ k, url, zoom, onRef, onMessage, onLoaded }) {
+function ChatView({ k, url, zoom, onRef, onMessage, onLoaded, onFail }) {
   const inner = useRef(null);
   const setRef = useCallback(
     (r) => {
@@ -752,7 +852,7 @@ function ChatView({ k, url, zoom, onRef, onMessage, onLoaded }) {
       // Arka planda sistem WebView'i kapatırsa paneli yeniden yükle
       onContentProcessDidTerminate={() => inner.current?.reload()}
       onRenderProcessGone={() => inner.current?.reload()}
-      onError={() => {}}
+      onError={(e) => onFail?.(`${PLATFORMS[k].label}: ${e.nativeEvent?.description || e.nativeEvent?.code || 'yüklenemedi'}`)}
       onHttpError={(e) => {
         if (e.nativeEvent.statusCode === 404) {
           Alert.alert(PLATFORMS[k].label, 'Kanal bulunamadı. Linki kontrol et.');
@@ -822,6 +922,8 @@ const styles = StyleSheet.create({
   },
   iconText: { color: C.text, fontSize: 18 },
   iconBtnActive: { backgroundColor: C.border },
+  annBar: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#2563eb' },
+  annText: { flex: 1, color: '#fff', fontWeight: '700', fontSize: 13 },
   maint: {
     position: 'absolute',
     top: 0,

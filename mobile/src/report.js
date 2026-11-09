@@ -59,3 +59,14 @@ export async function logModAction(info) {
     await reportRpc('log_mod_action', { p_client: await clientId(), ...info });
   } catch {}
 }
+
+const reportedErrors = new Map();
+// Otomatik hata kaydı: aynı hata 10 dakikada bir kez gönderilir (yöneticinin ⚠️ Hatalar sekmesine düşer)
+export async function logError(info) {
+  const key = info.p_kind + '|' + info.p_detail;
+  if (Date.now() - (reportedErrors.get(key) || 0) < 10 * 60 * 1000) return;
+  reportedErrors.set(key, Date.now());
+  try {
+    await reportRpc('log_error', { p_client: await clientId(), ...info, p_detail: String(info.p_detail || '').slice(0, 500) });
+  } catch {}
+}

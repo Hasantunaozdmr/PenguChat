@@ -80,8 +80,12 @@
     wv.addEventListener('did-start-loading', () => (pane.status.textContent = 'yükleniyor…'));
     wv.addEventListener('did-stop-loading', () => (pane.status.textContent = ''));
     wv.addEventListener('did-fail-load', (e) => {
-      if (e.errorCode !== -3) pane.status.textContent = 'bağlantı hatası';
+      if (e.errorCode !== -3) {
+        pane.status.textContent = 'bağlantı hatası';
+        if (e.isMainFrame !== false) reportError('chat-acilmadi', `${p === 'twitch' ? 'Twitch' : 'Kick'}: ${e.errorDescription || e.errorCode} (${state[p]})`);
+      }
     });
+    wv.addEventListener('render-process-gone', () => reportError('chat-coktu', `${p === 'twitch' ? 'Twitch' : 'Kick'} paneli çöktü (${state[p]})`));
     wv.addEventListener('console-message', (e) => {
       if (typeof e.message === 'string' && e.message.startsWith('__PENGU_PICK__')) {
         try { onPick(p, JSON.parse(e.message.slice(14))); } catch {}
@@ -437,7 +441,7 @@
     reportHint('Gönderiliyor…');
     const r = await window.dualChat.sendReport({ message, contact, token: myToken(true) });
     $('#reportSend').disabled = false;
-    if (!r.ok) { reportHint('Gönderilemedi: ' + r.error, 'err'); return; }
+    if (!r.ok) { reportHint('Gönderilemedi: ' + r.error, 'err'); reportError('sorun-gonderilemedi', r.error); return; }
     $('#reportText').value = '';
     reportHint('Gönderildi! Durumunu "Bildirdiklerim"den takip edebilirsin 🐧', 'ok');
     focusField($('#reportText'));
@@ -505,6 +509,7 @@
     if (inboxTab === 'mod') return loadModLog(pw);
     if (inboxTab === 'roles') return loadRoles(pw);
     if (inboxTab === 'maint') return loadMaint();
+    if (inboxTab === 'errors') return loadErrors(pw);
     const r = pw ? await window.dualChat.listReports(pw) : await window.dualChat.rpc('role_reports', roleArgs());
     if (!r.ok) {
       if (r.error === 'Şifre yanlış') return failed(r);
@@ -619,17 +624,44 @@
     if (!r.ok) return failed(r);
     renderModLog(r.data || [], inboxList, $('#inboxCount'));
   }
+  const MOD_KIND = { ban: '⛔ Ban', untimeout: '↩ Timeout kaldırıldı', unban: '↩ Ban kaldırıldı' };
   function renderModLog(list, box, countEl) {
     countEl.textContent = list.length ? `${list.length} işlem` : '';
+    // Sonradan geri alınmış cezaları bul (liste yeniden eskiye sıralı)
+    const undoneAfter = new Set();
+    const undone = new Set();
+    for (const x of list) {
+      const key = x.platform + '|' + String(x.target).toLowerCase();
+      if (x.action === 'untimeout' || x.action === 'unban') undoneAfter.add(key + '|' + (x.action === 'unban' ? 'ban' : 'timeout'));
+      else if (undoneAfter.has(key + '|' + x.action) || (x.platform === 'kick' && undoneAfter.has(key + '|ban'))) undone.add(x.id);
+    }
     box.innerHTML = list.length
       ? list.map((x) => {
           const who = (x.platform === 'twitch' ? x.mod_twitch : x.mod_kick) || x.mod_twitch || x.mod_kick || '?';
-          return `<div class="log-row"><span class="t">${esc(fmtDate(x.at))}</span>
-            <span class="k">${x.action === 'ban' ? '⛔ Ban' : '⏱ Timeout ' + esc(fmtDur(x.secs))}</span>
-            <span class="d"><b>${esc(x.target)}</b> · ${x.platform === 'twitch' ? 'Twitch' : 'Kick'}<small>mod: ${esc(who)}${x.ok === false ? ' · ✗ gönderilemedi' : ''}</small></span></div>`;
+          const canUndo = (x.action === 'timeout' || x.action === 'ban') && x.ok !== false && !undone.has(x.id);
+          return `<div class="log-row ${undone.has(x.id) ? 'undone' : ''}"><span class="t">${esc(fmtDate(x.at))}</span>
+            <span class="k">${MOD_KIND[x.action] || '⏱ Timeout ' + esc(fmtDur(x.secs))}</span>
+            <span class="d"><b>${esc(x.target)}</b> · ${x.platform === 'twitch' ? 'Twitch' : 'Kick'}<small>mod: ${esc(who)}${x.ok === false ? ' · ✗ gönderilemedi' : ''}${undone.has(x.id) ? ' · geri alındı' : ''}</small></span>
+            ${canUndo ? `<button class="btn mini undo" data-undo="${esc(x.action)}" data-p="${esc(x.platform)}" data-t="${esc(x.target)}" title="Bu cezayı kaldır">↩ Geri al</button>` : ''}</div>`;
         }).join('')
       : '<div class="empty">Henüz mod işlemi yok. (Sadece bu uygulamadan atılan timeout / ban kaydedilir.)</div>';
   }
+  inboxList.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-undo]');
+    if (!b) return;
+    const p = b.dataset.p, user = b.dataset.t, act = b.dataset.undo;
+    const name = p === 'twitch' ? 'Twitch' : 'Kick';
+    if (!panes[p].view || !state[p]) { alert(`Geri almak için önce ${name} chat'ini aç (ceza atılan kanalı).`); return; }
+    if (!canMod(p)) { alert(`${name} kanalında mod değilsin, ceza kaldırılamaz.`); return; }
+    if (!confirm(`${user} için ${act === 'ban' ? 'ban' : 'timeout'} ${name}'te kaldırılsın mı?`)) return;
+    // Twitch: /untimeout ya da /unban; Kick: /unban ikisini de kaldırır
+    const cmd = p === 'twitch' && act === 'timeout' ? `/untimeout ${user}` : `/unban ${user}`;
+    b.disabled = true;
+    const err = await sendCommand(p, cmd);
+    window.dualChat.modAction({ client: clientId(), twitch: accounts.twitch, kick: accounts.kick, platform: p, action: act === 'ban' ? 'unban' : 'untimeout', target: user, secs: null, ok: !err }).catch(() => {});
+    if (err) { alert('Geri alınamadı: ' + err); b.disabled = false; reportError('geri-al', `${name}: ${err}`); return; }
+    setTimeout(loadInbox, 600);
+  });
   function ago(iso) {
     const m = Math.max(0, Math.round((Date.now() - new Date(iso)) / 60000));
     if (m < 2) return 'şimdi';
@@ -718,7 +750,7 @@
   const BETA = 'Beta';
   const ver = (v) => BETA || 'v' + v;
   function renderUpdate(u) {
-    if (u.current) $('#versionLabel').textContent = ver(u.current);
+    if (u.current) { $('#versionLabel').textContent = ver(u.current); appVersion = u.current; }
     updateBtn.classList.remove('busy');
     updateBtn.disabled = false;
     if (u.state === 'downloading') {
@@ -824,12 +856,32 @@
     targets.twitch = p === 'twitch' && canMod('twitch');
     targets.kick = p === 'kick' && canMod('kick');
     renderTargets();
+    showRecord(name);
+  }
+  // ---- Kişinin sicili: bu uygulamadan kaç timeout / ban yemiş ----
+  let recTimer = null;
+  let recFor = '';
+  async function showRecord(name) {
+    const el = $('#modRecord');
+    const user = cleanChannel(name || '');
+    recFor = user;
+    if (!user) { el.textContent = ''; return; }
+    const r = await window.dualChat.rpc('target_record', { p_target: user });
+    if (recFor !== user) return; // bu arada başka biri seçildi
+    if (!r.ok || !r.data) { el.textContent = ''; return; }
+    const t = Number(r.data.timeouts) || 0, b = Number(r.data.bans) || 0;
+    el.classList.toggle('bad', !!(t || b));
+    el.textContent = t || b
+      ? `📋 Sicil: ${t ? t + ' timeout' : ''}${t && b ? ' · ' : ''}${b ? b + ' ban' : ''}${r.data.last_at ? ' (son: ' + fmtDate(r.data.last_at) + ')' : ''}`
+      : '📋 Temiz sicil';
   }
 
   $('#tgtTwitch').addEventListener('click', () => { if (canMod('twitch')) targets.twitch = !targets.twitch; renderTargets(); });
   $('#tgtKick').addEventListener('click', () => { if (canMod('kick')) targets.kick = !targets.kick; renderTargets(); });
-  $('#modClear').addEventListener('click', () => { modUser.value = ''; targets.twitch = targets.kick = false; renderTargets(); });
+  $('#modClear').addEventListener('click', () => { modUser.value = ''; showRecord(''); targets.twitch = targets.kick = false; renderTargets(); });
   modUser.addEventListener('input', () => {
+    clearTimeout(recTimer);
+    recTimer = setTimeout(() => showRecord(modUser.value), 600);
     if (!targets.twitch && !targets.kick) { targets.twitch = canMod('twitch'); targets.kick = canMod('kick'); }
     renderTargets();
   });
@@ -899,6 +951,7 @@
     const results = [];
     for (const p of list) {
       const err = await sendCommand(p, buildCommand(p, action, user));
+      if (err) reportError('komut-gitmedi', `${p === 'twitch' ? 'Twitch' : 'Kick'} ${action}: ${err}`);
       window.dualChat.modAction({
         client: clientId(), twitch: accounts.twitch, kick: accounts.kick,
         platform: p, action, target: user, secs: action === 'timeout' ? state.timeoutSecs : null, ok: !err,
@@ -907,6 +960,7 @@
     }
     const failed = results.some((r) => r.includes('✗'));
     modMsg(`${user} ${action === 'ban' ? 'ban' : 'timeout'}: ${results.join(' · ')}`, failed ? 'err' : 'ok');
+    setTimeout(() => showRecord(user), 1500);
   }
   $('#toBtn').addEventListener('click', () => punish('timeout'));
   $('#banBtn').addEventListener('click', () => punish('ban'));
@@ -1026,6 +1080,39 @@
   setTimeout(ping, 15 * 1000); // chat'ler açılıp hesaplar okunduktan sonra
   setInterval(ping, 5 * 60 * 1000);
 
+  // ---------- Otomatik hata kaydı (yöneticinin ⚠️ Hatalar sekmesine düşer) ----------
+  let appVersion = '';
+  const reported = new Map();
+  function reportError(kind, detail) {
+    const key = kind + '|' + detail;
+    const last = reported.get(key) || 0;
+    if (Date.now() - last < 10 * 60 * 1000) return; // aynı hatayı 10 dakikada bir kez
+    reported.set(key, Date.now());
+    window.dualChat.rpc('log_error', {
+      p_client: clientId(), p_platform: 'windows', p_version: appVersion,
+      p_account: [accounts.twitch && 'Twitch: ' + accounts.twitch, accounts.kick && 'Kick: ' + accounts.kick].filter(Boolean).join(' · '),
+      p_kind: kind, p_detail: String(detail || '').slice(0, 500),
+    }).catch(() => {});
+  }
+  window.addEventListener('error', (e) => reportError('uygulama', `${e.message} @ ${(e.filename || '').split('/').pop()}:${e.lineno}`));
+  window.addEventListener('unhandledrejection', (e) => reportError('uygulama', String((e.reason && (e.reason.stack || e.reason.message)) || e.reason).slice(0, 400)));
+  async function loadErrors(pw) {
+    const r = await window.dualChat.rpc('get_errors', { p_password: pw });
+    if (!r.ok) return failed(r);
+    const list = r.data || [];
+    $('#inboxCount').textContent = list.length ? `${list.length} hata` : '';
+    inboxList.innerHTML = (list.length ? '<div class="dlg-foot" style="margin-bottom:6px"><div class="spacer"></div><button class="btn mini" id="errClear">🗑 Hepsini temizle</button></div>' : '')
+      + (list.length
+        ? list.map((x) => `<div class="log-row"><span class="t">${esc(fmtDate(x.at))}</span><span class="k">⚠️ ${esc(x.kind)}</span>
+            <span class="d">${esc(x.detail)}<small>${esc(x.account || 'giriş yok')} · ${esc((x.platform || '').split(' ')[0])} · v${esc(x.version || '?')}</small></span></div>`).join('')
+        : '<div class="empty">Kayıtlı hata yok 🎉</div>');
+  }
+  inboxList.addEventListener('click', async (e) => {
+    if (e.target.id !== 'errClear' || !confirm('Bütün hata kayıtları silinsin mi?')) return;
+    await window.dualChat.rpc('clear_errors', { p_password: getAdmin() });
+    loadInbox();
+  });
+
   // ---------- Bakım modu ----------
   // Bakım açıkken uygulama herkese kapalıdır; yönetici (şifre ya da kendi Twitch/Kick hesabı) kullanmaya devam eder.
   let maintState = { maintenance: false, message: '', eta: '' };
@@ -1039,9 +1126,26 @@
   }
   async function checkMaint() {
     const r = await window.dualChat.rpc('app_status', {});
-    if (r.ok && r.data) maintState = { maintenance: !!r.data.maintenance, message: r.data.message || '', eta: r.data.eta || '' };
+    if (r.ok && r.data) {
+      maintState = { maintenance: !!r.data.maintenance, message: r.data.message || '', eta: r.data.eta || '' };
+      showAnnouncement(r.data.announcement || '', r.data.announcement_at || '');
+    }
     applyMaint(); // sunucuya ulaşılamazsa son bilinen durum kalır
   }
+  // ---- 📢 Duyuru: herkesin üst kısmında, kapatılabilir (yeni duyuru gelince yine çıkar) ----
+  const ANN_KEY = 'penguchat:annSeen';
+  let annNow = { text: '', at: '' };
+  function showAnnouncement(text, at) {
+    annNow = { text, at };
+    let seen = '';
+    try { seen = localStorage.getItem(ANN_KEY) || ''; } catch {}
+    $('#announceText').textContent = text;
+    $('#announce').classList.toggle('hidden', !text || seen === at);
+  }
+  $('#announceClose').addEventListener('click', () => {
+    try { localStorage.setItem(ANN_KEY, annNow.at); } catch {}
+    $('#announce').classList.add('hidden');
+  });
   checkMaint();
   setInterval(checkMaint, 30 * 1000);
   setInterval(applyMaint, 3000); // hesap adı sonradan okununca yöneticiyi tanı
@@ -1049,7 +1153,14 @@
     $('#inboxCount').textContent = '';
     await checkMaint();
     const on = maintState.maintenance;
-    inboxList.innerHTML = `<div class="maint-form">
+    inboxList.innerHTML = `<div class="maint-form" style="margin-bottom:10px">
+        <div class="maint-state">📢 Duyuru ${annNow.text ? '— şu an yayında' : ''}</div>
+        <textarea id="annText" maxlength="300" placeholder="Herkesin ekranının üstünde görünecek duyuru — örn: Yeni sürüm geldi, mod log'u deneyin!">${esc(annNow.text)}</textarea>
+        <div class="dlg-foot"><span class="hint" id="annHint"></span><div class="spacer"></div>
+          ${annNow.text ? '<button class="btn mini" id="annOff">Duyuruyu kaldır</button>' : ''}<button class="btn primary" id="annOn">📢 Duyuruyu yayınla</button></div>
+        <p class="dlg-note">Duyuru uygulamayı kapatmaz; herkes kendi ekranından ✕ ile kapatabilir. Yeni bir duyuru yayınlayınca yine görünür.</p>
+      </div>
+      <div class="maint-form">
         <div class="maint-state">${on ? '🛠️ Bakım modu AÇIK — uygulama sadece sende çalışıyor' : '✅ Uygulama herkese açık'}</div>
         <label>Sebep (zorunlu · kullanıcılar görür)</label>
         <textarea id="maintText" maxlength="300" placeholder="örn: Yeni özellik ekleniyor">${esc(maintState.message)}</textarea>
@@ -1063,6 +1174,13 @@
   }
   inboxList.addEventListener('click', async (e) => {
     const id = e.target.id;
+    if (id === 'annOn' || id === 'annOff') {
+      const text = id === 'annOff' ? '' : $('#annText').value.trim();
+      if (id === 'annOn' && !text) { $('#annHint').textContent = 'Duyuru metnini yaz.'; $('#annHint').className = 'hint err'; return; }
+      const r = await window.dualChat.rpc('set_announcement', { p_password: getAdmin(), p_text: text });
+      if (!r.ok) { $('#annHint').textContent = 'Kaydedilemedi: ' + r.error; $('#annHint').className = 'hint err'; return; }
+      return loadMaint();
+    }
     if (!['maintOn', 'maintOff', 'maintSave'].includes(id)) return;
     if (id !== 'maintOff') {
       // Bakıma alırken / güncellerken sebep ve tahmini açılış zorunlu

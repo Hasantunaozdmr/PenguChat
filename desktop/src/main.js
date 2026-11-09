@@ -377,7 +377,7 @@ ipcMain.handle('report-set-status', reportHandler((_e, { password, id, status, n
 ipcMain.handle('report-log', reportHandler((_e, password) => reportRpc('get_log', { p_password: String(password || '') })));
 ipcMain.handle('report-stats', reportHandler((_e, password) => reportRpc('get_stats', { p_password: String(password || '') })));
 // Yetki sistemi: yalnızca bu fonksiyonlar çağrılabilir
-const ROLE_FNS = ['app_status', 'set_maintenance', 'my_roles', 'list_roles', 'set_role', 'role_mod_log', 'role_reports', 'role_set_status', 'role_stats'];
+const ROLE_FNS = ['app_status', 'set_maintenance', 'set_announcement', 'target_record', 'log_error', 'get_errors', 'clear_errors', 'my_roles', 'list_roles', 'set_role', 'role_mod_log', 'role_reports', 'role_set_status', 'role_stats'];
 ipcMain.handle('rpc', reportHandler((_e, { fn, args }) => {
   if (!ROLE_FNS.includes(fn)) throw new Error('izin yok');
   return reportRpc(fn, args || {});

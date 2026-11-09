@@ -42,10 +42,13 @@
     </div>
   </header>
 
+  <div id="announce" class="announce hidden"><span>📢</span><span id="announceText"></span><div class="spacer"></div><button class="btn mini" id="announceClose" title="Kapat">✕</button></div>
+
   <div id="modbar" class="modbar hidden">
     <span class="mb-icon">👤</span>
     <input id="modUser" placeholder="Chat'te bir kullanıcı adına tıkla" spellcheck="false" autocomplete="off" />
     <button id="modClear" class="btn mini" title="Seçimi temizle">✕</button>
+    <span id="modRecord" class="hint rec" title="Bu kişiye bu uygulamadan atılan cezalar"></span>
     <span class="mb-sep"></span>
     <button id="tgtTwitch" class="btn chip twitch" title="Twitch'te uygula">Twitch</button>
     <button id="tgtKick" class="btn chip kick" title="Kick'te uygula">Kick</button>
@@ -112,7 +115,7 @@
 
   <div id="inboxDlg" class="dlg-wrap hidden">
     <div class="dlg wide">
-      <div class="dlg-head"><div class="tabs" id="inboxTabs"><button class="tab active" data-itab="reports">📥 Sorunlar</button><button class="tab" data-itab="log">📜 Log</button><button class="tab" data-itab="mod">🛡️ Mod log</button><button class="tab" data-itab="stats">📊 İstatistik</button><button class="tab" data-itab="roles">👥 Yetkiler</button><button class="tab" data-itab="maint">🛠️ Bakım</button></div><span id="inboxCount" class="hint"></span><div class="spacer"></div>
+      <div class="dlg-head"><div class="tabs" id="inboxTabs"><button class="tab active" data-itab="reports">📥 Sorunlar</button><button class="tab" data-itab="log">📜 Log</button><button class="tab" data-itab="mod">🛡️ Mod log</button><button class="tab" data-itab="stats">📊 İstatistik</button><button class="tab" data-itab="roles">👥 Yetkiler</button><button class="tab" data-itab="errors">⚠️ Hatalar</button><button class="tab" data-itab="maint">📢 Duyuru · Bakım</button></div><span id="inboxCount" class="hint"></span><div class="spacer"></div>
         <button id="inboxRefresh" class="btn mini" title="Yenile">⟳</button>
         <button id="inboxLogout" class="btn mini" title="Bu bilgisayarda yönetici girişini kapat">Çıkış</button>
         <button class="btn mini" data-close>✕</button></div>

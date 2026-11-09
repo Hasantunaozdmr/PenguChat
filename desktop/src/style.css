@@ -375,3 +375,11 @@ kbd { color: var(--muted); font: inherit; font-size: 11px; }
 .maint-form input { height: 30px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font: inherit; padding: 0 9px; }
 .maint-form label { color: var(--muted); font-size: 12px; margin-bottom: -6px; }
 .maint-form input[type=time] { width: 130px; color-scheme: dark; }
+
+/* ---------- Sicil / duyuru / hatalar ---------- */
+.hint.rec { font-weight: 600; }
+.hint.rec.bad { color: #ffb84d; }
+.announce { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: #2563eb; color: #fff; font-weight: 600; border-bottom: 1px solid var(--border); }
+.announce #announceText { white-space: pre-wrap; word-break: break-word; }
+.log-row .undo { margin-left: 6px; }
+.log-row.undone { opacity: .6; }

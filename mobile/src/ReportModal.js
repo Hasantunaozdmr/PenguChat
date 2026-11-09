@@ -110,13 +110,13 @@ function Status({ st }) {
 }
 
 // mode: 'report' (herkes) | 'inbox' (yalnızca yönetici)
-export default function ReportModal({ accounts, roles, mode, onClose, appVersion, admin, onAdminChange, startTab, onMineSeen }) {
+export default function ReportModal({ accounts, roles, onUndo, annNow, mode, onClose, appVersion, admin, onAdminChange, startTab, onMineSeen }) {
   return (
     <Modal visible={!!mode} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={s.wrap} onPress={onClose}>
         <Pressable style={[s.dlg, s.tall]} onPress={() => {}}>
           {mode === 'report' && <ReportTabs accounts={accounts} onClose={onClose} appVersion={appVersion} startTab={startTab} onMineSeen={onMineSeen} />}
-          {mode === 'inbox' && <Inbox admin={admin} saveAdmin={onAdminChange} onClose={onClose} roles={roles} accounts={accounts} />}
+          {mode === 'inbox' && <Inbox admin={admin} saveAdmin={onAdminChange} onClose={onClose} roles={roles} accounts={accounts} onUndo={onUndo} annNow={annNow} />}
         </Pressable>
       </Pressable>
     </Modal>
@@ -274,7 +274,7 @@ function ReportForm({ accounts, appVersion, onSent }) {
   );
 }
 
-function Inbox({ admin, saveAdmin, onClose, roles, accounts }) {
+function Inbox({ admin, saveAdmin, onClose, roles, accounts, onUndo, annNow }) {
   const anyRole = !!(roles && (roles.modlog || roles.reports || roles.stats));
   const roleArgs = { p_twitch: accounts?.twitch || '', p_kick: accounts?.kick || '' };
   // Hangi sekmeyi kim görür: yönetici hepsini, yetkili kişi kendine verilenleri
@@ -291,7 +291,7 @@ function Inbox({ admin, saveAdmin, onClose, roles, accounts }) {
     setError(null);
     try {
       const fn = password
-        ? { reports: 'get_reports', log: 'get_log', mod: 'get_mod_log', stats: 'get_stats', roles: 'list_roles', maint: 'app_status' }[which]
+        ? { reports: 'get_reports', log: 'get_log', mod: 'get_mod_log', stats: 'get_stats', roles: 'list_roles', maint: 'app_status', errors: 'get_errors' }[which]
         : { reports: 'role_reports', mod: 'role_mod_log', stats: 'role_stats' }[which];
       const data = await reportRpc(fn, which === 'maint' ? {} : password ? { p_password: password } : roleArgs);
       setList(which === 'stats' || which === 'maint' ? data || {} : data || []);
@@ -358,13 +358,15 @@ function Inbox({ admin, saveAdmin, onClose, roles, accounts }) {
   return (
     <>
       <View style={s.head}>
+        <ScrollView horizontal style={{ flex: 1 }} contentContainerStyle={{ gap: 4 }} showsHorizontalScrollIndicator={false}>
         {[
           ['reports', '📥'],
           ['log', '📜'],
           ['mod', '🛡️'],
           ['stats', '📊'],
           ['roles', '👥'],
-          ['maint', '🛠️'],
+          ['errors', '⚠️'],
+          ['maint', '📢'],
         ]
           .filter(([k]) => allowed(k))
           .map(([k, label]) => (
@@ -379,7 +381,7 @@ function Inbox({ admin, saveAdmin, onClose, roles, accounts }) {
             <Text style={[s.tabText, tab === k && { color: C.text }]}>{label}</Text>
           </Pressable>
         ))}
-        <View style={{ flex: 1 }} />
+        </ScrollView>
         <Pressable style={s.mini} onPress={() => load()} hitSlop={6}>
           <Text style={s.miniText}>⟳</Text>
         </Pressable>
@@ -407,12 +409,106 @@ function Inbox({ admin, saveAdmin, onClose, roles, accounts }) {
             <AdminItem key={x.id} x={x} admin={admin} roleArgs={roleArgs} onDelete={admin ? () => del(x.id) : null} onSaved={() => load()} />
           ))}
         {tab === 'log' && Array.isArray(list) && (list.length ? list.map((x) => <LogRow key={x.id} x={x} />) : <Text style={s.empty}>Henüz kayıt yok.</Text>)}
-        {tab === 'mod' && Array.isArray(list) && (list.length ? list.map((x) => <ModRow key={x.id} x={x} />) : <Text style={s.empty}>Henüz mod işlemi yok.</Text>)}
+        {tab === 'mod' &&
+          Array.isArray(list) &&
+          (list.length ? (
+            (() => {
+              // Sonradan geri alınmış cezaları bul (liste yeniden eskiye sıralı)
+              const after = new Set();
+              const undone = new Set();
+              for (const x of list) {
+                const key = x.platform + '|' + String(x.target).toLowerCase();
+                if (x.action === 'untimeout' || x.action === 'unban') after.add(key + '|' + (x.action === 'unban' ? 'ban' : 'timeout'));
+                else if (after.has(key + '|' + x.action) || (x.platform === 'kick' && after.has(key + '|ban'))) undone.add(x.id);
+              }
+              return list.map((x) => (
+                <ModRow key={x.id} x={x} undone={undone.has(x.id)} onUndo={onUndo ? async () => (await onUndo(x)) && setTimeout(() => load(), 600) : null} />
+              ));
+            })()
+          ) : (
+            <Text style={s.empty}>Henüz mod işlemi yok.</Text>
+          ))}
+        {tab === 'errors' && Array.isArray(list) && (
+          <>
+            {list.length > 0 && (
+              <Pressable
+                style={[s.mini, { alignSelf: 'flex-end' }]}
+                onPress={() =>
+                  Alert.alert('Temizle', 'Bütün hata kayıtları silinsin mi?', [
+                    { text: 'Vazgeç', style: 'cancel' },
+                    { text: 'Sil', style: 'destructive', onPress: () => reportRpc('clear_errors', { p_password: admin }).then(() => load()).catch(() => {}) },
+                  ])
+                }
+              >
+                <Text style={s.miniText}>🗑 Hepsini temizle</Text>
+              </Pressable>
+            )}
+            {list.length === 0 && <Text style={s.empty}>Kayıtlı hata yok 🎉</Text>}
+            {list.map((x) => (
+              <View key={x.id} style={s.rep}>
+                <View style={s.repMeta}>
+                  <Text style={s.repName}>⚠️ {x.kind}</Text>
+                  <View style={{ flex: 1 }} />
+                  <Text style={s.repSmall}>{fmtDate(x.at)}</Text>
+                </View>
+                <Text style={s.repMsg} selectable>
+                  {x.detail}
+                </Text>
+                <Text style={s.repSmall}>
+                  {x.account || 'giriş yok'} · {(x.platform || '').split(' ')[0]} · v{x.version || '?'}
+                </Text>
+              </View>
+            ))}
+          </>
+        )}
         {tab === 'stats' && list && !Array.isArray(list) && <Stats d={list} />}
         {tab === 'roles' && Array.isArray(list) && <Roles list={list} admin={admin} onChanged={() => load()} />}
+        {tab === 'maint' && list && !Array.isArray(list) && <Announce d={list} admin={admin} onChanged={() => load()} />}
         {tab === 'maint' && list && !Array.isArray(list) && <Maint d={list} admin={admin} onChanged={() => load()} />}
       </ScrollView>
     </>
+  );
+}
+
+// 📢 Duyuru (sadece yönetici)
+function Announce({ d, admin, onChanged }) {
+  const [text, setText] = useState(d.announcement || '');
+  const [hint, setHint] = useState(null);
+  const save = async (t) => {
+    if (t !== '' && !t.trim()) return setHint('Duyuru metnini yaz.');
+    try {
+      await reportRpc('set_announcement', { p_password: admin, p_text: t });
+      onChanged();
+    } catch (e) {
+      setHint('Kaydedilemedi: ' + e.message);
+    }
+  };
+  return (
+    <View style={[s.rep, { gap: 10 }]}>
+      <Text style={[s.repName, { fontSize: 15 }]}>📢 Duyuru{d.announcement ? ' — şu an yayında' : ''}</Text>
+      <TextInput
+        style={[s.input, { height: 70 }]}
+        value={text}
+        onChangeText={setText}
+        placeholder="Herkesin ekranının üstünde görünecek duyuru"
+        placeholderTextColor="#a9e3de"
+        multiline
+        maxLength={300}
+        textAlignVertical="top"
+      />
+      {!!hint && <Text style={[s.hint, { color: C.err }]}>{hint}</Text>}
+      <View style={[s.head, { justifyContent: 'flex-end' }]}>
+        {!!d.announcement && (
+          <Pressable style={s.mini} onPress={() => save('')}>
+            <Text style={s.miniText}>Duyuruyu kaldır</Text>
+          </Pressable>
+        )}
+        <Pressable style={s.primary} onPress={() => save(text.trim() ? text : ' ')}>
+          <Text style={s.primaryText}>📢 Yayınla</Text>
+        </Pressable>
+      </View>
+      <Text style={s.note}>Duyuru uygulamayı kapatmaz; herkes ✕ ile kapatabilir. Yeni duyuru yayınlayınca yine görünür.</Text>
+    </View>
   );
 }
 
@@ -592,21 +688,31 @@ function fmtDur(secs) {
   if (secs % 60 === 0) return secs / 60 + ' dk';
   return secs + ' sn';
 }
-function ModRow({ x }) {
+const MOD_KIND = { ban: '⛔ Ban', untimeout: '↩ Timeout kaldırıldı', unban: '↩ Ban kaldırıldı' };
+function ModRow({ x, undone, onUndo }) {
   const who = x.platform === 'twitch' ? x.mod_twitch : x.mod_kick;
+  const canUndo = !!onUndo && (x.action === 'timeout' || x.action === 'ban') && x.ok !== false && !undone;
   return (
-    <View style={s.rep}>
+    <View style={[s.rep, undone && { opacity: 0.6 }]}>
       <View style={s.repMeta}>
-        <Text style={s.repName}>
-          {x.action === 'ban' ? '⛔ Ban' : `⏱ Timeout ${fmtDur(x.secs)}`} · {x.target}
+        <Text style={[s.repName, { flexShrink: 1 }]}>
+          {MOD_KIND[x.action] || `⏱ Timeout ${fmtDur(x.secs)}`} · {x.target}
         </Text>
         <View style={{ flex: 1 }} />
         <Text style={s.repSmall}>{fmtDate(x.at)}</Text>
       </View>
-      <Text style={s.repSmall}>
-        {x.platform === 'twitch' ? 'Twitch' : 'Kick'} · mod: {who || x.mod_twitch || x.mod_kick || '?'}
-        {x.ok === false ? ' · ✗ gönderilemedi' : ''}
-      </Text>
+      <View style={s.repMeta}>
+        <Text style={[s.repSmall, { flex: 1 }]}>
+          {x.platform === 'twitch' ? 'Twitch' : 'Kick'} · mod: {who || x.mod_twitch || x.mod_kick || '?'}
+          {x.ok === false ? ' · ✗ gönderilemedi' : ''}
+          {undone ? ' · geri alındı' : ''}
+        </Text>
+        {canUndo && (
+          <Pressable style={s.mini} onPress={onUndo}>
+            <Text style={s.miniText}>↩ Geri al</Text>
+          </Pressable>
+        )}
+      </View>
     </View>
   );
 }
