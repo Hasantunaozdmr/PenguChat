@@ -229,7 +229,7 @@ function ReportForm({ accounts, appVersion, onSent }) {
         p_message: message.trim().slice(0, 2000),
         p_contact: contact.trim().slice(0, 100),
         p_version: appVersion,
-        p_platform: `android ${Platform.Version}`.slice(0, 30),
+        p_platform: `${Platform.OS} ${Platform.Version}`.slice(0, 30),
       };
       try {
         await reportRpc('submit_report', { ...args, p_token: await myToken(true) });

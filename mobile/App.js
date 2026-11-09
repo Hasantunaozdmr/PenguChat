@@ -302,7 +302,7 @@ function PenguChat() {
   const pingRef = useRef(null);
   pingRef.current = () =>
     sendPing({
-      p_platform: `android ${Platform.Version}`.slice(0, 30),
+      p_platform: `${Platform.OS} ${Platform.Version}`.slice(0, 30),
       p_version: APP_VERSION,
       p_mod: modStatus.twitch === 'mod' || modStatus.kick === 'mod',
       p_twitch: accounts.twitch,
