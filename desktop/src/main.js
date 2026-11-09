@@ -376,9 +376,13 @@ ipcMain.handle('report-set-status', reportHandler((_e, { password, id, status, n
   reportRpc('set_report_status', { p_password: String(password || ''), p_id: Number(id), p_status: String(status), p_note: String(note || '').slice(0, 1000) })));
 ipcMain.handle('report-log', reportHandler((_e, password) => reportRpc('get_log', { p_password: String(password || '') })));
 ipcMain.handle('report-stats', reportHandler((_e, password) => reportRpc('get_stats', { p_password: String(password || '') })));
+// Yetki sistemi: yalnızca bu fonksiyonlar çağrılabilir
+const ROLE_FNS = ['my_roles', 'list_roles', 'set_role', 'role_mod_log', 'role_reports', 'role_set_status', 'role_stats'];
+ipcMain.handle('rpc', reportHandler((_e, { fn, args }) => {
+  if (!ROLE_FNS.includes(fn)) throw new Error('izin yok');
+  return reportRpc(fn, args || {});
+}));
 ipcMain.handle('report-modlog', reportHandler((_e, password) => reportRpc('get_mod_log', { p_password: String(password || '') })));
-ipcMain.handle('streamer-modlog', reportHandler((_e, { twitch, kick }) =>
-  reportRpc('get_mod_log_streamer', { p_twitch: String(twitch || ''), p_kick: String(kick || '') })));
 ipcMain.handle('mod-action', reportHandler((_e, a) =>
   reportRpc('log_mod_action', {
     p_client: String(a.client || ''),

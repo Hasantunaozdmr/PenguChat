@@ -350,3 +350,12 @@ kbd { color: var(--muted); font: inherit; font-size: 11px; }
 .users th { text-align: left; color: var(--muted); font-weight: 600; padding: 4px 6px; position: sticky; top: 0; background: var(--panel-2); }
 .users td { padding: 5px 6px; border-top: 1px solid rgba(255,255,255,.08); white-space: nowrap; }
 .users .on { color: var(--kick); }
+
+/* ---------- Yetkiler ---------- */
+.role-add { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px; background: var(--input); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; }
+.role-add select, .role-add input[type=text] { height: 28px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 5px; color: var(--text); font: inherit; padding: 0 6px; }
+.role-add input[type=text] { width: 160px; }
+.role-add label, .roles td label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; }
+.roles { width: 100%; border-collapse: collapse; font-size: 12px; }
+.roles th { text-align: left; color: var(--muted); font-weight: 600; padding: 4px 6px; }
+.roles td { padding: 6px; border-top: 1px solid rgba(255,255,255,.08); }

@@ -19,7 +19,7 @@ import Constants from 'expo-constants';
 import { PLATFORMS, cleanChannel, hasLink, isInternalUrl, parseTargets } from './src/links';
 import { FIT_POPUPS_JS, PICK_USER_JS } from './src/injected';
 import ReportModal, { countNew, hasMineNews, loadAdmin, storeAdmin } from './src/ReportModal';
-import { OWNER_ACCOUNTS, STREAMER_ACCOUNTS, logModAction, sendPing } from './src/report';
+import { OWNER_ACCOUNTS, logModAction, reportRpc, sendPing } from './src/report';
 
 const STORE_KEY = 'dualchat:settings';
 const RELEASE_BASE = 'https://github.com/Hasantunaozdmr/PenguChat/releases/latest/download';
@@ -101,7 +101,7 @@ function PenguChat() {
 
   // ---- Güncelleme kontrolü (Android: yeni APK indirilir) ----
   const [newVersion, setNewVersion] = useState(null);
-  const [reportMode, setReportMode] = useState(null); // null | 'report' | 'inbox' | 'streamer'
+  const [reportMode, setReportMode] = useState(null); // null | 'report' | 'inbox'
   const [menuOpen, setMenuOpen] = useState(false);
   const [admin, setAdmin] = useState(''); // yönetici şifresi (yalnızca senin cihazında dolu)
   const [newReports, setNewReports] = useState(0);
@@ -117,7 +117,15 @@ function PenguChat() {
   }, []);
   const [ownerOn, setOwnerOn] = useState({ twitch: false, kick: false }); // sahibin hesabıyla girilmiş mi
   const [accounts, setAccounts] = useState({ twitch: '', kick: '' }); // giriş yapılmış hesap adları
-  const [streamerOn, setStreamerOn] = useState({ twitch: false, kick: false }); // yayıncı hesabıyla girilmiş mi
+  // Uygulama içi yetkiler (📥 → 👥 Yetkiler'den verilir; giriş yapılan Twitch/Kick adına göre)
+  const [roles, setRoles] = useState({ modlog: false, reports: false, stats: false });
+  const anyRole = roles.modlog || roles.reports || roles.stats;
+  useEffect(() => {
+    if (!accounts.twitch && !accounts.kick) return setRoles({ modlog: false, reports: false, stats: false });
+    reportRpc('my_roles', { p_twitch: accounts.twitch, p_kick: accounts.kick })
+      .then((r) => r && setRoles({ modlog: !!r.modlog, reports: !!r.reports, stats: !!r.stats }))
+      .catch(() => {});
+  }, [accounts.twitch, accounts.kick]);
   const [viewers, setViewers] = useState({ twitch: undefined, kick: undefined }); // yayın izleyici sayısı (null = kapalı)
   useEffect(() => {
     loadAdmin().then(setAdmin);
@@ -313,8 +321,6 @@ function PenguChat() {
         const isOwner = OWNER_ACCOUNTS[k].includes(String(me || '').toLowerCase());
         setOwnerOn((o) => (o[k] === isOwner ? o : { ...o, [k]: isOwner }));
         const name = String(me || '').slice(0, 40);
-        const isStreamer = STREAMER_ACCOUNTS[k].includes(name.toLowerCase());
-        setStreamerOn((o) => (o[k] === isStreamer ? o : { ...o, [k]: isStreamer }));
         setAccounts((a) => (a[k] === name ? a : { ...a, [k]: name }));
         setModStatus((m) => ({ ...m, [k]: ['mod', 'viewer', 'unknown'].includes(status) ? status : 'unknown' }));
       } catch {}
@@ -463,25 +469,15 @@ function PenguChat() {
                 setReportMode('inbox');
               }}
             />
-            {(!!admin || ownerOn.twitch || ownerOn.kick) && (
+            {(!!admin || ownerOn.twitch || ownerOn.kick || anyRole) && (
               <MenuItem
                 icon="📥"
-                label="Gelen sorunlar"
+                label={admin || ownerOn.twitch || ownerOn.kick || roles.reports ? 'Gelen sorunlar' : 'Mod log / istatistik'}
                 count={newReports}
                 onPress={() => {
                   setMenuOpen(false);
                   setNewReports(0);
                   setReportMode('inbox');
-                }}
-              />
-            )}
-            {(streamerOn.twitch || streamerOn.kick) && (
-              <MenuItem
-                icon="🛡️"
-                label="Mod log"
-                onPress={() => {
-                  setMenuOpen(false);
-                  setReportMode('streamer');
                 }}
               />
             )}
@@ -497,7 +493,7 @@ function PenguChat() {
           </View>
         </Pressable>
       )}
-      {reportMode && <ReportModal accounts={accounts} streamerOn={streamerOn} mode={reportMode} onClose={() => setReportMode(null)} appVersion={APP_VERSION} admin={admin} onAdminChange={changeAdmin} startTab={mineNews ? 'mine' : 'new'} onMineSeen={() => setMineNews(false)} />}
+      {reportMode && <ReportModal accounts={accounts} roles={roles} mode={reportMode} onClose={() => setReportMode(null)} appVersion={APP_VERSION} admin={admin} onAdminChange={changeAdmin} startTab={mineNews ? 'mine' : 'new'} onMineSeen={() => setMineNews(false)} />}
       {newVersion && (
         <Pressable style={styles.updateBar} onPress={() => Linking.openURL(`${RELEASE_BASE}/PenguChat.apk`)}>
           <Text style={styles.updateText}>⬆ Yeni sürüm var · Güncellemek için dokun</Text>

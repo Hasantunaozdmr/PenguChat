@@ -255,14 +255,25 @@
   };
   // 📥 tuşu: yönetici şifresi bu cihazda kayıtlıysa ya da sahibin Twitch/Kick hesabıyla girildiyse görünür.
   const OWNER_ACCOUNTS = { twitch: ['h1raeth0_'], kick: ['h1raeth0'] }; // küçük harfle
-  // Yayıncı: şifresiz, sadece mod log'u görür (sunucu da bu adları kontrol eder)
-  const STREAMER_ACCOUNTS = { twitch: ['feyzask'], kick: ['feyzaskk'] };
-  const streamerOn = { twitch: false, kick: false };
+  // Uygulama içi yetkiler (📥 ekranındaki 👥 Yetkiler'den verilir; giriş yapılan Twitch/Kick adına göre)
+  let roles = { modlog: false, reports: false, stats: false };
+  const anyRole = () => roles.modlog || roles.reports || roles.stats;
+  let rolesKey = '';
+  async function refreshRoles() {
+    const key = accounts.twitch + '|' + accounts.kick;
+    if (key === rolesKey) return;
+    rolesKey = key;
+    if (!accounts.twitch && !accounts.kick) { roles = { modlog: false, reports: false, stats: false }; refreshInboxBtn(); return; }
+    const r = await window.dualChat.rpc('my_roles', { p_twitch: accounts.twitch, p_kick: accounts.kick });
+    if (r.ok && r.data) roles = { modlog: !!r.data.modlog, reports: !!r.data.reports, stats: !!r.data.stats };
+    refreshInboxBtn();
+  }
+  const roleArgs = () => ({ p_twitch: accounts.twitch, p_kick: accounts.kick });
   const ownerOn = { twitch: false, kick: false };
   // Giriş yapılmış Twitch / Kick hesap adları (sorun bildirirken kullanıcı adı buradan gelir)
   const accounts = { twitch: '', kick: '' };
   function refreshInboxBtn() {
-    $('#inboxBtn').classList.toggle('hidden', !(getAdmin() || ownerOn.twitch || ownerOn.kick));
+    $('#inboxBtn').classList.toggle('hidden', !(getAdmin() || ownerOn.twitch || ownerOn.kick || anyRole()));
   }
 
   // 📥 tuşundaki yeni sorun sayısı: en son görülen sorunun numarasından büyük olanlar.
@@ -295,7 +306,7 @@
     });
   }
   window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') { reportDlg.classList.add('hidden'); inboxDlg.classList.add('hidden'); $('#streamerDlg').classList.add('hidden'); }
+    if (e.key === 'Escape') { reportDlg.classList.add('hidden'); inboxDlg.classList.add('hidden'); }
   });
 
   function reportHint(text, cls) {
@@ -469,30 +480,44 @@
       loadInbox();
     });
   }
+  // Hangi sekmeyi kim görür: yönetici hepsini, yetkili kişi kendine verilenleri
+  function tabAllowed(t) {
+    if (getAdmin()) return true;
+    return { reports: roles.reports, mod: roles.modlog, stats: roles.stats }[t] || false;
+  }
+  function showTabs() {
+    $('#inboxTabs').querySelectorAll('.tab').forEach((b) => {
+      b.classList.toggle('hidden', !tabAllowed(b.dataset.itab));
+      b.classList.toggle('active', b.dataset.itab === inboxTab);
+    });
+  }
   async function loadInbox() {
     const pw = getAdmin();
-    if (!pw) return showLogin();
-    $('#inboxLogout').classList.remove('hidden');
+    if (!pw && !anyRole()) return showLogin();
+    if (!tabAllowed(inboxTab)) inboxTab = ['reports', 'mod', 'stats'].find(tabAllowed) || 'reports';
+    showTabs();
+    $('#inboxLogout').classList.toggle('hidden', !pw);
     $('#inboxRefresh').classList.remove('hidden');
     $('#inboxTabs').classList.remove('hidden');
     inboxList.innerHTML = '<div class="empty">Yükleniyor…</div>';
     if (inboxTab === 'log') return loadLog(pw);
     if (inboxTab === 'stats') return loadStats(pw);
     if (inboxTab === 'mod') return loadModLog(pw);
-    const r = await window.dualChat.listReports(pw);
+    if (inboxTab === 'roles') return loadRoles(pw);
+    const r = pw ? await window.dualChat.listReports(pw) : await window.dualChat.rpc('role_reports', roleArgs());
     if (!r.ok) {
-      if (r.error === 'Şifre yanlış') { setAdmin(''); return showLogin('Şifre değişmiş, yeniden gir.'); }
+      if (r.error === 'Şifre yanlış') return failed(r);
       inboxList.innerHTML = `<div class="empty">Yüklenemedi: ${esc(r.error)}</div>`;
       return;
     }
     const list = r.data || [];
-    markSeen(list);
+    if (pw) markSeen(list);
     $('#inboxCount').textContent = list.length ? `${list.length} sorun` : '';
     if (!list.length) { inboxList.innerHTML = '<div class="empty">Henüz gelen sorun yok 🎉</div>'; return; }
     inboxList.innerHTML = list.map((x) => `<div class="rep" data-id="${Number(x.id)}" data-status="${esc(x.status || 'bekliyor')}" data-note="${esc(x.admin_note || '')}">
         <div class="rep-meta">${stBadge(x.status)}<b>${esc(x.contact || 'İsimsiz')}</b><span>${esc(fmtDate(x.created_at))}</span>
           <span>${esc(x.platform || '')} · v${esc(x.app_version || '?')}</span><div class="spacer"></div>
-          <button class="btn mini" data-del="${Number(x.id)}" title="Sil">🗑</button></div>
+          ${pw ? `<button class="btn mini" data-del="${Number(x.id)}" title="Sil">🗑</button>` : ''}</div>
         <div class="rep-msg">${esc(x.message)}</div>
         ${x.status === 'reddedildi' && x.admin_note ? `<div class="rep-note"><b>Red sebebi:</b>${esc(x.admin_note)}</div>` : ''}
         <div class="rep-acts">
@@ -521,7 +546,9 @@
     const save = async (st, note, hintEl) => {
       hintEl.textContent = 'Kaydediliyor…';
       hintEl.className = 'hint';
-      const r = await window.dualChat.setReportStatus(getAdmin(), card.dataset.id, st, note);
+      const r = getAdmin()
+        ? await window.dualChat.setReportStatus(getAdmin(), card.dataset.id, st, note)
+        : await window.dualChat.rpc('role_set_status', { ...roleArgs(), p_id: Number(card.dataset.id), p_status: st, p_note: note });
       if (!r.ok) { hintEl.textContent = 'Kaydedilemedi: ' + r.error; hintEl.className = 'hint err'; return; }
       loadInbox();
     };
@@ -560,7 +587,11 @@
     silindi: '🗑 Silindi',
   };
   function failed(r) {
-    if (r.error === 'Şifre yanlış') { setAdmin(''); showLogin('Şifre değişmiş, yeniden gir.'); return true; }
+    if (r.error === 'Şifre yanlış') {
+      if (getAdmin()) { setAdmin(''); showLogin('Şifre değişmiş, yeniden gir.'); return true; }
+      inboxList.innerHTML = '<div class="empty">Bu bölüm için yetkin yok.</div>';
+      return true;
+    }
     const missing = /\(404\)/.test(r.error) ? ' — Supabase\'e log/istatistik SQL\'i çalıştırılmamış olabilir.' : '';
     inboxList.innerHTML = `<div class="empty">Yüklenemedi: ${esc(r.error)}${missing}</div>`;
     return true;
@@ -583,7 +614,7 @@
     return secs + ' sn';
   }
   async function loadModLog(pw) {
-    const r = await window.dualChat.modLog(pw);
+    const r = pw ? await window.dualChat.modLog(pw) : await window.dualChat.rpc('role_mod_log', roleArgs());
     if (!r.ok) return failed(r);
     renderModLog(r.data || [], inboxList, $('#inboxCount'));
   }
@@ -606,7 +637,7 @@
     return Math.round(m / 1440) + ' gün önce';
   }
   async function loadStats(pw) {
-    const r = await window.dualChat.reportStats(pw);
+    const r = pw ? await window.dualChat.reportStats(pw) : await window.dualChat.rpc('role_stats', roleArgs());
     if (!r.ok) return failed(r);
     const d = r.data || {};
     const list = d.list || [];
@@ -627,29 +658,53 @@
       </table>`;
   }
 
-  // ---- Yayıncının mod log ekranı (şifresiz, sadece yayıncı hesabıyla) ----
-  const streamerDlg = $('#streamerDlg');
-  streamerDlg.addEventListener('click', (e) => {
-    if (e.target === streamerDlg || e.target.closest('[data-close]')) streamerDlg.classList.add('hidden');
-  });
-  async function loadStreamerLog() {
-    const box = $('#streamerList');
-    box.innerHTML = '<div class="empty">Yükleniyor…</div>';
-    const r = await window.dualChat.streamerModLog({
-      twitch: streamerOn.twitch ? accounts.twitch : '',
-      kick: streamerOn.kick ? accounts.kick : '',
-    });
-    if (!r.ok) { box.innerHTML = `<div class="empty">Yüklenemedi: ${esc(r.error)}</div>`; return; }
-    renderModLog(r.data || [], box, $('#streamerCount'));
+  // ---- 👥 Yetkiler (sadece yönetici) ----
+  const ROLE_LABEL = { modlog: '🛡️ Mod log', reports: '📥 Sorunlar', stats: '📊 İstatistik' };
+  async function loadRoles(pw) {
+    const r = await window.dualChat.rpc('list_roles', { p_password: pw });
+    if (!r.ok) return failed(r);
+    const list = r.data || [];
+    $('#inboxCount').textContent = list.length ? `${list.length} kişi` : '';
+    const boxes = (x) => ['modlog', 'reports', 'stats'].map((k) => `<label><input type="checkbox" data-role="${k}" ${x && x['can_' + k] ? 'checked' : ''}/> ${ROLE_LABEL[k]}</label>`).join(' ');
+    inboxList.innerHTML = `<div class="role-add" id="roleAdd">
+        <select id="roleP"><option value="twitch">Twitch</option><option value="kick">Kick</option></select>
+        <input type="text" id="roleU" placeholder="kullanıcı adı" spellcheck="false" />
+        ${boxes(null)}
+        <button class="btn mini primary" id="roleSave">Yetki ver</button>
+        <span class="hint" id="roleHint"></span>
+      </div>
+      <p class="dlg-note">Kanal modluğu Twitch / Kick'ten otomatik okunur; buradaki yetkiler sadece bu uygulama içindir. Kutuları kaldırınca yetki silinir.</p>
+      ${list.length ? `<table class="roles"><tr><th>Platform</th><th>Kullanıcı</th><th>Yetkiler</th></tr>
+        ${list.map((x) => `<tr data-p="${esc(x.platform)}" data-u="${esc(x.username)}"><td>${x.platform === 'twitch' ? 'Twitch' : 'Kick'}</td><td><b>${esc(x.username)}</b></td><td>${boxes(x)}</td></tr>`).join('')}</table>`
+        : '<div class="empty">Henüz kimseye yetki verilmedi.</div>'}`;
   }
-  $('#streamerBtn').addEventListener('click', () => { streamerDlg.classList.remove('hidden'); loadStreamerLog(); });
-  $('#streamerRefresh').addEventListener('click', loadStreamerLog);
+  async function saveRole(platform, username, row, hintEl) {
+    const get = (k) => !!row.querySelector(`[data-role="${k}"]`).checked;
+    const r = await window.dualChat.rpc('set_role', {
+      p_password: getAdmin(), p_platform: platform, p_username: username,
+      p_modlog: get('modlog'), p_reports: get('reports'), p_stats: get('stats'),
+    });
+    if (!r.ok) { if (hintEl) { hintEl.textContent = 'Kaydedilemedi: ' + r.error; hintEl.className = 'hint err'; } else alert('Kaydedilemedi: ' + r.error); return false; }
+    return true;
+  }
+  inboxList.addEventListener('click', async (e) => {
+    if (e.target.id !== 'roleSave') return;
+    const u = $('#roleU').value.trim().replace(/^@/, '');
+    const hint = $('#roleHint');
+    if (!u) { hint.textContent = 'Kullanıcı adını yaz.'; hint.className = 'hint err'; return; }
+    if (!$('#roleAdd').querySelector('[data-role]:checked')) { hint.textContent = 'En az bir yetki seç.'; hint.className = 'hint err'; return; }
+    if (await saveRole($('#roleP').value, u, $('#roleAdd'), hint)) loadInbox();
+  });
+  inboxList.addEventListener('change', async (e) => {
+    const row = e.target.closest('tr[data-u]');
+    if (!row || !e.target.dataset.role) return;
+    if (await saveRole(row.dataset.p, row.dataset.u, row, null)) loadInbox();
+  });
 
   $('#inboxRefresh').addEventListener('click', loadInbox);
   $('#inboxLogout').addEventListener('click', () => { setAdmin(''); showLogin(); });
   function openInbox() {
     inboxTab = 'reports';
-    $('#inboxTabs').querySelectorAll('.tab').forEach((b) => b.classList.toggle('active', b.dataset.itab === 'reports'));
     inboxDlg.classList.remove('hidden');
     loadInbox();
   }
@@ -711,10 +766,9 @@
     applyModUi();
     const me = await wv.executeJavaScript('window.__penguMe || ""').catch(() => '');
     ownerOn[p] = OWNER_ACCOUNTS[p].includes(String(me).toLowerCase());
-    streamerOn[p] = STREAMER_ACCOUNTS[p].includes(String(me).toLowerCase());
-    $('#streamerBtn').classList.toggle('hidden', !(streamerOn.twitch || streamerOn.kick));
     accounts[p] = String(me || '').slice(0, 40);
     refreshInboxBtn();
+    refreshRoles();
     if (!reportDlg.classList.contains('hidden')) fillAccounts();
   }
   // Sonradan modluk verilirse / alınırsa en geç 1 dakikada fark et

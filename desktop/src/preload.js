@@ -15,7 +15,7 @@ contextBridge.exposeInMainWorld('dualChat', {
   reportLog: (pw) => ipcRenderer.invoke('report-log', pw),
   reportStats: (pw) => ipcRenderer.invoke('report-stats', pw),
   modLog: (pw) => ipcRenderer.invoke('report-modlog', pw),
-  streamerModLog: (acc) => ipcRenderer.invoke('streamer-modlog', acc),
+  rpc: (fn, args) => ipcRenderer.invoke('rpc', { fn, args }),
   modAction: (a) => ipcRenderer.invoke('mod-action', a),
   ping: (info) => ipcRenderer.invoke('ping', info),
   reportIsAdmin: (pw) => ipcRenderer.invoke('report-is-admin', pw),
