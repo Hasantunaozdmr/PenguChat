@@ -291,10 +291,10 @@ function Inbox({ admin, saveAdmin, onClose, roles, accounts }) {
     setError(null);
     try {
       const fn = password
-        ? { reports: 'get_reports', log: 'get_log', mod: 'get_mod_log', stats: 'get_stats', roles: 'list_roles' }[which]
+        ? { reports: 'get_reports', log: 'get_log', mod: 'get_mod_log', stats: 'get_stats', roles: 'list_roles', maint: 'app_status' }[which]
         : { reports: 'role_reports', mod: 'role_mod_log', stats: 'role_stats' }[which];
-      const data = await reportRpc(fn, password ? { p_password: password } : roleArgs);
-      setList(which === 'stats' ? data || {} : data || []);
+      const data = await reportRpc(fn, which === 'maint' ? {} : password ? { p_password: password } : roleArgs);
+      setList(which === 'stats' || which === 'maint' ? data || {} : data || []);
       if (which === 'reports' && password) markSeen(data || []);
     } catch (e) {
       if (e.message === 'Şifre yanlış' && !password) setError('Bu bölüm için yetkin yok.');
@@ -364,6 +364,7 @@ function Inbox({ admin, saveAdmin, onClose, roles, accounts }) {
           ['mod', '🛡️'],
           ['stats', '📊'],
           ['roles', '👥'],
+          ['maint', '🛠️'],
         ]
           .filter(([k]) => allowed(k))
           .map(([k, label]) => (
@@ -409,8 +410,70 @@ function Inbox({ admin, saveAdmin, onClose, roles, accounts }) {
         {tab === 'mod' && Array.isArray(list) && (list.length ? list.map((x) => <ModRow key={x.id} x={x} />) : <Text style={s.empty}>Henüz mod işlemi yok.</Text>)}
         {tab === 'stats' && list && !Array.isArray(list) && <Stats d={list} />}
         {tab === 'roles' && Array.isArray(list) && <Roles list={list} admin={admin} onChanged={() => load()} />}
+        {tab === 'maint' && list && !Array.isArray(list) && <Maint d={list} admin={admin} onChanged={() => load()} />}
       </ScrollView>
     </>
+  );
+}
+
+// 🛠️ Bakım modu (sadece yönetici)
+function Maint({ d, admin, onChanged }) {
+  const [msg, setMsg] = useState(d.message || '');
+  const [eta, setEta] = useState(d.eta || '');
+  const [hint, setHint] = useState(null);
+  const on = !!d.maintenance;
+  const save = async (next) => {
+    try {
+      await reportRpc('set_maintenance', { p_password: admin, p_on: next, p_message: msg, p_eta: eta });
+      onChanged();
+    } catch (e) {
+      setHint('Kaydedilemedi: ' + e.message);
+    }
+  };
+  return (
+    <View style={[s.rep, { gap: 10 }]}>
+      <Text style={[s.repName, { fontSize: 15 }]}>{on ? '🛠️ Bakım modu AÇIK — uygulama sadece sende çalışıyor' : '✅ Uygulama herkese açık'}</Text>
+      <TextInput
+        style={[s.input, { height: 70 }]}
+        value={msg}
+        onChangeText={setMsg}
+        placeholder="Sebep — örn: Yeni özellik ekleniyor"
+        placeholderTextColor="#a9e3de"
+        multiline
+        maxLength={300}
+        textAlignVertical="top"
+      />
+      <TextInput
+        style={s.input}
+        value={eta}
+        onChangeText={setEta}
+        placeholder="⏰ Tahmini açılış — örn: 22:30 ya da 1 saat sonra"
+        placeholderTextColor="#a9e3de"
+        maxLength={60}
+      />
+      {!!hint && <Text style={[s.hint, { color: C.err }]}>{hint}</Text>}
+      <View style={[s.head, { justifyContent: 'flex-end' }]}>
+        {on && (
+          <Pressable style={s.mini} onPress={() => save(true)}>
+            <Text style={s.miniText}>Bilgiyi güncelle</Text>
+          </Pressable>
+        )}
+        <Pressable
+          style={[s.primary, !on && { backgroundColor: '#b3261e' }]}
+          onPress={() =>
+            on
+              ? save(false)
+              : Alert.alert('Bakıma al', 'Uygulama senin dışındaki herkese kapansın mı?', [
+                  { text: 'Vazgeç', style: 'cancel' },
+                  { text: 'Bakıma al', style: 'destructive', onPress: () => save(true) },
+                ])
+          }
+        >
+          <Text style={s.primaryText}>{on ? 'Bakımı kapat' : '🛠️ Bakıma al'}</Text>
+        </Pressable>
+      </View>
+      <Text style={s.note}>Bakımdayken diğer herkeste uygulama "Bakımdayız" ekranıyla kapanır, sen kullanmaya devam edersin. Kapatınca en geç 30 saniyede herkeste açılır.</Text>
+    </View>
   );
 }
 

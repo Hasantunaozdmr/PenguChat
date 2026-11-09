@@ -359,3 +359,18 @@ kbd { color: var(--muted); font: inherit; font-size: 11px; }
 .roles { width: 100%; border-collapse: collapse; font-size: 12px; }
 .roles th { text-align: left; color: var(--muted); font-weight: 600; padding: 4px 6px; }
 .roles td { padding: 6px; border-top: 1px solid rgba(255,255,255,.08); }
+
+/* ---------- Bakım modu ---------- */
+.maint { position: fixed; inset: 0; z-index: 500; display: grid; place-items: center; padding: 20px;
+  background: radial-gradient(circle at 50% 40%, #13a39d, #0a6b67 55%, #063f3d); text-align: center; user-select: none; }
+.maint-box { max-width: 460px; }
+.maint-icon { font-size: 64px; }
+.maint h1 { margin: 8px 0; font-size: 32px; }
+.maint p { font-size: 16px; white-space: pre-wrap; word-break: break-word; }
+.maint small { color: var(--muted); }
+.maint-form { display: flex; flex-direction: column; gap: 10px; padding: 12px; background: var(--input); border: 1px solid var(--border); border-radius: 8px; }
+.maint-form textarea { height: 70px; resize: vertical; background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font: inherit; padding: 7px 9px; }
+.maint-state { font-size: 15px; font-weight: 700; }
+.maint-eta { font-weight: 700; font-size: 17px !important; }
+.maint-form input { height: 30px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font: inherit; padding: 0 9px; }
+.maint-form label { color: var(--muted); font-size: 12px; margin-bottom: -6px; }

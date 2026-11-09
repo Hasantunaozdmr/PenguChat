@@ -483,7 +483,7 @@
   // Hangi sekmeyi kim görür: yönetici hepsini, yetkili kişi kendine verilenleri
   function tabAllowed(t) {
     if (getAdmin()) return true;
-    return { reports: roles.reports, mod: roles.modlog, stats: roles.stats }[t] || false;
+    return { reports: roles.reports, mod: roles.modlog, stats: roles.stats }[t] || false; // log, roles, maint: sadece yönetici
   }
   function showTabs() {
     $('#inboxTabs').querySelectorAll('.tab').forEach((b) => {
@@ -504,6 +504,7 @@
     if (inboxTab === 'stats') return loadStats(pw);
     if (inboxTab === 'mod') return loadModLog(pw);
     if (inboxTab === 'roles') return loadRoles(pw);
+    if (inboxTab === 'maint') return loadMaint();
     const r = pw ? await window.dualChat.listReports(pw) : await window.dualChat.rpc('role_reports', roleArgs());
     if (!r.ok) {
       if (r.error === 'Şifre yanlış') return failed(r);
@@ -1024,6 +1025,51 @@
   }
   setTimeout(ping, 15 * 1000); // chat'ler açılıp hesaplar okunduktan sonra
   setInterval(ping, 5 * 60 * 1000);
+
+  // ---------- Bakım modu ----------
+  // Bakım açıkken uygulama herkese kapalıdır; yönetici (şifre ya da kendi Twitch/Kick hesabı) kullanmaya devam eder.
+  let maintState = { maintenance: false, message: '', eta: '' };
+  const maintExempt = () => !!(getAdmin() || ownerOn.twitch || ownerOn.kick);
+  function applyMaint() {
+    const on = maintState.maintenance && !maintExempt();
+    $('#maintScreen').classList.toggle('hidden', !on);
+    $('#maintMsg').textContent = maintState.message ? 'Sebep: ' + maintState.message : 'PengusChat kısa bir süre bakımda. Birazdan kendiliğinden açılacak.';
+    $('#maintEta').textContent = maintState.eta ? '⏰ Tahmini açılış: ' + maintState.eta : '';
+    $('#maintEta').classList.toggle('hidden', !maintState.eta);
+  }
+  async function checkMaint() {
+    const r = await window.dualChat.rpc('app_status', {});
+    if (r.ok && r.data) maintState = { maintenance: !!r.data.maintenance, message: r.data.message || '', eta: r.data.eta || '' };
+    applyMaint(); // sunucuya ulaşılamazsa son bilinen durum kalır
+  }
+  checkMaint();
+  setInterval(checkMaint, 30 * 1000);
+  setInterval(applyMaint, 3000); // hesap adı sonradan okununca yöneticiyi tanı
+  async function loadMaint() {
+    $('#inboxCount').textContent = '';
+    await checkMaint();
+    const on = maintState.maintenance;
+    inboxList.innerHTML = `<div class="maint-form">
+        <div class="maint-state">${on ? '🛠️ Bakım modu AÇIK — uygulama sadece sende çalışıyor' : '✅ Uygulama herkese açık'}</div>
+        <label>Sebep (kullanıcılar görür)</label>
+        <textarea id="maintText" maxlength="300" placeholder="örn: Yeni özellik ekleniyor">${esc(maintState.message)}</textarea>
+        <label>⏰ Tahmini açılış (kullanıcılar görür)</label>
+        <input id="maintEtaIn" maxlength="60" placeholder="örn: 22:30  ya da  1 saat sonra" value="${esc(maintState.eta)}" />
+        <div class="dlg-foot"><span class="hint" id="maintHint"></span><div class="spacer"></div>
+          ${on ? '<button class="btn mini" id="maintSave">Bilgiyi güncelle</button><button class="btn primary" id="maintOff">Bakımı kapat</button>'
+               : '<button class="btn mod danger" id="maintOn">🛠️ Bakıma al</button>'}</div>
+        <p class="dlg-note">Bakımdayken diğer herkeste uygulama "Bakımdayız" ekranıyla kapanır, sen kullanmaya devam edersin. Kapatınca en geç 30 saniyede herkeste açılır. (Bu özellikten önceki sürümleri kullananlar etkilenmez.)</p>
+      </div>`;
+  }
+  inboxList.addEventListener('click', async (e) => {
+    const id = e.target.id;
+    if (!['maintOn', 'maintOff', 'maintSave'].includes(id)) return;
+    if (id === 'maintOn' && !confirm('Uygulama senin dışındaki herkese kapansın mı?')) return;
+    const on = id === 'maintOff' ? false : true;
+    const r = await window.dualChat.rpc('set_maintenance', { p_password: getAdmin(), p_on: on, p_message: $('#maintText').value, p_eta: $('#maintEtaIn').value });
+    if (!r.ok) { $('#maintHint').textContent = 'Kaydedilemedi: ' + r.error; $('#maintHint').className = 'hint err'; return; }
+    loadMaint();
+  });
 
   // ---------- Başlangıç ----------
   applyLayout();

@@ -112,11 +112,21 @@
 
   <div id="inboxDlg" class="dlg-wrap hidden">
     <div class="dlg wide">
-      <div class="dlg-head"><div class="tabs" id="inboxTabs"><button class="tab active" data-itab="reports">📥 Sorunlar</button><button class="tab" data-itab="log">📜 Log</button><button class="tab" data-itab="mod">🛡️ Mod log</button><button class="tab" data-itab="stats">📊 İstatistik</button><button class="tab" data-itab="roles">👥 Yetkiler</button></div><span id="inboxCount" class="hint"></span><div class="spacer"></div>
+      <div class="dlg-head"><div class="tabs" id="inboxTabs"><button class="tab active" data-itab="reports">📥 Sorunlar</button><button class="tab" data-itab="log">📜 Log</button><button class="tab" data-itab="mod">🛡️ Mod log</button><button class="tab" data-itab="stats">📊 İstatistik</button><button class="tab" data-itab="roles">👥 Yetkiler</button><button class="tab" data-itab="maint">🛠️ Bakım</button></div><span id="inboxCount" class="hint"></span><div class="spacer"></div>
         <button id="inboxRefresh" class="btn mini" title="Yenile">⟳</button>
         <button id="inboxLogout" class="btn mini" title="Bu bilgisayarda yönetici girişini kapat">Çıkış</button>
         <button class="btn mini" data-close>✕</button></div>
       <div id="inboxList" class="inbox"></div>
+    </div>
+  </div>
+
+  <div id="maintScreen" class="maint hidden">
+    <div class="maint-box">
+      <div class="maint-icon">🛠️</div>
+      <h1>Bakımdayız</h1>
+      <p id="maintMsg">PengusChat kısa bir süre bakımda. Birazdan kendiliğinden açılacak.</p>
+      <p id="maintEta" class="maint-eta hidden"></p>
+      <small>Her 30 saniyede bir kontrol ediliyor…</small>
     </div>
   </div>
 

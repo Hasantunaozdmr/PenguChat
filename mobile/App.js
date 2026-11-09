@@ -120,6 +120,17 @@ function PenguChat() {
   // Uygulama içi yetkiler (📥 → 👥 Yetkiler'den verilir; giriş yapılan Twitch/Kick adına göre)
   const [roles, setRoles] = useState({ modlog: false, reports: false, stats: false });
   const anyRole = roles.modlog || roles.reports || roles.stats;
+  // Bakım modu: açıkken uygulama herkese kapalı; yönetici (şifre ya da kendi hesabı) kullanmaya devam eder
+  const [maint, setMaint] = useState({ maintenance: false, message: '', eta: '' });
+  useEffect(() => {
+    const check = () =>
+      reportRpc('app_status', {})
+        .then((r) => r && setMaint({ maintenance: !!r.maintenance, message: r.message || '', eta: r.eta || '' }))
+        .catch(() => {}); // sunucuya ulaşılamazsa son bilinen durum kalır
+    check();
+    const t = setInterval(check, 30 * 1000);
+    return () => clearInterval(t);
+  }, []);
   useEffect(() => {
     if (!accounts.twitch && !accounts.kick) return setRoles({ modlog: false, reports: false, stats: false });
     reportRpc('my_roles', { p_twitch: accounts.twitch, p_kick: accounts.kick })
@@ -493,6 +504,15 @@ function PenguChat() {
           </View>
         </Pressable>
       )}
+      {maint.maintenance && !(admin || ownerOn.twitch || ownerOn.kick) && (
+        <View style={styles.maint}>
+          <Text style={{ fontSize: 64 }}>🛠️</Text>
+          <Text style={styles.maintTitle}>Bakımdayız</Text>
+          <Text style={styles.maintMsg}>{maint.message ? 'Sebep: ' + maint.message : 'PengusChat kısa bir süre bakımda. Birazdan kendiliğinden açılacak.'}</Text>
+          {!!maint.eta && <Text style={[styles.maintMsg, { fontWeight: '700', fontSize: 17 }]}>⏰ Tahmini açılış: {maint.eta}</Text>}
+          <Text style={styles.maintSmall}>Her 30 saniyede bir kontrol ediliyor…</Text>
+        </View>
+      )}
       {reportMode && <ReportModal accounts={accounts} roles={roles} mode={reportMode} onClose={() => setReportMode(null)} appVersion={APP_VERSION} admin={admin} onAdminChange={changeAdmin} startTab={mineNews ? 'mine' : 'new'} onMineSeen={() => setMineNews(false)} />}
       {newVersion && (
         <Pressable style={styles.updateBar} onPress={() => Linking.openURL(`${RELEASE_BASE}/PenguChat.apk`)}>
@@ -802,6 +822,22 @@ const styles = StyleSheet.create({
   },
   iconText: { color: C.text, fontSize: 18 },
   iconBtnActive: { backgroundColor: C.border },
+  maint: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 200,
+    elevation: 20,
+    backgroundColor: '#0a6b67',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  maintTitle: { color: C.text, fontSize: 30, fontWeight: '800', marginTop: 8 },
+  maintMsg: { color: C.text, fontSize: 16, textAlign: 'center', marginTop: 10 },
+  maintSmall: { color: C.muted, fontSize: 12, marginTop: 14 },
   menuBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50 },
   menu: {
     position: 'absolute',
