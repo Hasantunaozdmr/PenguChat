@@ -22,5 +22,6 @@ contextBridge.exposeInMainWorld('dualChat', {
   listReports: (pw) => ipcRenderer.invoke('report-list', pw),
   deleteReport: (pw, id) => ipcRenderer.invoke('report-delete', { password: pw, id }),
   focusHost: () => ipcRenderer.invoke('focus-host'),
+  focusGuest: (id) => ipcRenderer.invoke('focus-guest', id),
   onUpdate: (cb) => ipcRenderer.on('update-status', (_e, s) => cb(s)),
 });

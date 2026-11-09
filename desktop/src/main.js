@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, session, net } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, session, net, webContents } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -129,6 +129,18 @@ ipcMain.handle('focus-host', () => {
   // Windows'ta odak bazen chat panelinde (webview) takılı kalıyor: pencereyi ve ana sayfayı yeniden odakla
   if (!mainWindow.isFocused()) mainWindow.focus();
   mainWindow.webContents.focus();
+});
+
+// Chat paneline tıklanınca klavyeyi gerçekten o panele ver. Windows'ta kutu seçili görünüp
+// yazılanlar gitmeyebiliyor (özellikle bir pencere açılıp kapandıktan sonra).
+let lastGuestFocus = 0;
+ipcMain.handle('focus-guest', (_e, id) => {
+  if (Date.now() - lastGuestFocus < 300) return; // odak olayları birbirini tetiklemesin
+  lastGuestFocus = Date.now();
+  const wc = webContents.fromId(id);
+  if (!wc || wc.isDestroyed() || !mainWindow || wc.hostWebContents !== mainWindow.webContents) return;
+  if (!mainWindow.isFocused()) mainWindow.focus();
+  wc.focus();
 });
 
 ipcMain.handle('logout-all', async () => {

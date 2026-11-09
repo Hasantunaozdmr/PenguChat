@@ -77,6 +77,8 @@
     wv.setAttribute('partition', 'persist:dualchat');
     wv.setAttribute('allowpopups', '');
     wv.setAttribute('webpreferences', 'contextIsolation=yes');
+    // Panele tıklanınca klavye de panele geçsin (Windows'ta bazen kutu seçili görünüp yazı gitmiyor)
+    wv.addEventListener('focus', () => { try { window.dualChat.focusGuest(wv.getWebContentsId()); } catch {} });
     wv.addEventListener('did-start-loading', () => (pane.status.textContent = 'yükleniyor…'));
     wv.addEventListener('did-stop-loading', () => (pane.status.textContent = ''));
     wv.addEventListener('did-fail-load', (e) => {
@@ -413,6 +415,8 @@
     if (open) {
       document.querySelectorAll('webview').forEach((wv) => { try { wv.blur(); } catch {} });
       window.dualChat.focusHost();
+    } else if (document.activeElement && document.activeElement !== document.body && !document.activeElement.closest('.toolbar, .actionbar, .modbar')) {
+      document.activeElement.blur(); // kapanan pencerede kalan kutu klavyeyi tutmasın
     }
   }
   const dlgObserver = new MutationObserver(syncDialogState);
