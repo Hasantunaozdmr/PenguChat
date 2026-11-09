@@ -1054,7 +1054,7 @@
         <label>Sebep (zorunlu · kullanıcılar görür)</label>
         <textarea id="maintText" maxlength="300" placeholder="örn: Yeni özellik ekleniyor">${esc(maintState.message)}</textarea>
         <label>⏰ Tahmini açılış (zorunlu · kullanıcılar görür)</label>
-        <input id="maintEtaIn" maxlength="60" placeholder="örn: 22:30  ya da  1 saat sonra" value="${esc(maintState.eta)}" />
+        <input id="maintEtaIn" type="time" value="${/^([01]\d|2[0-3]):[0-5]\d$/.test(maintState.eta) ? esc(maintState.eta) : ''}" />
         <div class="dlg-foot"><span class="hint" id="maintHint"></span><div class="spacer"></div>
           ${on ? '<button class="btn mini" id="maintSave">Bilgiyi güncelle</button><button class="btn primary" id="maintOff">Bakımı kapat</button>'
                : '<button class="btn mod danger" id="maintOn">🛠️ Bakıma al</button>'}</div>
@@ -1066,7 +1066,8 @@
     if (!['maintOn', 'maintOff', 'maintSave'].includes(id)) return;
     if (id !== 'maintOff') {
       // Bakıma alırken / güncellerken sebep ve tahmini açılış zorunlu
-      const miss = !$('#maintText').value.trim() ? 'Sebebi yaz.' : !$('#maintEtaIn').value.trim() ? 'Tahmini açılış saatini yaz.' : '';
+      const miss = !$('#maintText').value.trim() ? 'Sebebi yaz.'
+        : !/^([01]\d|2[0-3]):[0-5]\d$/.test($('#maintEtaIn').value) ? 'Tahmini açılış saatini seç (örn: 22:30).' : '';
       if (miss) { $('#maintHint').textContent = miss; $('#maintHint').className = 'hint err'; return; }
     }
     if (id === 'maintOn' && !confirm('Uygulama senin dışındaki herkese kapansın mı?')) return;

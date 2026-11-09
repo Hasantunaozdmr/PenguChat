@@ -419,7 +419,13 @@ function Inbox({ admin, saveAdmin, onClose, roles, accounts }) {
 // 🛠️ Bakım modu (sadece yönetici)
 function Maint({ d, admin, onChanged }) {
   const [msg, setMsg] = useState(d.message || '');
-  const [eta, setEta] = useState(d.eta || '');
+  const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+  const [eta, setEta] = useState(TIME.test(d.eta || '') ? d.eta : '');
+  // Sadece saat: rakam dışı silinir, 2 rakamdan sonra ':' kendiliğinden eklenir (örn 2230 → 22:30)
+  const onEta = (t) => {
+    const d4 = t.replace(/\D/g, '').slice(0, 4);
+    setEta(d4.length > 2 ? d4.slice(0, 2) + ':' + d4.slice(2) : d4);
+  };
   const [hint, setHint] = useState(null);
   const on = !!d.maintenance;
   const save = async (next) => {
@@ -446,15 +452,16 @@ function Maint({ d, admin, onChanged }) {
       <TextInput
         style={s.input}
         value={eta}
-        onChangeText={setEta}
-        placeholder="⏰ Tahmini açılış (zorunlu) — örn: 22:30"
+        onChangeText={onEta}
+        placeholder="⏰ Tahmini açılış saati (zorunlu) — örn: 22:30"
         placeholderTextColor="#a9e3de"
-        maxLength={60}
+        keyboardType="number-pad"
+        maxLength={5}
       />
       {!!hint && <Text style={[s.hint, { color: C.err }]}>{hint}</Text>}
       <View style={[s.head, { justifyContent: 'flex-end' }]}>
         {on && (
-          <Pressable style={s.mini} onPress={() => (!msg.trim() ? setHint('Sebebi yaz.') : !eta.trim() ? setHint('Tahmini açılış saatini yaz.') : save(true))}>
+          <Pressable style={s.mini} onPress={() => (!msg.trim() ? setHint('Sebebi yaz.') : !TIME.test(eta) ? setHint('Tahmini açılış saatini yaz (örn: 22:30).') : save(true))}>
             <Text style={s.miniText}>Bilgiyi güncelle</Text>
           </Pressable>
         )}
@@ -465,8 +472,8 @@ function Maint({ d, admin, onChanged }) {
               ? save(false)
               : !msg.trim()
               ? setHint('Sebebi yaz.')
-              : !eta.trim()
-              ? setHint('Tahmini açılış saatini yaz.')
+              : !TIME.test(eta)
+              ? setHint('Tahmini açılış saatini yaz (örn: 22:30).')
               : Alert.alert('Bakıma al', 'Uygulama senin dışındaki herkese kapansın mı?', [
                   { text: 'Vazgeç', style: 'cancel' },
                   { text: 'Bakıma al', style: 'destructive', onPress: () => save(true) },
