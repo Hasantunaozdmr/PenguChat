@@ -1017,7 +1017,10 @@
     const r = lastDelay;
     if (!r) return;
     delayTag.classList.remove('hidden', 'ok', 'warn', 'muted');
-    delayTag.title = DELAY_TITLE;
+    const c = r.clock;
+    const off = c ? Math.round(c.offset / 1000) : 0;
+    delayTag.title = DELAY_TITLE.replace('bilgisayar saatine göre', c && c.source !== 'bilgisayar' ? 'saat sunucudan alınır' : 'bilgisayar saatine göre')
+      + (c && c.source !== 'bilgisayar' ? (off ? `\nBilgisayarının saati ${Math.abs(off)} sn ${off > 0 ? 'geri' : 'ileri'} — düzeltildi.` : '\nBilgisayarının saati doğru.') : '');
     const label = showing === 'twitch' ? 'Twitch' : 'Kick';
     const lag = r[showing];
     if (lag == null) {

@@ -228,6 +228,47 @@ function liveEdgeTime(media) {
   return edge;
 }
 
+// ---- Saat düzeltmesi ----
+// Ölçüm "şimdi − parçanın saati"dir; bilgisayar saati birkaç sn kaymışsa sonuç da kayar
+// (geri kalan saat 0 sn gösterir). Bu yüzden saat Supabase sunucusundan alınır ve fark düzeltilir.
+let clockOffset = 0; // sunucu saati − bilgisayar saati (ms)
+let clockSource = 'bilgisayar';
+let clockNext = 0;
+async function syncClock() {
+  if (Date.now() < clockNext) return;
+  clockNext = Date.now() + 10 * 60 * 1000; // 10 dk'da bir yenile
+  const tries = [];
+  for (let i = 0; i < 3; i++) {
+    try {
+      const t0 = Date.now();
+      const ms = Number(await reportRpc('server_time', {}));
+      const t1 = Date.now();
+      if (ms > 0) tries.push({ rtt: t1 - t0, off: ms - (t0 + t1) / 2 });
+    } catch {
+      break;
+    }
+  }
+  if (tries.length) {
+    tries.sort((a, b) => a.rtt - b.rtt); // en hızlı cevap en doğrusu
+    clockOffset = tries[0].off;
+    clockSource = 'sunucu';
+    return;
+  }
+  // Yedek: sunucunun cevabındaki "Date" başlığı (1 sn hassasiyet)
+  try {
+    const t0 = Date.now();
+    const res = await net.fetch(`${REPORT_API.url}/rest/v1/`, { method: 'HEAD', cache: 'no-store', headers: { apikey: REPORT_API.key } });
+    const t1 = Date.now();
+    const d = Date.parse(res.headers.get('date') || '');
+    if (!d) throw new Error('tarih yok');
+    clockOffset = d + 500 - (t0 + t1) / 2;
+    clockSource = 'sunucu (yaklaşık)';
+  } catch {
+    clockNext = Date.now() + 60 * 1000; // internet yoksa 1 dk sonra yine dene
+  }
+}
+const trueNow = () => Date.now() + clockOffset;
+
 // Her platform için: medya listesinin adresi (birkaç dakika geçerli) ve son ölçümler
 const SAMPLE_WINDOW_MS = 20000;
 const delayState = {
@@ -263,7 +304,7 @@ async function sampleLag(p, key, getMasterUrl) {
   const edge = liveEdgeTime(media);
   if (!edge) throw new Error('zaman bilgisi yok');
   const now = Date.now();
-  st.samples.push({ t: now, lag: now - edge });
+  st.samples.push({ t: now, lag: trueNow() - edge });
   st.samples = st.samples.filter((x) => now - x.t <= SAMPLE_WINDOW_MS);
   return { lag: Math.min(...st.samples.map((x) => x.lag)), n: st.samples.length };
 }
@@ -294,7 +335,8 @@ async function twitchMasterUrl(channel) {
 }
 
 ipcMain.handle('measure-delay', async (_e, { twitch, kick, kickPlaybackUrl }) => {
-  const out = { twitch: null, kick: null, n: { twitch: 0, kick: 0 }, errors: {} };
+  await syncClock().catch(() => {});
+  const out = { twitch: null, kick: null, n: { twitch: 0, kick: 0 }, errors: {}, clock: { offset: clockOffset, source: clockSource } };
   await Promise.all([
     (async () => {
       try {
