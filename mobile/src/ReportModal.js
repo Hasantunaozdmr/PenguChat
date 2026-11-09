@@ -437,7 +437,7 @@ function Maint({ d, admin, onChanged }) {
         style={[s.input, { height: 70 }]}
         value={msg}
         onChangeText={setMsg}
-        placeholder="Sebep — örn: Yeni özellik ekleniyor"
+        placeholder="Sebep (zorunlu) — örn: Yeni özellik ekleniyor"
         placeholderTextColor="#a9e3de"
         multiline
         maxLength={300}
@@ -447,14 +447,14 @@ function Maint({ d, admin, onChanged }) {
         style={s.input}
         value={eta}
         onChangeText={setEta}
-        placeholder="⏰ Tahmini açılış — örn: 22:30 ya da 1 saat sonra"
+        placeholder="⏰ Tahmini açılış (zorunlu) — örn: 22:30"
         placeholderTextColor="#a9e3de"
         maxLength={60}
       />
       {!!hint && <Text style={[s.hint, { color: C.err }]}>{hint}</Text>}
       <View style={[s.head, { justifyContent: 'flex-end' }]}>
         {on && (
-          <Pressable style={s.mini} onPress={() => save(true)}>
+          <Pressable style={s.mini} onPress={() => (!msg.trim() ? setHint('Sebebi yaz.') : !eta.trim() ? setHint('Tahmini açılış saatini yaz.') : save(true))}>
             <Text style={s.miniText}>Bilgiyi güncelle</Text>
           </Pressable>
         )}
@@ -463,6 +463,10 @@ function Maint({ d, admin, onChanged }) {
           onPress={() =>
             on
               ? save(false)
+              : !msg.trim()
+              ? setHint('Sebebi yaz.')
+              : !eta.trim()
+              ? setHint('Tahmini açılış saatini yaz.')
               : Alert.alert('Bakıma al', 'Uygulama senin dışındaki herkese kapansın mı?', [
                   { text: 'Vazgeç', style: 'cancel' },
                   { text: 'Bakıma al', style: 'destructive', onPress: () => save(true) },

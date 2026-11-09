@@ -1051,9 +1051,9 @@
     const on = maintState.maintenance;
     inboxList.innerHTML = `<div class="maint-form">
         <div class="maint-state">${on ? '🛠️ Bakım modu AÇIK — uygulama sadece sende çalışıyor' : '✅ Uygulama herkese açık'}</div>
-        <label>Sebep (kullanıcılar görür)</label>
+        <label>Sebep (zorunlu · kullanıcılar görür)</label>
         <textarea id="maintText" maxlength="300" placeholder="örn: Yeni özellik ekleniyor">${esc(maintState.message)}</textarea>
-        <label>⏰ Tahmini açılış (kullanıcılar görür)</label>
+        <label>⏰ Tahmini açılış (zorunlu · kullanıcılar görür)</label>
         <input id="maintEtaIn" maxlength="60" placeholder="örn: 22:30  ya da  1 saat sonra" value="${esc(maintState.eta)}" />
         <div class="dlg-foot"><span class="hint" id="maintHint"></span><div class="spacer"></div>
           ${on ? '<button class="btn mini" id="maintSave">Bilgiyi güncelle</button><button class="btn primary" id="maintOff">Bakımı kapat</button>'
@@ -1064,6 +1064,11 @@
   inboxList.addEventListener('click', async (e) => {
     const id = e.target.id;
     if (!['maintOn', 'maintOff', 'maintSave'].includes(id)) return;
+    if (id !== 'maintOff') {
+      // Bakıma alırken / güncellerken sebep ve tahmini açılış zorunlu
+      const miss = !$('#maintText').value.trim() ? 'Sebebi yaz.' : !$('#maintEtaIn').value.trim() ? 'Tahmini açılış saatini yaz.' : '';
+      if (miss) { $('#maintHint').textContent = miss; $('#maintHint').className = 'hint err'; return; }
+    }
     if (id === 'maintOn' && !confirm('Uygulama senin dışındaki herkese kapansın mı?')) return;
     const on = id === 'maintOff' ? false : true;
     const r = await window.dualChat.rpc('set_maintenance', { p_password: getAdmin(), p_on: on, p_message: $('#maintText').value, p_eta: $('#maintEtaIn').value });
