@@ -17,7 +17,8 @@
         "backgroundImage": "./assets/android-icon-background.png"
       },
       "package": "com.dualchat.mobile",
-      "softwareKeyboardLayoutMode": "resize"
+      "softwareKeyboardLayoutMode": "resize",
+      "allowBackup": false
     },
     "web": {
       "favicon": "./assets/favicon.png"

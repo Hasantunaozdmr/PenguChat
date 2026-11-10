@@ -1,4 +1,16 @@
 const { app, BrowserWindow, ipcMain, shell, session, net, webContents } = require('electron');
+
+// 🔒 Uygulamanın iç komutlarını (ipc) sadece uygulamanın kendi sayfası çağırabilsin; chat sayfaları
+// (Twitch / Kick) ya da başka bir pencere çağıramaz.
+{
+  const handle = ipcMain.handle.bind(ipcMain);
+  ipcMain.handle = (channel, fn) =>
+    handle(channel, (e, ...args) => {
+      const url = (e.senderFrame && e.senderFrame.url) || '';
+      if (!url.startsWith('file://') || !mainWindow || e.sender !== mainWindow.webContents) throw new Error('izinsiz');
+      return fn(e, ...args);
+    });
+}
 const path = require('path');
 const fs = require('fs');
 
@@ -61,6 +73,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true, // 🔒 sayfa bilgisayara doğrudan erişemez
       webviewTag: true,
     },
   });
@@ -126,6 +139,8 @@ app.on('web-contents-created', (_e, contents) => {
     delete webPreferences.preload;
     webPreferences.nodeIntegration = false;
     webPreferences.contextIsolation = true;
+    webPreferences.sandbox = true;
+    webPreferences.webSecurity = true;
     params.partition = PARTITION;
   });
 });

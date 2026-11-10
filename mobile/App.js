@@ -949,6 +949,11 @@ function ChatView({ k, url, zoom, onRef, onMessage, onLoaded, onFail }) {
       javaScriptEnabled
       // Açılır pencereler (giriş vb.) aynı panelde açılsın
       setSupportMultipleWindows={false}
+      // 🔒 Şifresiz içerik ve telefon dosyalarına erişim kapalı
+      mixedContentMode="never"
+      allowFileAccess={false}
+      allowFileAccessFromFileURLs={false}
+      allowUniversalAccessFromFileURLs={false}
       javaScriptCanOpenWindowsAutomatically
       allowsInlineMediaPlayback
       mediaPlaybackRequiresUserAction
