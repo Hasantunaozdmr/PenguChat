@@ -215,6 +215,18 @@
     return n === undefined ? -1 : n;
   };
 
+  // Telefon: Kick yayın adresi (gecikme ölçümü için) — kick.com API'si sadece sayfanın içinden çağrılabiliyor
+  window.__penguKickPlayback = async (slug) => {
+    let url = null;
+    try {
+      const r = await fetch('/api/v2/channels/' + encodeURIComponent(slug), { credentials: 'include', headers: { Accept: 'application/json' } });
+      const j = r.ok ? await r.json() : null;
+      url = (j && j.livestream && j.playback_url) || null;
+    } catch {}
+    if (window.ReactNativeWebView) post('__PENGU_KPB__' + JSON.stringify({ url }));
+    return url;
+  };
+
   // Masaüstü yardımcıları: kutudaki metin / gönder düğmesine bas
   window.__penguInputText = () => {
     const input = findInput();

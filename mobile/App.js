@@ -21,6 +21,7 @@ import { PLATFORMS, cleanChannel, hasLink, isInternalUrl, parseTargets } from '.
 import { FIT_POPUPS_JS, PICK_USER_JS } from './src/injected';
 import ReportModal, { countNew, hasMineNews, loadAdmin, storeAdmin } from './src/ReportModal';
 import { OWNER_ACCOUNTS, logError, logModAction, reportRpc, sendPing } from './src/report';
+import { measureDelay } from './src/delay';
 
 // Cihaz: işletim sistemi + model (giriş yapmayan kullanıcıyı istatistikte tanımak için). Örn: "android 14 · SM-A546B"
 const DEVICE = (() => {
@@ -308,6 +309,47 @@ function PenguChat() {
   const [modStatus, setModStatus] = useState({ twitch: 'pending', kick: 'pending' });
   const canMod = (k) => !!s[k] && (modStatus[k] === 'mod' || modStatus[k] === 'unknown');
   const anyModAccess = canMod('twitch') || canMod('kick');
+
+  // ---- ⏱ Yayın gecikmesi (sadece modlara) ----
+  const [delay, setDelay] = useState({ twitch: null, kick: null });
+  const kickPb = useRef({ slug: null, url: null, at: 0, asked: 0 });
+  const delayCtx = useRef(null);
+  delayCtx.current = { twitch: canMod('twitch') ? s.twitch : null, kick: canMod('kick') ? s.kick : null };
+  useEffect(() => {
+    let stop = false;
+    let timer = null;
+    const loop = async () => {
+      const c = delayCtx.current;
+      if (c.twitch || c.kick) {
+        // Kick yayın adresi 4 dk geçerli; sayfanın içinden istenir (cevap __PENGU_KPB__ ile gelir)
+        const kp = kickPb.current;
+        if (c.kick && (kp.slug !== c.kick || Date.now() - kp.at > 4 * 60 * 1000) && Date.now() - kp.asked > 10000) {
+          kp.asked = Date.now();
+          if (kp.slug !== c.kick) Object.assign(kp, { slug: c.kick, url: null, at: 0 });
+          views.current.kick?.injectJavaScript(`window.__penguKickPlayback && window.__penguKickPlayback(${JSON.stringify(c.kick)}); true;`);
+        }
+        try {
+          const r = await measureDelay({ twitch: c.twitch, kick: c.kick, kickPlaybackUrl: kp.slug === c.kick ? kp.url : null });
+          if (!stop) setDelay(r);
+        } catch {}
+      } else if (!stop) setDelay({ twitch: null, kick: null });
+      if (!stop) timer = setTimeout(loop, 900 + Math.random() * 700);
+    };
+    loop();
+    return () => {
+      stop = true;
+      clearTimeout(timer);
+    };
+  }, []);
+  const delayText = (k) => {
+    const d = delay[k];
+    if (!d) return null;
+    const label = PLATFORMS[k].label;
+    if (d.err && k === 'kick' && !kickPb.current.url && Date.now() - kickPb.current.asked < 8000) return `${label}: ölçülüyor…`; // adres bekleniyor
+    if (d.err) return `${label}: kapalı`;
+    if (d.n < 4) return `${label}: ölçülüyor…`;
+    return `${label}: ${Math.max(0, Math.round(d.lag / 1000))} sn`;
+  };
   const checkMod = (k) => {
     if (!s[k]) return;
     views.current[k]?.injectJavaScript(
@@ -368,6 +410,13 @@ function PenguChat() {
 
   const onWebMessage = (k, data) => {
     if (typeof data !== 'string') return;
+    if (data.startsWith('__PENGU_KPB__')) {
+      try {
+        const { url } = JSON.parse(data.slice(13));
+        Object.assign(kickPb.current, { url: url || null, at: url ? Date.now() : 0 });
+      } catch {}
+      return;
+    }
     if (data.startsWith('__PENGU_VIEW__')) {
       try {
         const { n, cat } = JSON.parse(data.slice(14));
@@ -693,6 +742,11 @@ function PenguChat() {
           </Pressable>
         </View>
       )}
+      {anyModAccess && (delay.twitch || delay.kick) && (
+        <Text style={styles.delayLine} numberOfLines={1}>
+          ⏱ Gecikme · {[delayText('twitch'), delayText('kick')].filter(Boolean).join(' · ')}
+        </Text>
+      )}
       {hint && (
         <Text style={[styles.hint, { color: hint.ok ? PLATFORMS.kick.color : '#ff6b6b' }]} numberOfLines={1}>
           {hint.text}
@@ -972,6 +1026,7 @@ const styles = StyleSheet.create({
   maintMsg: { color: C.text, fontSize: 16, textAlign: 'center', marginTop: 10 },
   maintSmall: { color: C.muted, fontSize: 12, marginTop: 14 },
   // Sığmazsa alt satıra geçer; hiçbir düğme ekran dışında kalmaz
+  delayLine: { color: C.text, fontSize: 12, fontWeight: '600', paddingHorizontal: 10, paddingVertical: 3, backgroundColor: C.panel2 },
   actBar: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 8, paddingVertical: 6, backgroundColor: C.panel2, borderBottomWidth: 1, borderBottomColor: C.border },
   act: { height: 32, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1, borderColor: C.border, backgroundColor: C.panel, justifyContent: 'center' },
   actText: { color: C.text, fontSize: 13, fontWeight: '600' },
