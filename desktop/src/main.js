@@ -413,12 +413,20 @@ function reportHandler(fn) {
   };
 }
 
+// Cihaz: Windows 10 / 11 + sürüm (istatistikte görünür). Windows 11'in iç sürümü de 10.0 başlar; 22000 ve sonrası 11'dir.
+function deviceName() {
+  const v = process.getSystemVersion ? process.getSystemVersion() : '';
+  if (process.platform !== 'win32') return `${process.platform} ${v}`.trim().slice(0, 30);
+  const build = Number(v.split('.')[2]) || 0;
+  return `windows · Windows ${build >= 22000 ? 11 : 10} (${build})`.slice(0, 30);
+}
+
 ipcMain.handle('report-send', reportHandler(async (_e, { message, contact, token }) => {
   const args = {
     p_message: String(message || '').slice(0, 2000),
     p_contact: String(contact || '').slice(0, 100),
     p_version: app.getVersion(),
-    p_platform: `windows ${process.getSystemVersion ? process.getSystemVersion() : ''}`.trim().slice(0, 30),
+    p_platform: deviceName(),
   };
   try {
     return await reportRpc('submit_report', { ...args, p_token: String(token || '') });
@@ -454,7 +462,7 @@ ipcMain.handle('mod-action', reportHandler((_e, a) =>
 ipcMain.handle('ping', reportHandler((_e, { id, mod, twitch, kick }) =>
   reportRpc('ping', {
     p_id: String(id || ''),
-    p_platform: `windows ${process.getSystemVersion ? process.getSystemVersion() : ''}`.trim().slice(0, 30),
+    p_platform: deviceName(),
     p_version: app.getVersion(),
     p_mod: !!mod,
     p_twitch: String(twitch || '').slice(0, 40),

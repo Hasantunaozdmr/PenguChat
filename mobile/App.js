@@ -22,6 +22,13 @@ import { FIT_POPUPS_JS, PICK_USER_JS } from './src/injected';
 import ReportModal, { countNew, hasMineNews, loadAdmin, storeAdmin } from './src/ReportModal';
 import { OWNER_ACCOUNTS, logError, logModAction, reportRpc, sendPing } from './src/report';
 
+// Cihaz: işletim sistemi + model (giriş yapmayan kullanıcıyı istatistikte tanımak için). Örn: "android 14 · SM-A546B"
+const DEVICE = (() => {
+  const c = Platform.constants || {};
+  const model = Platform.OS === 'android' ? String(c.Model || '').trim() : Platform.OS === 'ios' ? String(c.interfaceIdiom === 'pad' ? 'iPad' : 'iPhone') : '';
+  return `${Platform.OS} ${Platform.Version}${model ? ' · ' + model : ''}`.slice(0, 30);
+})();
+
 const STORE_KEY = 'dualchat:settings';
 const RELEASE_BASE = 'https://github.com/Hasantunaozdmr/PenguChat/releases/latest/download';
 const APP_VERSION = Constants.expoConfig?.version || '0.0.0';
@@ -125,7 +132,7 @@ function PenguChat() {
   const reportErrorRef = useRef(null);
   reportErrorRef.current = (kind, detail) =>
     logError({
-      p_platform: `${Platform.OS} ${Platform.Version}`.slice(0, 30),
+      p_platform: DEVICE,
       p_version: APP_VERSION,
       p_account: [accounts.twitch && 'Twitch: ' + accounts.twitch, accounts.kick && 'Kick: ' + accounts.kick].filter(Boolean).join(' · '),
       p_kind: kind,
@@ -344,7 +351,7 @@ function PenguChat() {
   const pingRef = useRef(null);
   pingRef.current = () =>
     sendPing({
-      p_platform: `${Platform.OS} ${Platform.Version}`.slice(0, 30),
+      p_platform: DEVICE,
       p_version: APP_VERSION,
       p_mod: modStatus.twitch === 'mod' || modStatus.kick === 'mod',
       p_twitch: accounts.twitch,

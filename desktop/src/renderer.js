@@ -650,6 +650,8 @@
     if (!r.ok) return failed(r);
     renderModLog(r.data || [], inboxList, $('#inboxCount'));
   }
+  // "android 14 · SM-A546B" → "android · SM-A546B"
+  const devLabel = (pl) => { const [a, m] = String(pl || '').split(' · '); return a.split(' ')[0] + (m ? ' · ' + m : ''); };
   const MOD_KIND = { ban: '⛔ Ban', untimeout: '↩ Timeout kaldırıldı', unban: '↩ Ban kaldırıldı', delete: '🗑 Mesaj silindi' };
   function renderModLog(list, box, countEl) {
     countEl.textContent = list.length ? `${list.length} işlem` : '';
@@ -713,7 +715,7 @@
       </div>
       <table class="users"><tr><th></th><th>Twitch</th><th>Kick</th><th>Mod</th><th>Cihaz</th><th>Sürüm</th><th>Son görülme</th></tr>
       ${list.map((x) => `<tr><td class="${online(x) ? 'on' : ''}">${online(x) ? '●' : '○'}</td><td>${esc(x.twitch || '—')}</td><td>${esc(x.kick || '—')}</td>
-        <td>${x.is_mod ? '🛡️' : ''}</td><td>${esc((x.platform || '').split(' ')[0])}</td><td>v${esc(x.version || '?')}</td><td>${esc(ago(x.last_seen))}</td></tr>`).join('')}
+        <td>${x.is_mod ? '🛡️' : ''}</td><td>${esc(devLabel(x.platform))}</td><td>v${esc(x.version || '?')}</td><td>${esc(ago(x.last_seen))}</td></tr>`).join('')}
       </table>`;
   }
 
@@ -1156,7 +1158,7 @@
     inboxList.innerHTML = (list.length ? '<div class="dlg-foot" style="margin-bottom:6px"><div class="spacer"></div><button class="btn mini" id="errClear">🗑 Hepsini temizle</button></div>' : '')
       + (list.length
         ? list.map((x) => `<div class="log-row"><span class="t">${esc(fmtDate(x.at))}</span><span class="k">⚠️ ${esc(x.kind)}</span>
-            <span class="d">${esc(x.detail)}<small>${esc(x.account || 'giriş yok')} · ${esc((x.platform || '').split(' ')[0])} · v${esc(x.version || '?')}</small></span></div>`).join('')
+            <span class="d">${esc(x.detail)}<small>${esc(x.account || 'giriş yok')} · ${esc(devLabel(x.platform))} · v${esc(x.version || '?')}</small></span></div>`).join('')
         : '<div class="empty">Kayıtlı hata yok 🎉</div>');
   }
   inboxList.addEventListener('click', async (e) => {

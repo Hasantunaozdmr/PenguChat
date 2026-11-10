@@ -459,7 +459,7 @@ function Inbox({ admin, saveAdmin, onClose, roles, accounts, onUndo, annNow }) {
                   {x.detail}
                 </Text>
                 <Text style={s.repSmall}>
-                  {x.account || 'giriş yok'} · {(x.platform || '').split(' ')[0]} · v{x.version || '?'}
+                  {x.account || 'giriş yok'} · {devLabel(x.platform)} · v{x.version || '?'}
                 </Text>
               </View>
             ))}
@@ -702,6 +702,11 @@ function LogRow({ x }) {
     </View>
   );
 }
+// "android 14 · SM-A546B" → "android · SM-A546B"
+function devLabel(pl) {
+  const [a, m] = String(pl || '').split(' · ');
+  return a.split(' ')[0] + (m ? ' · ' + m : '');
+}
 function fmtDur(secs) {
   if (!secs) return '';
   if (secs % 86400 === 0) return secs / 86400 + ' gün';
@@ -772,7 +777,7 @@ function Stats({ d }) {
                 {x.is_mod ? ' 🛡️' : ''}
               </Text>
               <Text style={s.repSmall}>
-                {(x.platform || '').split(' ')[0]} · v{x.version || '?'} · {ago(x.last_seen)}
+                {devLabel(x.platform)} · v{x.version || '?'} · {ago(x.last_seen)}
               </Text>
             </View>
           </View>
