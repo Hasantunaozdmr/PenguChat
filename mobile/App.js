@@ -341,15 +341,30 @@ function PenguChat() {
       clearTimeout(timer);
     };
   }, []);
-  const delayText = (k) => {
-    const d = delay[k];
+  // Masaüstündeki gibi: tek etiket, 10 sn'de bir Twitch / Kick arasında değişir, dokununca diğerine geçer
+  const [delayShow, setDelayShow] = useState('twitch');
+  const flipDelay = useCallback(() => {
+    setDelayShow((cur) => {
+      const other = cur === 'twitch' ? 'kick' : 'twitch';
+      return delayCtx.current[other] ? other : delayCtx.current[cur] ? cur : other;
+    });
+  }, []);
+  useEffect(() => {
+    const t = setInterval(flipDelay, 10000);
+    return () => clearInterval(t);
+  }, [flipDelay]);
+  const delayPill = (() => {
+    const k = delayCtx.current[delayShow] ? delayShow : delayCtx.current.twitch ? 'twitch' : delayCtx.current.kick ? 'kick' : null;
+    const d = k && delay[k];
     if (!d) return null;
     const label = PLATFORMS[k].label;
-    if (d.err && k === 'kick' && !kickPb.current.url && Date.now() - kickPb.current.asked < 8000) return `${label}: ölçülüyor…`; // adres bekleniyor
-    if (d.err) return `${label}: kapalı`;
-    if (d.n < 4) return `${label}: ölçülüyor…`;
-    return `${label}: ${Math.max(0, Math.round(d.lag / 1000))} sn`;
-  };
+    const waitingKick = d.err && k === 'kick' && !kickPb.current.url && Date.now() - kickPb.current.asked < 8000;
+    if (d.err && !waitingKick) return { text: `⏱ ${label} kapalı / ölçülemedi`, kind: 'muted' };
+    if (waitingKick || d.n < 4) return { text: `⏱ ${label} ölçülüyor…`, kind: 'muted' };
+    const secs = Math.max(0, Math.round(d.lag / 1000));
+    return { text: `⏱ ${label} gecikmesi: ${secs} sn`, kind: secs >= 10 ? 'warn' : 'ok' };
+  })();
+
   const checkMod = (k) => {
     if (!s[k]) return;
     views.current[k]?.injectJavaScript(
@@ -645,6 +660,17 @@ function PenguChat() {
           />
         )}
         <Act label={tabs ? '▤ Alt alta' : '⇆ Sekmeli'} onPress={() => update({ layout: tabs ? 'split' : 'tabs' })} />
+        {anyModAccess && delayPill && (
+          <Pressable
+            onPress={flipDelay}
+            style={[styles.delayPill, delayPill.kind === 'ok' && { borderColor: PLATFORMS.kick.color }, delayPill.kind === 'warn' && { borderColor: '#ffb84d' }]}
+            accessibilityLabel="Yayın gecikmesi"
+          >
+            <Text style={[styles.delayText, delayPill.kind === 'warn' && { color: '#ffe2b0' }, delayPill.kind === 'muted' && { color: C.muted, fontWeight: '400' }]} numberOfLines={1}>
+              {delayPill.text}
+            </Text>
+          </Pressable>
+        )}
       </View>
       {maint.maintenance && !(admin || ownerOn.twitch || ownerOn.kick) && (
         <View style={styles.maint}>
@@ -741,11 +767,6 @@ function PenguChat() {
             <Text style={styles.modBtnText}>🗑 Mesajı sil</Text>
           </Pressable>
         </View>
-      )}
-      {anyModAccess && (delay.twitch || delay.kick) && (
-        <Text style={styles.delayLine} numberOfLines={1}>
-          ⏱ Gecikme · {[delayText('twitch'), delayText('kick')].filter(Boolean).join(' · ')}
-        </Text>
       )}
       {hint && (
         <Text style={[styles.hint, { color: hint.ok ? PLATFORMS.kick.color : '#ff6b6b' }]} numberOfLines={1}>
@@ -1026,7 +1047,8 @@ const styles = StyleSheet.create({
   maintMsg: { color: C.text, fontSize: 16, textAlign: 'center', marginTop: 10 },
   maintSmall: { color: C.muted, fontSize: 12, marginTop: 14 },
   // Sığmazsa alt satıra geçer; hiçbir düğme ekran dışında kalmaz
-  delayLine: { color: C.text, fontSize: 12, fontWeight: '600', paddingHorizontal: 10, paddingVertical: 3, backgroundColor: C.panel2 },
+  delayPill: { alignSelf: 'center', height: 30, paddingHorizontal: 10, borderRadius: 13, borderWidth: 1, borderColor: C.border, backgroundColor: C.input, justifyContent: 'center' },
+  delayText: { color: C.text, fontSize: 12, fontWeight: '600' },
   actBar: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 8, paddingVertical: 6, backgroundColor: C.panel2, borderBottomWidth: 1, borderBottomColor: C.border },
   act: { height: 32, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1, borderColor: C.border, backgroundColor: C.panel, justifyContent: 'center' },
   actText: { color: C.text, fontSize: 13, fontWeight: '600' },
