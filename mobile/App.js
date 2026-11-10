@@ -711,7 +711,7 @@ function PenguChat() {
               <Text style={[styles.tabText, s.tab === k && styles.tabTextActive]}>
                 {PLATFORMS[k].label}
                 {s[k] ? ` · ${s[k]}` : ''}
-                {viewerText(viewers[k], cats[k])}
+                {viewerText(viewers[k])}
               </Text>
             </Pressable>
           ))}
@@ -732,7 +732,7 @@ function PenguChat() {
               {!tabs && (
                 <PaneHeader k={k} channel={s[k]} viewers={viewers[k]} cat={cats[k]} onAction={paneAction} />
               )}
-              {tabs && <PaneToolbar k={k} onAction={paneAction} />}
+              {tabs && <PaneToolbar k={k} cat={s[k] && viewers[k] != null ? cats[k] : ''} onAction={paneAction} />}
               <View style={styles.paneBody}>
                 {urls[k] ? (
                   <ChatView
@@ -787,11 +787,10 @@ function Act({ label, on, dot, count, onPress, onLongPress }) {
   );
 }
 
-function viewerText(n, cat) {
+function viewerText(n) {
   if (n === undefined) return '';
   if (n === null) return ' · kapalı';
-  const c = cat ? ` · 🎮 ${cat.length > 22 ? cat.slice(0, 21) + '…' : cat}` : '';
-  return ` · 👁 ${n.toLocaleString('tr-TR')}${c}`;
+  return ` · 👁 ${n.toLocaleString('tr-TR')}`;
 }
 
 function PaneHeader({ k, channel, viewers, cat, onAction }) {
@@ -799,19 +798,24 @@ function PaneHeader({ k, channel, viewers, cat, onAction }) {
     <View style={[styles.paneHead, { borderBottomColor: PLATFORMS[k].color }]}>
       <View style={[styles.dot, { backgroundColor: PLATFORMS[k].color }]} />
       <Text style={styles.paneTitle}>{PLATFORMS[k].label}</Text>
-      <Text style={styles.paneChan} numberOfLines={1}>
-        {channel ? `· ${channel}` : ''}
-        {channel ? viewerText(viewers, cat) : ''}
-      </Text>
+      <View style={{ flexShrink: 1 }}>
+        <Text style={styles.paneChan} numberOfLines={1}>
+          {channel ? `· ${channel}` : ''}
+          {channel ? viewerText(viewers) : ''}
+        </Text>
+        {/* Kategori ayrı satırda: tam sığsın, kesilmesin */}
+        {!!(channel && cat && viewers != null) && <Text style={styles.paneCat}>🎮 {cat}</Text>}
+      </View>
       <View style={{ flex: 1 }} />
       <PaneButtons k={k} onAction={onAction} />
     </View>
   );
 }
 
-function PaneToolbar({ k, onAction }) {
+function PaneToolbar({ k, cat, onAction }) {
   return (
     <View style={[styles.paneHead, { borderBottomColor: PLATFORMS[k].color, justifyContent: 'flex-end' }]}>
+      <Text style={[styles.paneCat, { flex: 1 }]}>{cat ? `🎮 ${cat}` : ''}</Text>
       <PaneButtons k={k} onAction={onAction} />
     </View>
   );
@@ -1061,6 +1065,7 @@ const styles = StyleSheet.create({
   },
   paneTitle: { color: C.text, fontWeight: '700' },
   paneChan: { color: C.muted, flexShrink: 1 },
+  paneCat: { color: C.text, fontSize: 12, fontWeight: '600' },
   mini: {
     paddingHorizontal: 9,
     height: 26,
