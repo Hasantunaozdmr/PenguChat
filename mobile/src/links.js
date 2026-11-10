@@ -55,7 +55,8 @@ const INTERNAL_HOSTS = [
 ];
 
 export function isInternalUrl(url) {
-  if (!/^https?:/i.test(url || '')) return true; // about:blank, data:, blob: vb.
+  if (/^http:/i.test(url || '')) return false; // şifresiz bağlantı: uygulamada açma (tarayıcıya gider)
+  if (!/^https:/i.test(url || '')) return true; // about:blank, data:, blob: vb.
   const m = url.match(/^https?:\/\/([^/?#:]+)/i);
   if (!m) return true;
   const host = m[1].toLowerCase();

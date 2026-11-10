@@ -36,7 +36,9 @@ const INTERNAL_HOSTS = [
 
 function isInternal(url) {
   try {
-    const host = new URL(url).hostname;
+    const u = new URL(url);
+    if (u.protocol !== 'https:') return false; // şifresiz bağlantıda giriş yapılmasın
+    const host = u.hostname;
     return INTERNAL_HOSTS.some((h) => host === h || host.endsWith('.' + h));
   } catch {
     return false;
@@ -76,6 +78,7 @@ app.on('web-contents-created', (_e, contents) => {
       contents.executeJavaScript(PICK_USER_JS).catch(() => {});
     });
 
+    guardNavigation(contents);
     contents.setWindowOpenHandler(({ url }) => {
       if (isInternal(url)) {
         // Giriş / kullanıcı kartı gibi pencereler aynı oturumla uygulama içinde açılır
@@ -94,6 +97,27 @@ app.on('web-contents-created', (_e, contents) => {
       return { action: 'deny' };
     });
   }
+});
+
+// 🔒 Hesap güvenliği: chat panelleri ve giriş pencereleri (adres çubuğu yok) sadece Twitch / Kick /
+// giriş sayfalarını açabilir. Başka bir siteye gidilmek istenirse uygulamada değil tarayıcıda açılır;
+// böylece uygulamanın içinde sahte bir "giriş yap" sayfası gösterilemez.
+function guardNavigation(contents) {
+  const block = (e, url) => {
+    if (isInternal(url) || /^(about:blank|data:|blob:)/.test(url)) return;
+    e.preventDefault();
+    if (/^https?:/.test(url)) shell.openExternal(url);
+  };
+  contents.on('will-navigate', block);
+  contents.on('will-redirect', (e, url, _inPlace, isMainFrame) => { if (isMainFrame) block(e, url); });
+}
+app.on('web-contents-created', (_e, contents) => {
+  // Uygulama içi giriş pencereleri (webview'den açılan) de aynı korumayı alsın
+  if (contents.getType() === 'window' && contents.session === session.fromPartition(PARTITION)) guardNavigation(contents);
+});
+app.whenReady().then(() => {
+  // Chat sayfaları kamera / mikrofon / konum / bildirim isteyemesin
+  session.fromPartition(PARTITION).setPermissionRequestHandler((_wc, permission, cb) => cb(permission === 'clipboard-sanitized-write'));
 });
 
 // Webview'lerin güvenli ayarlarla oluşturulmasını garanti et
