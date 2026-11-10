@@ -440,7 +440,7 @@ function Inbox({ admin, saveAdmin, onClose, roles, accounts, onUndo, annNow }) {
                 onPress={() =>
                   Alert.alert('Temizle', 'Bütün hata kayıtları silinsin mi?', [
                     { text: 'Vazgeç', style: 'cancel' },
-                    { text: 'Sil', style: 'destructive', onPress: () => reportRpc('clear_errors', { p_password: admin }).then(() => load()).catch(() => {}) },
+                    { text: 'Sil', style: 'destructive', onPress: () => reportRpc('clear_errors', { p_password: admin }).then(() => load()).catch((e) => Alert.alert('Temizlenemedi', e.message)) },
                   ])
                 }
               >

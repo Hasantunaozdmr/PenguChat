@@ -1161,7 +1161,8 @@
   }
   inboxList.addEventListener('click', async (e) => {
     if (e.target.id !== 'errClear' || !confirm('Bütün hata kayıtları silinsin mi?')) return;
-    await window.dualChat.rpc('clear_errors', { p_password: getAdmin() });
+    const r = await window.dualChat.rpc('clear_errors', { p_password: getAdmin() });
+    if (!r.ok) alert('Temizlenemedi: ' + r.error);
     loadInbox();
   });
 
