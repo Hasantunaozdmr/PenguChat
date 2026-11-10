@@ -465,7 +465,10 @@ ipcMain.handle('report-list', reportHandler((_e, password) => reportRpc('get_rep
 ipcMain.handle('report-delete', reportHandler((_e, { password, id }) =>
   reportRpc('delete_report', { p_password: String(password || ''), p_id: Number(id) })));
 
-ipcMain.handle('update-check', () => checkForUpdates());
+// Sonuç (autoUpdater'ın döndürdüğü nesne) pencereye gönderilemiyor: sadece başlat, durum ayrıca bildirilir
+ipcMain.handle('update-check', () => {
+  Promise.resolve().then(checkForUpdates).catch(() => {});
+});
 ipcMain.handle('update-status', () => updateState);
 ipcMain.handle('update-install', () => {
   if (updateState.state === 'ready' && autoUpdater) {

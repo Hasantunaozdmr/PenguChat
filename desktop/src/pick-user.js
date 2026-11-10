@@ -341,29 +341,53 @@
     if (ok) ok.click();
     return true;
   }
-  window.__penguHasMsg = () => !!(lastLine && lastLine.isConnected);
+  // Tıklama anında mesajın kimliği, yazanı ve metni de saklanır: site satırı yeniden çizse bile mesaj bulunur
+  let lastPick = null;
+  const lineText = (el) => (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+  function rememberLine(line, user) {
+    lastLine = line;
+    let id = null;
+    try { id = (line.getAttribute && line.getAttribute('data-chat-entry')) || fiberMsgId(line); } catch {}
+    lastPick = { id, user: String(user || '').toLowerCase(), text: lineText(line) };
+  }
+  // Satır sayfadan çıktıysa aynı yazan + aynı metinli satırı yeniden bul
+  function refindLine() {
+    if (lastLine && lastLine.isConnected) return lastLine;
+    if (!lastPick) return null;
+    const rows = document.querySelectorAll('[data-a-target="chat-line-message"], .chat-line__message, [data-chat-entry], [data-index]');
+    for (let i = rows.length - 1; i >= 0; i--) {
+      if (lineText(rows[i]) === lastPick.text) return (lastLine = rows[i]);
+    }
+    return null;
+  }
+  window.__penguHasMsg = () => !!(lastPick || (lastLine && lastLine.isConnected));
   window.__penguDeleteMsg = async (reqId) => {
     const done = (ok, err) => {
       if (reqId) post('__PENGU_DEL__' + JSON.stringify({ id: reqId, ok, err: err || null }));
       return { ok, err: err || null };
     };
-    if (!lastLine || !lastLine.isConnected) return done(false, 'önce chat\'te silinecek mesajın sahibinin adına tıkla');
-    const line = lastLine;
+    if (!lastPick) return done(false, 'önce chat\'te silinecek mesajın sahibinin adına tıkla');
+    const line = refindLine();
     let err = 'mesaj kimliği bulunamadı';
-    const id = (line.getAttribute && line.getAttribute('data-chat-entry')) || fiberMsgId(line);
+    let id = lastPick.id;
+    if (!id && line) {
+      try { id = (line.getAttribute && line.getAttribute('data-chat-entry')) || fiberMsgId(line); } catch {}
+    }
+    const clear = () => { lastLine = null; lastPick = null; };
     if (id) {
       try {
         await apiDelete(id);
-        lastLine = null;
+        clear();
         return done(true);
       } catch (e) {
         err = String((e && e.message) || e);
       }
     }
-    if (await clickSiteDelete(line)) {
-      lastLine = null;
+    if (line && (await clickSiteDelete(line))) {
+      clear();
       return done(true);
     }
+    if (!line && !id) err = 'mesaj artık chat\'te görünmüyor (adına tekrar tıkla)';
     return done(false, err);
   };
 
@@ -372,7 +396,7 @@
     (e) => {
       const n = nameFrom(e.target);
       if (!n) return;
-      try { lastLine = lineOf(e.target); } catch { lastLine = null; }
+      try { rememberLine(lineOf(e.target), typeof n === 'object' ? n.name : n); } catch { lastLine = null; lastPick = null; }
       if (typeof n === 'object') send(n.name, true);
       else send(n.match(NAME) ? n.match(NAME)[1] : n, false);
     },
