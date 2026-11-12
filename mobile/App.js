@@ -446,6 +446,12 @@ function PenguChat() {
       clearInterval(t);
     };
   }, []);
+  // Twitch / Kick'e giriş yapılınca adı istatistiğe hemen gitsin (5 dk beklemesin)
+  useEffect(() => {
+    if (!accounts.twitch && !accounts.kick) return;
+    const t = setTimeout(() => pingRef.current(), 1500);
+    return () => clearTimeout(t);
+  }, [accounts.twitch, accounts.kick]);
 
   const onWebMessage = (k, data) => {
     if (typeof data !== 'string') return;
