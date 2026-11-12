@@ -1281,6 +1281,26 @@
     loadMaint();
   });
 
+  // ---------- ▲ Gizle / ▼ Menüyü aç ----------
+  function applyCollapsed() {
+    const on = !!state.topCollapsed;
+    document.body.classList.toggle('top-collapsed', on);
+    $('#expandBar').classList.toggle('hidden', !on);
+    syncExpandBar();
+  }
+  function syncExpandBar() {
+    if (!state.topCollapsed) return;
+    const tag = $('#delayTag');
+    $('#expandDelay').textContent = tag.classList.contains('hidden') ? '' : tag.textContent;
+    const badge = $('#inboxBadge');
+    $('#expandBadge').textContent = badge.textContent;
+    $('#expandBadge').classList.toggle('hidden', badge.classList.contains('hidden') || !badge.textContent);
+  }
+  setInterval(syncExpandBar, 1000);
+  $('#collapseBtn').addEventListener('click', () => { state.topCollapsed = true; save(); applyCollapsed(); });
+  $('#expandBar').addEventListener('click', () => { state.topCollapsed = false; save(); applyCollapsed(); });
+  applyCollapsed();
+
   // ---------- Başlangıç ----------
   applyLayout();
   applyModUi();

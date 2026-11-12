@@ -40,7 +40,12 @@
     <div class="spacer"></div>
     <button class="btn act" data-action="check-update" title="Güncellemeleri kontrol et">⬆ Güncelleme <kbd id="versionLabel"></kbd></button>
     <button class="btn act" data-action="logout" title="Twitch ve Kick hesaplarından çıkış yap">🚪 Hesaplardan çık</button>
+    <button class="btn act" id="collapseBtn" title="Üstteki çubukları gizle (chat'lere daha çok yer)">▲ Gizle</button>
   </nav>
+  <!-- Üst kısım gizliyken: ince şerit, tıklayınca geri açılır -->
+  <div id="expandBar" class="expand-bar hidden" title="Menüyü aç">
+    <b>▼ Menüyü aç</b><span id="expandDelay"></span><span id="expandBadge" class="badge hidden"></span>
+  </div>
 
   <div id="announce" class="announce hidden"><span>📢</span><span id="announceText"></span><div class="spacer"></div><button class="btn mini" id="announceClose" title="Kapat">✕</button></div>
 
