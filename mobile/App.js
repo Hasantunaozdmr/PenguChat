@@ -541,7 +541,8 @@ function PenguChat() {
       try {
         const { name, restream } = JSON.parse(data.slice(14));
         const p = restream ? 'twitch' : k; // Restream mesajının sahibi Twitch'te
-        setMod({ open: true, user: name, twitch: p === 'twitch' && canMod('twitch'), kick: p === 'kick' && canMod('kick'), msgFrom: k });
+        // Ada dokununca mod çubuğu kendiliğinden açılmaz (bilgisayardaki gibi); açıksa seçilen kişi oraya gelir
+        setMod((m) => ({ ...m, user: name, twitch: p === 'twitch' && canMod('twitch'), kick: p === 'kick' && canMod('kick'), msgFrom: k }));
         loadRecord(name);
       } catch {}
     } else if (data.startsWith('__PENGU_DEL__')) {
