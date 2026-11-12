@@ -754,14 +754,23 @@ function ago(iso) {
 // ve sayıları buna göre düzelt.
 function mergeStats(d) {
   const list = [...(d.list || [])].sort((a, b) => new Date(b.last_seen) - new Date(a.last_seen));
+  // Telefon = işletim sistemi + model. Aynı modelde girişsiz (— —) satır, aynı modelin başka bir satırı varsa
+  // (girişli ya da daha yeni) gizlenir: bu genelde aynı telefonun silinip yeniden kurulmuş hâlidir.
+  const phoneKey = (x) => {
+    const pl = String(x.platform || '');
+    return /^(android|ios)\b/.test(pl) && pl.includes(' · ') ? pl.split(' ')[0] + '|' + pl.split(' · ')[1] : null;
+  };
   const seen = new Set();
+  const withAcc = new Set(list.filter((x) => phoneKey(x) && (x.twitch || x.kick)).map(phoneKey));
   const out = [];
   for (const x of list) {
-    const pl = String(x.platform || '');
-    const phone = /^(android|ios)\b/.test(pl) && pl.includes(' · ');
-    const key = phone ? [pl.split(' ')[0], pl.split(' · ')[1], x.twitch || '', x.kick || ''].join('|') : null;
-    if (key && seen.has(key)) continue;
-    if (key) seen.add(key);
+    const k = phoneKey(x);
+    if (k) {
+      const acc = x.twitch || x.kick;
+      const key = k + '|' + (x.twitch || '') + '|' + (x.kick || '');
+      if (seen.has(key) || (!acc && withAcc.has(k))) continue;
+      seen.add(key);
+    }
     out.push(x);
   }
   const removed = list.length - out.length;
