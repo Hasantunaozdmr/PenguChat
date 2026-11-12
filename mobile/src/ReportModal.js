@@ -286,8 +286,8 @@ function Inbox({ admin, saveAdmin, onClose, roles, accounts, onUndo, annNow }) {
   const [pw, setPw] = useState('');
   const [loginErr, setLoginErr] = useState(null);
 
-  const load = async (password = admin, which = tab) => {
-    setList(null);
+  const load = async (password = admin, which = tab, quiet = false) => {
+    if (!quiet) setList(null);
     setError(null);
     try {
       const fn = password
@@ -304,6 +304,13 @@ function Inbox({ admin, saveAdmin, onClose, roles, accounts, onUndo, annNow }) {
       } else setError(e.message);
     }
   };
+  // İstatistik açıkken her 1 dakikada bir sessizce yenilensin
+  useEffect(() => {
+    if (tab !== 'stats') return;
+    const t = setInterval(() => load(admin, 'stats', true), 60 * 1000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, admin]);
   useEffect(() => {
     // Menüden seçilince yüklenir
     // eslint-disable-next-line react-hooks/exhaustive-deps

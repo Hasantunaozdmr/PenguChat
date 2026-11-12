@@ -520,6 +520,10 @@
       b.classList.toggle('active', b.dataset.itab === inboxTab);
     });
   }
+  // İstatistik açıkken her 1 dakikada bir kendiliğinden yenilensin
+  setInterval(() => {
+    if (inboxTab === 'stats' && !inboxDlg.classList.contains('hidden')) loadInbox();
+  }, 60 * 1000);
   async function loadInbox() {
     const pw = getAdmin();
     if (!pw && !anyRole()) return showLogin();
