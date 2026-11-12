@@ -65,7 +65,7 @@ function createWindow() {
     height: 800,
     minWidth: 480,
     minHeight: 360,
-    backgroundColor: '#0a6b67',
+    backgroundColor: '#f0f0f0',
     title: 'PengusChat — Twitch + Kick',
     icon: path.join(__dirname, 'icon.png'),
     autoHideMenuBar: true,
@@ -101,7 +101,7 @@ app.on('web-contents-created', (_e, contents) => {
             width: 520,
             height: 720,
             autoHideMenuBar: true,
-            backgroundColor: '#0a6b67',
+            backgroundColor: '#f0f0f0',
             webPreferences: { partition: PARTITION },
           },
         };

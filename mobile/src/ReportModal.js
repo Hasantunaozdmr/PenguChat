@@ -5,7 +5,7 @@ import { reportRpc } from './report';
 
 const ADMIN_KEY = 'penguchat:admin';
 const SEEN_KEY = 'penguchat:seenReport';
-const C = { panel2: '#0b7c77', input: '#075a56', border: '#23bdb5', text: '#ffffff', muted: '#c9f3ef', ok: '#53fc18', err: '#ff6b6b', accent: '#9146ff' };
+const C = { panel2: '#f7f7f7', input: '#e8e8e8', border: '#cccccc', text: '#111827', muted: '#5b6472', ph: '#8a93a0', ok: '#16a34a', err: '#dc2626', accent: '#9146ff' };
 
 function fmtDate(iso) {
   const d = new Date(iso);
@@ -254,7 +254,7 @@ function ReportForm({ accounts, appVersion, onSent }) {
         value={message}
         onChangeText={setMessage}
         placeholder="Örn: Kick chat'i açılmıyor, siyah ekran kalıyor…"
-        placeholderTextColor="#a9e3de"
+        placeholderTextColor={C.ph}
         multiline
         maxLength={2000}
         textAlignVertical="top"
@@ -351,7 +351,7 @@ function Inbox({ admin, saveAdmin, onClose, roles, accounts, onUndo, annNow }) {
       <>
         <Head title="📥 Gelen sorunlar" onClose={onClose} />
         <Text style={s.note}>Yönetici şifresini gir.</Text>
-        <TextInput style={s.input} value={pw} onChangeText={setPw} placeholder="Şifre" placeholderTextColor="#a9e3de" secureTextEntry autoCapitalize="none" onSubmitEditing={login} />
+        <TextInput style={s.input} value={pw} onChangeText={setPw} placeholder="Şifre" placeholderTextColor={C.ph} secureTextEntry autoCapitalize="none" onSubmitEditing={login} />
         <View style={s.head}>
           <Text style={[s.hint, { color: C.err }]}>{loginErr || ''}</Text>
           <Pressable style={s.primary} onPress={login}>
@@ -506,7 +506,7 @@ function Announce({ d, admin, onChanged }) {
         value={text}
         onChangeText={setText}
         placeholder={d.announcement ? 'Yeni duyuru yaz — eskisinin yerine geçer' : 'Herkesin ekranının üstünde görünecek duyuru'}
-        placeholderTextColor="#a9e3de"
+        placeholderTextColor={C.ph}
         multiline
         maxLength={300}
         textAlignVertical="top"
@@ -557,7 +557,7 @@ function Maint({ d, admin, onChanged }) {
         value={msg}
         onChangeText={setMsg}
         placeholder="Sebep (zorunlu) — örn: Yeni özellik ekleniyor"
-        placeholderTextColor="#a9e3de"
+        placeholderTextColor={C.ph}
         multiline
         maxLength={300}
         textAlignVertical="top"
@@ -567,7 +567,7 @@ function Maint({ d, admin, onChanged }) {
         value={eta}
         onChangeText={onEta}
         placeholder="⏰ Tahmini açılış saati (zorunlu) — örn: 22:30"
-        placeholderTextColor="#a9e3de"
+        placeholderTextColor={C.ph}
         keyboardType="number-pad"
         maxLength={5}
       />
@@ -646,7 +646,7 @@ function Roles({ list, admin, onChanged }) {
             value={name}
             onChangeText={setName}
             placeholder="kullanıcı adı"
-            placeholderTextColor="#a9e3de"
+            placeholderTextColor={C.ph}
             autoCapitalize="none"
             autoCorrect={false}
           />
@@ -895,7 +895,7 @@ function AdminItem({ x, admin, roleArgs, onDelete, onSaved }) {
             value={note}
             onChangeText={setNote}
             placeholder="Red sebebi — örn: Bu sorun uygulamayla değil, internetinle ilgili."
-            placeholderTextColor="#a9e3de"
+            placeholderTextColor={C.ph}
             multiline
             maxLength={1000}
             textAlignVertical="top"
@@ -954,6 +954,7 @@ function makeS() {
 }
 // 🎨 Renk teması değişince bu pencerenin renkleri de güncellenir
 export function applyModalTheme(t) {
-  Object.assign(C, { panel2: t.panel2, input: t.input, border: t.border, muted: t.muted });
+  const light = t.text !== '#ffffff';
+  Object.assign(C, { panel2: t.panel2, input: t.input, border: t.border, muted: t.muted, text: t.text, ph: t.ph, ok: light ? '#16a34a' : '#53fc18', err: light ? '#dc2626' : '#ff6b6b' });
   s = makeS();
 }

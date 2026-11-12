@@ -58,7 +58,7 @@ const DEFAULTS = {
   twitch: '',
   kick: '',
   layout: 'split', // split = iki chat aynı ekranda, tabs = sekmeli
-  themeColor: '#0e8f8a', // 🎨 renk teması
+  themeColor: '#ffffff', // 🎨 renk teması (varsayılan beyaz)
   topCollapsed: false, // üstteki link kutusu + tuşlar gizli mi (chat'lere daha çok yer)
   tab: 'twitch',
   zoom: { twitch: 1, kick: 1 },
@@ -690,7 +690,7 @@ function PenguChat() {
             onChangeText={onChangeLink}
             onSubmitEditing={() => link.trim() && applyText(link)}
             placeholder="Twitch / Kick linki ya da kanal adı"
-            placeholderTextColor="#a9e3de"
+            placeholderTextColor={C.ph}
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="url"
@@ -794,7 +794,7 @@ function PenguChat() {
                 recTimer.current = setTimeout(() => loadRecord(t), 600);
               }}
               placeholder="Chat'te bir ada dokun"
-              placeholderTextColor="#a9e3de"
+              placeholderTextColor={C.ph}
               autoCapitalize="none"
               autoCorrect={false}
             />
@@ -843,7 +843,7 @@ function PenguChat() {
         </View>
       )}
       {hint && (
-        <Text style={[styles.hint, { color: hint.ok ? PLATFORMS.kick.color : '#ff6b6b' }]} numberOfLines={1}>
+        <Text style={[styles.hint, { color: hint.ok ? (C.text === '#ffffff' ? PLATFORMS.kick.color : '#16a34a') : (C.text === '#ffffff' ? '#ff6b6b' : '#dc2626') }]} numberOfLines={1}>
           {hint.text}
         </Text>
       )}
@@ -948,7 +948,7 @@ function ThemePicker({ current, onPick, onClose }) {
             {HUES.map((c) => <Sw key={c} c={c} size={30} />)}
           </View>
           <Pressable onPress={() => onPick(THEME_DEFAULT)} style={{ alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: C.border, backgroundColor: C.input }}>
-            <Text style={{ color: C.text, fontWeight: '600' }}>↺ Varsayılan (Turkuaz)</Text>
+            <Text style={{ color: C.text, fontWeight: '600' }}>↺ Varsayılan (Beyaz)</Text>
           </Pressable>
         </Pressable>
       </Pressable>
@@ -1094,14 +1094,8 @@ function applyThemeColors(color) {
   applyModalTheme(C);
 }
 const C = {
-  // Turkuaz tema (varsayılan)
-  bg: '#0a6b67',
-  panel: '#0e8f8a',
-  panel2: '#0b7c77',
-  input: '#075a56',
-  border: '#23bdb5',
-  text: '#ffffff',
-  muted: '#c9f3ef',
+  // Varsayılan: beyaz (açık) tema — 🎨 Renk'ten değiştirilir (src/theme.js)
+  ...themeFrom('#ffffff'),
 };
 
 let styles = makeStyles();
@@ -1232,7 +1226,7 @@ function makeStyles() {
   chipText: { color: C.text, fontWeight: '600', fontSize: 13 },
   modBtn: { height: 34, paddingHorizontal: 14, justifyContent: 'center', borderRadius: 6, backgroundColor: C.border },
   banBtn: { backgroundColor: '#b3261e' },
-  modBtnText: { color: '#fff', fontWeight: '700' },
+  modBtnText: { color: C.text, fontWeight: '700' },
   modUnit: { color: C.muted, fontSize: 12 },
   disabled: { opacity: 0.45 },
   updateBar: {

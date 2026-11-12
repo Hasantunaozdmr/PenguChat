@@ -1,13 +1,13 @@
 :root {
-  /* Turkuaz tema */
-  --bg: #0a6b67;
-  --panel: #0e8f8a;
-  --panel-2: #0b7c77;
-  --input: #075a56;
-  --hover: #13a39d;
-  --border: #23bdb5;
-  --text: #ffffff;
-  --muted: #c9f3ef;
+  /* Varsayılan: beyaz (açık) tema — 🎨 Renk'ten değiştirilebilir (theme.js) */
+  --bg: #f0f0f0;
+  --panel: #ffffff;
+  --panel-2: #f7f7f7;
+  --input: #e8e8e8;
+  --hover: #e0e0e0;
+  --border: #cccccc;
+  --text: #111827;
+  --muted: #5b6472;
   --twitch: #9146ff;
   --kick: #53fc18;
   --accent: #9146ff;
@@ -92,7 +92,7 @@ body { display: flex; flex-direction: column; }
   cursor: pointer;
 }
 .btn:hover { background: var(--hover); }
-.btn.primary { background: var(--accent); border-color: var(--accent); font-weight: 600; }
+.btn.primary { background: var(--accent); border-color: var(--accent); font-weight: 600; color: #fff; }
 .btn.primary:hover { filter: brightness(1.1); }
 .btn.icon { width: 30px; padding: 0; font-size: 15px; }
 .btn.icon.active { background: var(--accent); border-color: var(--accent); }
@@ -219,7 +219,7 @@ kbd { color: var(--muted); font: inherit; font-size: 11px; }
 .mb-sep { width: 1px; height: 18px; background: var(--border); margin: 0 2px; }
 .modbar .btn { height: 26px; }
 .btn.mod { font-weight: 600; }
-.btn.mod.danger { background: #b3261e; border-color: #e0463d; }
+.btn.mod.danger { background: #b3261e; border-color: #e0463d; color: #fff; }
 .btn.mod.danger:hover { background: #cc3128; }
 .btn.mod:disabled { opacity: .45; cursor: default; }
 
@@ -338,7 +338,7 @@ kbd { color: var(--muted); font: inherit; font-size: 11px; }
 .pane-head .viewers { color: var(--text); font-size: 12px; font-weight: 600; white-space: nowrap; }
 .pane-head .viewers.off { color: var(--muted); font-weight: 400; }
 .pane-head .cat { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; max-width: 220px; }
-.log-row { display: flex; gap: 8px; align-items: baseline; padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,.08); }
+.log-row { display: flex; gap: 8px; align-items: baseline; padding: 6px 8px; border-bottom: 1px solid var(--border); }
 .log-row .t { color: var(--muted); font-size: 11px; white-space: nowrap; min-width: 92px; }
 .log-row .k { font-weight: 700; white-space: nowrap; }
 .log-row .d { flex: 1; min-width: 0; word-break: break-word; }
@@ -349,7 +349,7 @@ kbd { color: var(--muted); font: inherit; font-size: 11px; }
 .stat span { color: var(--muted); font-size: 11px; }
 .users { width: 100%; border-collapse: collapse; font-size: 12px; }
 .users th { text-align: left; color: var(--muted); font-weight: 600; padding: 4px 6px; position: sticky; top: 0; background: var(--panel-2); }
-.users td { padding: 5px 6px; border-top: 1px solid rgba(255,255,255,.08); white-space: nowrap; }
+.users td { padding: 5px 6px; border-top: 1px solid var(--border); white-space: nowrap; }
 .users .on { color: var(--kick); }
 
 /* ---------- Yetkiler ---------- */
@@ -359,7 +359,7 @@ kbd { color: var(--muted); font: inherit; font-size: 11px; }
 .role-add label, .roles td label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; }
 .roles { width: 100%; border-collapse: collapse; font-size: 12px; }
 .roles th { text-align: left; color: var(--muted); font-weight: 600; padding: 4px 6px; }
-.roles td { padding: 6px; border-top: 1px solid rgba(255,255,255,.08); }
+.roles td { padding: 6px; border-top: 1px solid var(--border); }
 
 /* ---------- Bakım modu ---------- */
 .maint { position: fixed; inset: 0; z-index: 500; display: grid; place-items: center; padding: 20px;
@@ -390,7 +390,7 @@ kbd { color: var(--muted); font: inherit; font-size: 11px; }
 .admin-wrap { display: flex; gap: 12px; flex: 1; min-height: 0; }
 .side { display: flex; flex-direction: column; gap: 4px; width: 168px; flex: none; overflow-y: auto; padding-right: 10px; border-right: 1px solid var(--border); }
 .side .tab { display: block; width: 100%; text-align: left; padding: 10px 12px; font-size: 14px; border-radius: 8px; }
-.side .tab:hover { background: rgba(255,255,255,.07); color: var(--text); }
+.side .tab:hover { background: var(--hover); color: var(--text); }
 .admin-wrap .inbox { flex: 1; min-width: 0; }
 
 /* ---------- Yazılı düğme sırası ---------- */

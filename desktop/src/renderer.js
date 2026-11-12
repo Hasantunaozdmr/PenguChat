@@ -311,7 +311,7 @@
     const t = window.PenguTheme.themeFrom(state.themeColor);
     const r = document.documentElement.style;
     r.setProperty('--bg', t.bg); r.setProperty('--panel', t.panel); r.setProperty('--panel-2', t.panel2);
-    r.setProperty('--input', t.input); r.setProperty('--hover', t.hover); r.setProperty('--border', t.border); r.setProperty('--muted', t.muted);
+    r.setProperty('--input', t.input); r.setProperty('--hover', t.hover); r.setProperty('--border', t.border); r.setProperty('--muted', t.muted); r.setProperty('--text', t.text);
     const cur = String(state.themeColor || window.PenguTheme.DEFAULT).toLowerCase();
     $('#themeSwatches').querySelectorAll('.swatch').forEach((b) => b.classList.toggle('active', b.dataset.color === cur));
     $('#themeCustom').value = cur;
