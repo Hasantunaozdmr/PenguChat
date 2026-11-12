@@ -323,15 +323,34 @@
     const cur = String(state.themeColor || window.PenguTheme.DEFAULT).toLowerCase();
     $('#themeSwatches').querySelectorAll('.swatch').forEach((b) => b.classList.toggle('active', b.dataset.color === cur));
     $('#themeCustom').value = cur;
+    if (document.activeElement !== $('#themeHex')) $('#themeHex').value = cur;
   }
   function setTheme(color) { state.themeColor = color; save(); applyTheme(); }
   $('#themeSwatches').innerHTML = window.PenguTheme.PRESETS.map(([name, c]) => {
     const t = window.PenguTheme.themeFrom(c);
-    return `<button class="swatch" data-color="${c}" title="${name}" style="background:linear-gradient(135deg, ${t.panel}, ${t.bg})">${name}</button>`;
+    return `<button class="swatch" data-color="${c}" title="${name}" style="background:linear-gradient(135deg, ${t.panel}, ${t.bg});color:${t.text};${t.text === '#ffffff' ? '' : 'text-shadow:none;'}">${name}</button>`;
   }).join('');
   $('#themeSwatches').addEventListener('click', (e) => { const b = e.target.closest('.swatch'); if (b) setTheme(b.dataset.color); });
   $('#themeCustom').addEventListener('input', (e) => setTheme(e.target.value));
   $('#themeReset').addEventListener('click', () => setTheme(window.PenguTheme.DEFAULT));
+  // Renk kodu yazarak (#ff8800 ya da #f80): doğru yazılınca hemen uygulanır
+  const normHex = (v) => {
+    let m = /^#?([0-9a-f]{6}|[0-9a-f]{3})$/i.exec(String(v || '').trim());
+    if (!m) return null;
+    const h = m[1].length === 3 ? m[1].split('').map((c) => c + c).join('') : m[1];
+    return '#' + h.toLowerCase();
+  };
+  $('#themeHex').addEventListener('input', (e) => {
+    const c = normHex(e.target.value);
+    e.target.classList.toggle('bad', !!e.target.value && !c);
+    if (c && /^#?([0-9a-f]{6})$/i.test(e.target.value.trim())) setTheme(c);
+  });
+  $('#themeHex').addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    const c = normHex(e.target.value);
+    e.target.classList.toggle('bad', !c);
+    if (c) setTheme(c);
+  });
   $('#themeBtn').addEventListener('click', () => themeDlg.classList.remove('hidden'));
   applyTheme();
   for (const d of [reportDlg, inboxDlg, themeDlg]) {

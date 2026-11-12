@@ -420,3 +420,5 @@ body.top-collapsed .toolbar, body.top-collapsed .actionbar, body.top-collapsed .
 .swatch.active { border-color: #fff; box-shadow: 0 0 0 2px var(--text); }
 .custom-color { display: flex; align-items: center; gap: 6px; }
 .custom-color input { width: 44px; height: 28px; border: 1px solid var(--border); border-radius: 6px; background: none; padding: 0; cursor: pointer; }
+.custom-color input[type=text] { width: 86px; height: 28px; background: var(--input); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font: inherit; padding: 0 7px; text-transform: lowercase; }
+.custom-color input[type=text].bad { border-color: #dc2626; }

@@ -929,13 +929,28 @@ const HUES = Array.from({ length: 36 }, (_, i) => {
   const f = (n) => { const k = (n + h / 30) % 12; return Math.round((0.5 - 0.45 * Math.max(-1, Math.min(k - 3, 9 - k, 1))) * 255).toString(16).padStart(2, '0'); };
   return '#' + f(0) + f(8) + f(4);
 });
+// "#ff8800", "ff8800" ya da kısa "#f80" → "#ff8800"; hatalıysa null
+function normHex(v) {
+  const m = /^#?([0-9a-f]{6}|[0-9a-f]{3})$/i.exec(String(v || '').trim());
+  if (!m) return null;
+  const h = m[1].length === 3 ? m[1].split('').map((c) => c + c).join('') : m[1];
+  return '#' + h.toLowerCase();
+}
 function ThemePicker({ current, onPick, onClose }) {
   const cur = String(current || THEME_DEFAULT).toLowerCase();
+  const [hexText, setHexText] = useState(cur);
+  const [hexBad, setHexBad] = useState(false);
+  const applyHex = () => {
+    const c = normHex(hexText);
+    if (!c) return setHexBad(true);
+    setHexText(c);
+    onPick(c);
+  };
   const Sw = ({ c, label, size = 44 }) => {
     const t = themeFrom(c);
     return (
-      <Pressable onPress={() => onPick(c)} style={{ width: size, height: size, borderRadius: 8, backgroundColor: t.panel, borderWidth: cur === c.toLowerCase() ? 3 : 1, borderColor: cur === c.toLowerCase() ? '#fff' : 'rgba(255,255,255,.3)', alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 2 }}>
-        {!!label && <Text style={{ color: '#fff', fontSize: 9, fontWeight: '700' }}>{label}</Text>}
+      <Pressable onPress={() => { setHexText(c); onPick(c); }} style={{ width: size, height: size, borderRadius: 8, backgroundColor: t.panel, borderWidth: cur === c.toLowerCase() ? 3 : 1, borderColor: cur === c.toLowerCase() ? '#fff' : 'rgba(255,255,255,.3)', alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 2 }}>
+        {!!label && <Text style={{ color: t.text, fontSize: 9, fontWeight: '700' }}>{label}</Text>}
       </Pressable>
     );
   };
@@ -954,7 +969,25 @@ function ThemePicker({ current, onPick, onClose }) {
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
             {HUES.map((c) => <Sw key={c} c={c} size={30} />)}
           </View>
-          <Pressable onPress={() => onPick(THEME_DEFAULT)} style={{ alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: C.border, backgroundColor: C.input }}>
+          <Text style={{ color: C.muted, fontSize: 12 }}>Renk kodu</Text>
+          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+            <TextInput
+              value={hexText}
+              onChangeText={(v) => { setHexText(v); setHexBad(false); }}
+              onSubmitEditing={applyHex}
+              placeholder="#ff8800"
+              placeholderTextColor={C.ph}
+              autoCapitalize="none"
+              autoCorrect={false}
+              maxLength={7}
+              style={{ flex: 1, height: 40, borderRadius: 8, borderWidth: 1, borderColor: hexBad ? '#dc2626' : C.border, backgroundColor: C.input, color: C.text, paddingHorizontal: 10 }}
+            />
+            <View style={{ width: 40, height: 40, borderRadius: 8, borderWidth: 1, borderColor: C.border, backgroundColor: normHex(hexText) || 'transparent' }} />
+            <Pressable onPress={applyHex} style={{ height: 40, paddingHorizontal: 14, borderRadius: 8, backgroundColor: '#9146ff', justifyContent: 'center' }}>
+              <Text style={{ color: '#fff', fontWeight: '700' }}>Uygula</Text>
+            </Pressable>
+          </View>
+          <Pressable onPress={() => { setHexText(THEME_DEFAULT); onPick(THEME_DEFAULT); }} style={{ alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: C.border, backgroundColor: C.input }}>
             <Text style={{ color: C.text, fontWeight: '600' }}>↺ Varsayılan (Beyaz)</Text>
           </Pressable>
         </Pressable>
