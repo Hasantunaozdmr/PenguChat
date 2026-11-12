@@ -18,10 +18,7 @@
       },
       "package": "com.dualchat.mobile",
       "softwareKeyboardLayoutMode": "resize",
-      "allowBackup": false,
-      "permissions": [
-        "android.permission.REQUEST_INSTALL_PACKAGES"
-      ]
+      "allowBackup": false
     },
     "web": {
       "favicon": "./assets/favicon.png"

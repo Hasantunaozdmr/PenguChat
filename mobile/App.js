@@ -242,43 +242,16 @@ function PenguChat() {
       return Alert.alert('Güncelleme', 'Uygulama güncel ✓');
     }
     setNewVersion(v);
-    Alert.alert('Yeni sürüm var', 'Güncellensin mi? Uygulama içinde iner, sonra Android "Güncelle" diye sorar. Girişlerin ve ayarların silinmez.', [
+    Alert.alert('Yeni sürüm var', 'İndirilsin mi? İnince dosyaya dokunup "Güncelle" de. Uygulamayı silme; girişlerin ve ayarların korunur.', [
       { text: 'Vazgeç', style: 'cancel' },
-      { text: 'Güncelle', onPress: installUpdate },
+      { text: 'İndir', onPress: installUpdate },
     ]);
   };
-  // Bilgisayardaki gibi: yeni sürüm uygulamanın içinde iner, ardından Android'in kurulum ekranı açılır
-  // (tarayıcıya / İndirilenler'e gitmez). Bir şey ters giderse eski yol: tarayıcıdan indir.
-  const [dlPct, setDlPct] = useState(null);
-  const installUpdate = async () => {
-    if (dlPct != null) return;
-    const url = `${RELEASE_BASE}/PenguChat.apk`;
-    try {
-      const FS = require('expo-file-system/legacy');
-      const IL = require('expo-intent-launcher');
-      const dest = FS.cacheDirectory + 'PenguChat-update.apk';
-      await FS.deleteAsync(dest, { idempotent: true }).catch(() => {});
-      setDlPct(0);
-      const task = FS.createDownloadResumable(url, dest, {}, ({ totalBytesWritten, totalBytesExpectedToWrite }) => {
-        if (totalBytesExpectedToWrite > 0) setDlPct(Math.floor((totalBytesWritten / totalBytesExpectedToWrite) * 100));
-      });
-      const res = await task.downloadAsync();
-      setDlPct(null);
-      if (!res || res.status !== 200) throw new Error('indirme başarısız (' + (res && res.status) + ')');
-      const contentUri = await FS.getContentUriAsync(res.uri);
-      await IL.startActivityAsync('android.intent.action.VIEW', {
-        data: contentUri,
-        type: 'application/vnd.android.package-archive',
-        flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
-      });
-    } catch (e) {
-      setDlPct(null);
-      reportErrorRef.current?.('guncelleme', String(e?.message || e).slice(0, 200));
-      Alert.alert('Güncellenemedi', 'Uygulama içinden indirilemedi, tarayıcıdan indirilecek.', [
-        { text: 'Tamam', onPress: () => Linking.openURL(url) },
-      ]);
-    }
-  };
+  // Yeni sürüm tarayıcıdan indirilir, sonra Android'in kurulum ekranı açılır.
+  // (Uygulamanın içinden kurma izni Google Play Protect'e takıldığı için kaldırıldı.)
+  const dlPct = null;
+  const installUpdate = () => Linking.openURL(`${RELEASE_BASE}/PenguChat.apk`);
+
 
   // ---- Ayarları yükle / kaydet ----
   useEffect(() => {
