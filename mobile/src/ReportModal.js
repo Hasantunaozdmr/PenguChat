@@ -749,7 +749,34 @@ function ago(iso) {
   if (m < 1440) return Math.round(m / 60) + ' sa önce';
   return Math.round(m / 1440) + ' gün önce';
 }
-function Stats({ d }) {
+// Aynı telefon uygulamayı silip yeniden kurunca yeni bir kimlik alıyor ve listede iki kez görünüyor.
+// Aynı model + aynı (ya da hiç) hesap olan telefon satırlarını tek satırda birleştir (en yenisi kalır)
+// ve sayıları buna göre düzelt.
+function mergeStats(d) {
+  const list = [...(d.list || [])].sort((a, b) => new Date(b.last_seen) - new Date(a.last_seen));
+  const seen = new Set();
+  const out = [];
+  for (const x of list) {
+    const pl = String(x.platform || '');
+    const phone = /^(android|ios)\b/.test(pl) && pl.includes(' · ');
+    const key = phone ? [pl.split(' ')[0], pl.split(' · ')[1], x.twitch || '', x.kick || ''].join('|') : null;
+    if (key && seen.has(key)) continue;
+    if (key) seen.add(key);
+    out.push(x);
+  }
+  const removed = list.length - out.length;
+  if (!removed) return d;
+  const now = Date.now();
+  return {
+    ...d,
+    list: out,
+    total: Math.max(0, (Number(d.total) || 0) - removed),
+    online: out.filter((x) => now - new Date(x.last_seen) < 10 * 60000).length,
+    today: out.filter((x) => now - new Date(x.last_seen) < 24 * 3600000).length,
+  };
+}
+function Stats({ d: raw }) {
+  const d = mergeStats(raw || {});
   const tile = (n, label) => (
     <View style={[s.rep, { flexBasis: '31%', flexGrow: 1, alignItems: 'center' }]}>
       <Text style={{ color: C.text, fontSize: 22, fontWeight: '700' }}>{Number(n) || 0}</Text>
