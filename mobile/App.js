@@ -214,16 +214,38 @@ function PenguChat() {
     storeAdmin(v);
     setAdmin(v);
   };
+  // Güncelleme sadece "⬆ Güncelleme" tuşuna basınca: yeni sürüm varsa sorar, onaylanınca indirir
+  // (kendiliğinden çıkan güncelleme yazısı yok). Yeni sürüm varsa tuşta küçük bir nokta görünür.
   useEffect(() => {
     if (Platform.OS !== 'android') return;
     const check = () =>
       fetchLatestVersion()
-        .then((v) => v && isNewer(v, APP_VERSION) && setNewVersion(v))
+        .then((v) => setNewVersion(v && isNewer(v, APP_VERSION) ? v : null))
         .catch(() => {});
     check();
     const t = setInterval(check, 30 * 60 * 1000);
     return () => clearInterval(t);
   }, []);
+  const [checking, setChecking] = useState(false);
+  const checkUpdateNow = async () => {
+    if (checking) return;
+    setChecking(true);
+    let v = null;
+    try {
+      v = await fetchLatestVersion();
+    } catch {}
+    setChecking(false);
+    if (!v) return Alert.alert('Güncelleme', 'Kontrol edilemedi. İnternet bağlantını kontrol edip tekrar dene.');
+    if (!isNewer(v, APP_VERSION)) {
+      setNewVersion(null);
+      return Alert.alert('Güncelleme', 'Uygulama güncel ✓');
+    }
+    setNewVersion(v);
+    Alert.alert('Yeni sürüm var', 'İndirilsin mi? İnince dosyayı açıp "Güncelle" de. Girişlerin ve ayarların silinmez.', [
+      { text: 'Vazgeç', style: 'cancel' },
+      { text: 'İndir', onPress: () => Linking.openURL(`${RELEASE_BASE}/PenguChat.apk`) },
+    ]);
+  };
 
   // ---- Ayarları yükle / kaydet ----
   useEffect(() => {
@@ -690,6 +712,7 @@ function PenguChat() {
           />
         )}
         <Act label={tabs ? '▤ Alt alta' : '⇆ Sekmeli'} onPress={() => update({ layout: tabs ? 'split' : 'tabs' })} />
+        {Platform.OS === 'android' && <Act label={checking ? '⬆ Bakılıyor…' : '⬆ Güncelleme'} dot={!!newVersion} onPress={checkUpdateNow} />}
         {anyModAccess && delayPill && (
           <Pressable
             onPress={flipDelay}
@@ -725,14 +748,6 @@ function PenguChat() {
             <Text style={styles.updateClose}>✕</Text>
           </Pressable>
         </View>
-      )}
-      {newVersion && (
-        <Pressable style={styles.updateBar} onPress={() => Linking.openURL(`${RELEASE_BASE}/PenguChat.apk`)}>
-          <Text style={styles.updateText}>⬆ Yeni sürüm var · Güncellemek için dokun</Text>
-          <Pressable hitSlop={10} onPress={() => setNewVersion(null)}>
-            <Text style={styles.updateClose}>✕</Text>
-          </Pressable>
-        </Pressable>
       )}
       {mod.open && anyModAccess && (
         <View style={styles.modBar}>
