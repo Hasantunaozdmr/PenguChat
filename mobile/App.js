@@ -56,6 +56,7 @@ const DEFAULTS = {
   twitch: '',
   kick: '',
   layout: 'split', // split = iki chat aynı ekranda, tabs = sekmeli
+  topCollapsed: false, // üstteki link kutusu + tuşlar gizli mi (chat'lere daha çok yer)
   tab: 'twitch',
   zoom: { twitch: 1, kick: 1 },
   timeoutSecs: 0,
@@ -690,11 +691,12 @@ function PenguChat() {
   if (!ready || !uaReady) return <View style={styles.root}>{uaProbe}</View>;
 
   const tabs = s.layout === 'tabs';
+  const collapsed = !!s.topCollapsed;
 
   return (
     <View style={styles.root}>
       {/* ---- Üst çubuk ---- */}
-      <View style={styles.bar}>
+      <View style={[styles.bar, collapsed && { display: 'none' }]}>
         <View style={styles.linkBox}>
           <View style={[styles.dot, { backgroundColor: PLATFORMS.twitch.color }]} />
           <View style={[styles.dot, { backgroundColor: PLATFORMS.kick.color, marginLeft: -3 }]} />
@@ -716,7 +718,7 @@ function PenguChat() {
         </View>
       </View>
       {/* ---- Yazılı düğme sırası: bütün işlevler görünür (gizli menü yok) ---- */}
-      <View style={styles.actBar}>
+      <View style={[styles.actBar, collapsed && { display: 'none' }]}>
         {anyModAccess && (
           <Act
             label="👤 Mod"
@@ -744,6 +746,7 @@ function PenguChat() {
           />
         )}
         <Act label={tabs ? '▤ Alt alta' : '⇆ Sekmeli'} onPress={() => update({ layout: tabs ? 'split' : 'tabs' })} />
+        <Act label="▲ Gizle" onPress={() => update({ topCollapsed: true })} />
         {Platform.OS === 'android' && <Act label={dlPct != null ? `⬆ İniyor %${dlPct}` : checking ? '⬆ Bakılıyor…' : '⬆ Güncelleme'} dot={!!newVersion} onPress={checkUpdateNow} />}
         {anyModAccess && delayPill && (
           <Pressable
@@ -757,6 +760,14 @@ function PenguChat() {
           </Pressable>
         )}
       </View>
+      {/* Üst kısım gizliyken: ince şerit, dokununca geri açılır */}
+      {collapsed && (
+        <Pressable style={styles.expandBar} onPress={() => update({ topCollapsed: false })} accessibilityLabel="Menüyü aç">
+          <Text style={styles.expandText}>▼ Menüyü aç</Text>
+          {anyModAccess && delayPill && <Text style={[styles.expandText, { fontWeight: '400' }]} numberOfLines={1}>{delayPill.text}</Text>}
+          {!!newReports && <Text style={styles.expandBadge}>{newReports}</Text>}
+        </Pressable>
+      )}
       {maint.maintenance && !(admin || ownerOn.twitch || ownerOn.kick) && (
         <View style={styles.maint}>
           <Text style={{ fontSize: 64 }}>🛠️</Text>
@@ -781,7 +792,7 @@ function PenguChat() {
           </Pressable>
         </View>
       )}
-      {mod.open && anyModAccess && (
+      {mod.open && anyModAccess && !collapsed && (
         <View style={styles.modBar}>
           <View style={styles.modRow}>
             <TextInput
@@ -1131,6 +1142,9 @@ const styles = StyleSheet.create({
   // Sığmazsa alt satıra geçer; hiçbir düğme ekran dışında kalmaz
   delayPill: { alignSelf: 'center', height: 30, paddingHorizontal: 10, borderRadius: 13, borderWidth: 1, borderColor: C.border, backgroundColor: C.input, justifyContent: 'center' },
   delayText: { color: C.text, fontSize: 12, fontWeight: '600' },
+  expandBar: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: C.panel2, borderBottomWidth: 1, borderBottomColor: C.border },
+  expandText: { color: C.text, fontSize: 13, fontWeight: '700', flexShrink: 1 },
+  expandBadge: { color: '#fff', backgroundColor: '#e5484d', borderRadius: 9, minWidth: 18, textAlign: 'center', fontSize: 11, fontWeight: '700', paddingHorizontal: 5, overflow: 'hidden' },
   actBar: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 8, paddingVertical: 6, backgroundColor: C.panel2, borderBottomWidth: 1, borderBottomColor: C.border },
   act: { height: 32, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1, borderColor: C.border, backgroundColor: C.panel, justifyContent: 'center' },
   actText: { color: C.text, fontSize: 13, fontWeight: '600' },
