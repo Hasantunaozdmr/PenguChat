@@ -241,10 +241,42 @@ function PenguChat() {
       return Alert.alert('Güncelleme', 'Uygulama güncel ✓');
     }
     setNewVersion(v);
-    Alert.alert('Yeni sürüm var', 'İndirilsin mi? İnince dosyayı açıp "Güncelle" de. Girişlerin ve ayarların silinmez.', [
+    Alert.alert('Yeni sürüm var', 'Güncellensin mi? Uygulama içinde iner, sonra Android "Güncelle" diye sorar. Girişlerin ve ayarların silinmez.', [
       { text: 'Vazgeç', style: 'cancel' },
-      { text: 'İndir', onPress: () => Linking.openURL(`${RELEASE_BASE}/PenguChat.apk`) },
+      { text: 'Güncelle', onPress: installUpdate },
     ]);
+  };
+  // Bilgisayardaki gibi: yeni sürüm uygulamanın içinde iner, ardından Android'in kurulum ekranı açılır
+  // (tarayıcıya / İndirilenler'e gitmez). Bir şey ters giderse eski yol: tarayıcıdan indir.
+  const [dlPct, setDlPct] = useState(null);
+  const installUpdate = async () => {
+    if (dlPct != null) return;
+    const url = `${RELEASE_BASE}/PenguChat.apk`;
+    try {
+      const FS = require('expo-file-system/legacy');
+      const IL = require('expo-intent-launcher');
+      const dest = FS.cacheDirectory + 'PenguChat-update.apk';
+      await FS.deleteAsync(dest, { idempotent: true }).catch(() => {});
+      setDlPct(0);
+      const task = FS.createDownloadResumable(url, dest, {}, ({ totalBytesWritten, totalBytesExpectedToWrite }) => {
+        if (totalBytesExpectedToWrite > 0) setDlPct(Math.floor((totalBytesWritten / totalBytesExpectedToWrite) * 100));
+      });
+      const res = await task.downloadAsync();
+      setDlPct(null);
+      if (!res || res.status !== 200) throw new Error('indirme başarısız (' + (res && res.status) + ')');
+      const contentUri = await FS.getContentUriAsync(res.uri);
+      await IL.startActivityAsync('android.intent.action.VIEW', {
+        data: contentUri,
+        type: 'application/vnd.android.package-archive',
+        flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
+      });
+    } catch (e) {
+      setDlPct(null);
+      reportErrorRef.current?.('guncelleme', String(e?.message || e).slice(0, 200));
+      Alert.alert('Güncellenemedi', 'Uygulama içinden indirilemedi, tarayıcıdan indirilecek.', [
+        { text: 'Tamam', onPress: () => Linking.openURL(url) },
+      ]);
+    }
   };
 
   // ---- Ayarları yükle / kaydet ----
@@ -712,7 +744,7 @@ function PenguChat() {
           />
         )}
         <Act label={tabs ? '▤ Alt alta' : '⇆ Sekmeli'} onPress={() => update({ layout: tabs ? 'split' : 'tabs' })} />
-        {Platform.OS === 'android' && <Act label={checking ? '⬆ Bakılıyor…' : '⬆ Güncelleme'} dot={!!newVersion} onPress={checkUpdateNow} />}
+        {Platform.OS === 'android' && <Act label={dlPct != null ? `⬆ İniyor %${dlPct}` : checking ? '⬆ Bakılıyor…' : '⬆ Güncelleme'} dot={!!newVersion} onPress={checkUpdateNow} />}
         {anyModAccess && delayPill && (
           <Pressable
             onPress={flipDelay}
