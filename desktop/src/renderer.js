@@ -92,6 +92,14 @@
       if (typeof e.message === 'string' && e.message.startsWith('__PENGU_PICK__')) {
         try { onPick(p, JSON.parse(e.message.slice(14))); } catch {}
       }
+      // Twitch / Kick'in kendi mod tuşlarıyla yapılan işlem (çöp kutusu, ban, timeout): mod log'a yaz
+      if (typeof e.message === 'string' && e.message.startsWith('__PENGU_MODACT__')) {
+        try {
+          const a = JSON.parse(e.message.slice(16));
+          if (!['timeout', 'ban', 'untimeout', 'unban', 'delete'].includes(a.action) || !canMod(p)) return;
+          window.dualChat.modAction({ client: clientId(), twitch: accounts.twitch, kick: accounts.kick, platform: p, action: a.action, target: a.target, secs: a.action === 'timeout' ? Number(a.secs) || null : null, ok: true }).catch(() => {});
+        } catch {}
+      }
     });
     wv.addEventListener('dom-ready', () => {
       try { wv.setZoomFactor(state.zoom[p]); } catch {}
@@ -697,7 +705,7 @@
             <span class="d"><b>${esc(x.target)}</b> · ${x.platform === 'twitch' ? 'Twitch' : 'Kick'}<small>mod: ${esc(who)}${x.ok === false ? ' · ✗ gönderilemedi' : ''}${undone.has(x.id) ? ' · geri alındı' : ''}</small></span>
             ${canUndo ? `<button class="btn mini undo" data-undo="${esc(x.action)}" data-p="${esc(x.platform)}" data-t="${esc(x.target)}" title="Bu cezayı kaldır">↩ Geri al</button>` : ''}</div>`;
         }).join('')
-      : '<div class="empty">Henüz mod işlemi yok. (Sadece bu uygulamadan yapılan timeout / ban / mesaj silme kaydedilir.)</div>';
+      : '<div class="empty">Henüz mod işlemi yok. (Uygulamanın içinde yapılan timeout / ban / mesaj silme kaydedilir.)</div>';
   }
   inboxList.addEventListener('click', async (e) => {
     const b = e.target.closest('[data-undo]');
@@ -1008,6 +1016,8 @@
   async function sendCommand(p, cmd) {
     const wv = panes[p].view;
     if (!wv || !state[p]) return 'chat açık değil';
+    // Uygulamanın kendi komutu: sayfa bunu "sitenin kendi tuşu" sanıp mod log'a ikinci kez yazmasın
+    await wv.executeJavaScript('window.__penguOwnUntil = Date.now() + 8000').catch(() => {});
     // Klavye komutları (tümünü seç / sil / Enter) bu panele gitsin
     if (document.activeElement && document.activeElement !== wv) document.activeElement.blur();
     wv.focus();

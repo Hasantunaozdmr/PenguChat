@@ -250,6 +250,7 @@
 
   // Telefon: komutu sayfanın içinden yazar ve gönderir, sonucu uygulamaya bildirir
   window.__penguSendCommand = (cmd, id) => {
+    window.__penguOwnUntil = Date.now() + 6000; // uygulamanın kendi işlemi: mod log'a ikinci kez yazılmasın
     const report = (ok, err) => post('__PENGU_SENT__' + JSON.stringify({ id, ok, err: err || null }));
     const input = findInput();
     if (!input) return report(false, 'mesaj kutusu bulunamadı (giriş yapılı mı?)');
@@ -374,6 +375,7 @@
   }
   window.__penguHasMsg = () => !!(lastPick || (lastLine && lastLine.isConnected));
   window.__penguDeleteMsg = async (reqId) => {
+    window.__penguOwnUntil = Date.now() + 6000;
     const done = (ok, err) => {
       if (reqId) post('__PENGU_DEL__' + JSON.stringify({ id: reqId, ok, err: err || null }));
       return { ok, err: err || null };
@@ -402,6 +404,102 @@
     if (!line && !id) err = 'mesaj artık chat\'te görünmüyor (adına tekrar tıkla)';
     return done(false, err);
   };
+
+  // ---- 🛡️ Sitenin kendi mod tuşlarıyla yapılanlar da mod log'a ----
+  // Twitch'in / Kick'in çöp kutusu, ban, timeout tuşları kullanılınca sayfanın sunucuya giden isteği
+  // dinlenir; başarılı olursa uygulamaya bildirilir. Uygulamanın kendi tuşlarıyla yapılanlar atlanır
+  // (onlar zaten kaydediliyor).
+  let lastAuthor = { name: '', at: 0 };
+  document.addEventListener(
+    'pointerdown',
+    (e) => {
+      try {
+        const line = e.target instanceof Element && e.target.closest('[data-a-target="chat-line-message"], .chat-line__message, [data-chat-entry], [data-index]');
+        if (!line) return;
+        const u = line.querySelector('[data-a-user]');
+        let name = u ? u.getAttribute('data-a-user') : '';
+        if (!name) {
+          const b = [...line.querySelectorAll('button, span, a')].find((x) => { const t = (x.textContent || '').trim().replace(/:$/, ''); return NAME.test(t) && (/color/i.test(x.getAttribute('style') || '') || (x.getAttribute('title') || '').toLowerCase() === t.toLowerCase()); });
+          name = b ? (b.textContent || '').trim().replace(/:$/, '').replace(/^@/, '') : '';
+        }
+        if (name) lastAuthor = { name: name.toLowerCase(), at: Date.now() };
+      } catch {}
+    },
+    true
+  );
+  const recentAuthor = () => (Date.now() - lastAuthor.at < 60000 ? lastAuthor.name : '');
+  function reportSiteAction(action, target, secs) {
+    if (Date.now() < (window.__penguOwnUntil || 0)) return;
+    target = String(target || recentAuthor() || '?').replace(/^@/, '').toLowerCase().slice(0, 40);
+    post('__PENGU_MODACT__' + JSON.stringify({ action, target, secs: secs || null }));
+  }
+  function durSecs(v) {
+    if (v == null) return null;
+    if (typeof v === 'number') return v;
+    const m = String(v).match(/^(\d+(?:\.\d+)?)\s*([smhdw]?)/i);
+    if (!m) return null;
+    return Math.round(Number(m[1]) * ({ s: 1, m: 60, h: 3600, d: 86400, w: 604800 }[(m[2] || 's').toLowerCase()] || 1));
+  }
+  function inspectTwitch(bodyText) {
+    let ops;
+    try { ops = JSON.parse(bodyText); } catch { return; }
+    for (const op of Array.isArray(ops) ? ops : [ops]) {
+      const name = String((op && op.operationName) || '');
+      const v = (op && op.variables) || {};
+      const inp = v.input || v;
+      const target = inp.bannedUserLogin || inp.targetUserLogin || inp.userLogin || inp.login || inp.targetLogin || '';
+      if (/unban|untimeout/i.test(name)) reportSiteAction(/timeout/i.test(name) ? 'untimeout' : 'unban', target);
+      else if (/timeout/i.test(name)) reportSiteAction('timeout', target, durSecs(inp.duration || inp.expiresIn));
+      else if (/ban/i.test(name)) {
+        const secs = durSecs(inp.expiresIn || inp.duration);
+        reportSiteAction(secs ? 'timeout' : 'ban', target, secs);
+      } else if (/delete.*message|message.*delete/i.test(name)) reportSiteAction('delete', '');
+    }
+  }
+  function inspectKick(method, url, bodyText) {
+    method = String(method || 'GET').toUpperCase();
+    let path = '';
+    try { path = new URL(url, location.href).pathname; } catch { return; }
+    if (/\/bans\/?$/.test(path) && method === 'POST') {
+      let b = {};
+      try { b = JSON.parse(bodyText || '{}'); } catch {}
+      const permanent = b.permanent === true || b.permanent === 'true' || !b.duration;
+      reportSiteAction(permanent ? 'ban' : 'timeout', b.banned_username || b.username || '', permanent ? null : Number(b.duration) * 60);
+    } else if (/\/bans\/([^/]+)$/.test(path) && method === 'DELETE') {
+      reportSiteAction('unban', decodeURIComponent(path.match(/\/bans\/([^/]+)$/)[1]));
+    } else if (/\/messages\/[^/]+$/.test(path) && method === 'DELETE') {
+      reportSiteAction('delete', '');
+    }
+  }
+  function inspect(method, url, bodyText, ok) {
+    if (!ok) return;
+    try {
+      if (isTwitch) { if (/gql\.twitch\.tv/.test(url) && typeof bodyText === 'string') inspectTwitch(bodyText); }
+      else inspectKick(method, url, bodyText);
+    } catch {}
+  }
+  if (!window.__penguNetHook) {
+    window.__penguNetHook = true;
+    const origFetch = window.fetch;
+    window.fetch = function (input, init) {
+      const url = typeof input === 'string' ? input : (input && input.url) || '';
+      const method = (init && init.method) || (input && input.method) || 'GET';
+      const body = init && typeof init.body === 'string' ? init.body : null;
+      const p = origFetch.apply(this, arguments);
+      if (/gql\.twitch\.tv|\/bans|\/messages\//.test(url)) p.then((r) => inspect(method, url, body, r && r.ok)).catch(() => {});
+      return p;
+    };
+    const XO = XMLHttpRequest.prototype.open, XS = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.open = function (m, u) { this.__penguReq = { m, u: String(u || '') }; return XO.apply(this, arguments); };
+    XMLHttpRequest.prototype.send = function (b) {
+      const r = this.__penguReq;
+      if (r && /gql\.twitch\.tv|\/bans|\/messages\//.test(r.u)) {
+        const body = typeof b === 'string' ? b : null;
+        this.addEventListener('loadend', () => inspect(r.m, r.u, body, this.status >= 200 && this.status < 300));
+      }
+      return XS.apply(this, arguments);
+    };
+  }
 
   document.addEventListener(
     'click',

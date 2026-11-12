@@ -519,6 +519,13 @@ function PenguChat() {
         setAccounts((a) => (a[k] === name ? a : { ...a, [k]: name }));
         setModStatus((m) => ({ ...m, [k]: ['mod', 'viewer', 'unknown'].includes(status) ? status : 'unknown' }));
       } catch {}
+    } else if (data.startsWith('__PENGU_MODACT__')) {
+      // Twitch / Kick'in kendi mod tuşlarıyla yapılan işlem: mod log'a yaz
+      try {
+        const a = JSON.parse(data.slice(16));
+        if (!['timeout', 'ban', 'untimeout', 'unban', 'delete'].includes(a.action) || !canMod(k)) return;
+        logModAction({ p_mod_twitch: accounts.twitch, p_mod_kick: accounts.kick, p_platform: k, p_action: a.action, p_target: String(a.target || '?').slice(0, 40), p_secs: a.action === 'timeout' ? Number(a.secs) || null : null, p_ok: true });
+      } catch {}
     } else if (data.startsWith('__PENGU_PICK__')) {
       if (!anyModAccess) return; // izleyici modunda dokunma bir şey yapmaz
       try {
