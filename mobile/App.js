@@ -63,10 +63,15 @@ const DEFAULTS = {
 
 // Chat sayfalarının telefonda mobil siteye yönlenmemesi için masaüstü tarayıcı kimliği.
 // (Kendi motoruyla uyumlu olsun diye iOS'ta Safari, Android'de Chrome.)
-const USER_AGENT =
+// Android'de Chrome sürümü telefonun gerçek WebView sürümünden alınır: sabit eski bir sürüm yazmak
+// Twitch / Kick'in bot korumasına takılıyor ("çok fazla giriş denemesi", "veri yüklenemedi").
+const desktopChromeUa = (ver) => `Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${ver} Safari/537.36`;
+let USER_AGENT =
   Platform.OS === 'ios'
     ? 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15'
-    : 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
+    : desktopChromeUa('130.0.0.0');
+// Telefonun WebView kimliğini okuyan görünmez sayfa
+const UA_PROBE_HTML = '<html><body><script>window.ReactNativeWebView.postMessage(navigator.userAgent)</script></body></html>';
 
 // Masaüstü sayfası telefon ekranına sığsın (aksi halde yazılar minicik görünür)
 const VIEWPORT_JS = `
@@ -98,6 +103,25 @@ export default function App() {
 function PenguChat() {
   const [s, setS] = useState(DEFAULTS);
   const [ready, setReady] = useState(false);
+  // Android: chat'ler, telefonun gerçek Chrome sürümü öğrenildikten sonra açılır (en fazla 2,5 sn beklenir)
+  const [uaReady, setUaReady] = useState(Platform.OS !== 'android');
+  useEffect(() => {
+    if (uaReady) return;
+    const t = setTimeout(() => setUaReady(true), 2500);
+    return () => clearTimeout(t);
+  }, [uaReady]);
+  const uaProbe = !uaReady && (
+    <View style={{ width: 1, height: 1, position: 'absolute', opacity: 0 }} pointerEvents="none">
+      <WebView
+        source={{ html: UA_PROBE_HTML }}
+        onMessage={(e) => {
+          const m = String(e.nativeEvent.data || '').match(/Chrome\/(\d+\.\d+\.\d+\.\d+)/);
+          if (m) USER_AGENT = desktopChromeUa(m[1]);
+          setUaReady(true);
+        }}
+      />
+    </View>
+  );
   const [link, setLink] = useState('');
   const [hint, setHint] = useState(null);
   const hintTimer = useRef(null);
@@ -603,7 +627,7 @@ function PenguChat() {
 
   const horizontal = landscape; // yatay telefon = yan yana, dikey = alt alta
 
-  if (!ready) return <View style={styles.root} />;
+  if (!ready || !uaReady) return <View style={styles.root}>{uaProbe}</View>;
 
   const tabs = s.layout === 'tabs';
 
