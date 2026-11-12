@@ -919,7 +919,9 @@ function AdminItem({ x, admin, roleArgs, onDelete, onSaved }) {
   );
 }
 
-const s = StyleSheet.create({
+let s = makeS();
+function makeS() {
+  return StyleSheet.create({
   menuBtn: { backgroundColor: C.input, borderWidth: 1, borderColor: C.border, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, gap: 2 },
   menuBtnText: { color: C.text, fontSize: 16, fontWeight: '700' },
   tab: { paddingHorizontal: 10, height: 32, justifyContent: 'center', borderRadius: 7, borderWidth: 1, borderColor: 'transparent' },
@@ -948,4 +950,10 @@ const s = StyleSheet.create({
   repName: { color: C.text, fontWeight: '700' },
   repSmall: { color: C.muted, fontSize: 11 },
   repMsg: { color: C.text, marginTop: 4, fontSize: 14 },
-});
+  });
+}
+// 🎨 Renk teması değişince bu pencerenin renkleri de güncellenir
+export function applyModalTheme(t) {
+  Object.assign(C, { panel2: t.panel2, input: t.input, border: t.border, muted: t.muted });
+  s = makeS();
+}

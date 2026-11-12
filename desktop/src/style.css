@@ -43,7 +43,7 @@ body { display: flex; flex-direction: column; }
 }
 
 .brand { font-weight: 700; font-size: 15px; letter-spacing: .3px; }
-.brand span { color: #062f2d; }
+.brand span { color: var(--muted); }
 
 .linkbar {
   display: flex;
@@ -363,7 +363,7 @@ kbd { color: var(--muted); font: inherit; font-size: 11px; }
 
 /* ---------- Bakım modu ---------- */
 .maint { position: fixed; inset: 0; z-index: 500; display: grid; place-items: center; padding: 20px;
-  background: radial-gradient(circle at 50% 40%, #13a39d, #0a6b67 55%, #063f3d); text-align: center; user-select: none; }
+  background: radial-gradient(circle at 50% 40%, var(--hover), var(--bg) 55%, var(--input)); text-align: center; user-select: none; }
 .maint-box { max-width: 460px; }
 .maint-icon { font-size: 64px; }
 .maint h1 { margin: 8px 0; font-size: 32px; }
@@ -411,3 +411,12 @@ body.top-collapsed .toolbar, body.top-collapsed .actionbar, body.top-collapsed .
 .expand-bar #expandDelay { color: var(--muted); }
 .expand-bar.hidden { display: none; }
 .expand-bar .badge { position: static; transform: none; margin-left: -4px; }
+
+/* 🎨 Renk teması */
+.theme-dlg { width: min(460px, 92vw); }
+.swatches { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin: 10px 0; }
+.swatch { height: 46px; border-radius: 8px; border: 2px solid rgba(255,255,255,.25); cursor: pointer; color: #fff; font-size: 10px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 3px; text-shadow: 0 1px 2px #000; }
+.swatch:hover { border-color: #fff; }
+.swatch.active { border-color: #fff; box-shadow: 0 0 0 2px var(--text); }
+.custom-color { display: flex; align-items: center; gap: 6px; }
+.custom-color input { width: 44px; height: 28px; border: 1px solid var(--border); border-radius: 6px; background: none; padding: 0; cursor: pointer; }

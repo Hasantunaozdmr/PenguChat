@@ -37,6 +37,7 @@
     <button id="layoutBtn" class="btn act" title="Yan yana / Alt alta">⇆ Yan yana</button>
     <button id="swapBtn" class="btn act" title="Panellerin yerini değiştir">⇄ Yer değiştir</button>
     <button class="btn act" data-action="reload-all" title="Her iki chat'i yenile (F5)">⟳ Chat'leri yenile</button>
+    <button class="btn act" id="themeBtn" title="Uygulamanın rengini değiştir">🎨 Renk</button>
     <div class="spacer"></div>
     <button class="btn act" data-action="check-update" title="Güncellemeleri kontrol et">⬆ Güncelleme <kbd id="versionLabel"></kbd></button>
     <button class="btn act" data-action="logout" title="Twitch ve Kick hesaplarından çıkış yap">🚪 Hesaplardan çık</button>
@@ -107,6 +108,19 @@
     </section>
   </main>
 
+  <div id="themeDlg" class="dlg-wrap hidden">
+    <div class="dlg theme-dlg">
+      <div class="dlg-head"><strong>🎨 Renk teması</strong><div class="spacer"></div><button class="btn mini" data-close>✕</button></div>
+      <div id="themeSwatches" class="swatches"></div>
+      <div class="dlg-foot">
+        <label class="custom-color">Tüm renkler: <input type="color" id="themeCustom" title="İstediğin rengi seç" /></label>
+        <div class="spacer"></div>
+        <button class="btn" id="themeReset">↺ Varsayılan (Turkuaz)</button>
+      </div>
+      <p class="dlg-note">Seçtiğin renk hemen uygulanır ve saklanır. Yazılar okunaklı kalsın diye renk biraz koyulaştırılır.</p>
+    </div>
+  </div>
+
   <div id="reportDlg" class="dlg-wrap hidden">
     <div class="dlg">
       <div class="dlg-head">
@@ -154,6 +168,7 @@
     </div>
   </div>
 
+  <script src="theme.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>

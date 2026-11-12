@@ -305,13 +305,34 @@
 
   const reportDlg = $('#reportDlg');
   const inboxDlg = $('#inboxDlg');
-  for (const d of [reportDlg, inboxDlg]) {
+  const themeDlg = $('#themeDlg');
+  // ---- 🎨 Renk teması ----
+  function applyTheme() {
+    const t = window.PenguTheme.themeFrom(state.themeColor);
+    const r = document.documentElement.style;
+    r.setProperty('--bg', t.bg); r.setProperty('--panel', t.panel); r.setProperty('--panel-2', t.panel2);
+    r.setProperty('--input', t.input); r.setProperty('--hover', t.hover); r.setProperty('--border', t.border); r.setProperty('--muted', t.muted);
+    const cur = String(state.themeColor || window.PenguTheme.DEFAULT).toLowerCase();
+    $('#themeSwatches').querySelectorAll('.swatch').forEach((b) => b.classList.toggle('active', b.dataset.color === cur));
+    $('#themeCustom').value = cur;
+  }
+  function setTheme(color) { state.themeColor = color; save(); applyTheme(); }
+  $('#themeSwatches').innerHTML = window.PenguTheme.PRESETS.map(([name, c]) => {
+    const t = window.PenguTheme.themeFrom(c);
+    return `<button class="swatch" data-color="${c}" title="${name}" style="background:linear-gradient(135deg, ${t.panel}, ${t.bg})">${name}</button>`;
+  }).join('');
+  $('#themeSwatches').addEventListener('click', (e) => { const b = e.target.closest('.swatch'); if (b) setTheme(b.dataset.color); });
+  $('#themeCustom').addEventListener('input', (e) => setTheme(e.target.value));
+  $('#themeReset').addEventListener('click', () => setTheme(window.PenguTheme.DEFAULT));
+  $('#themeBtn').addEventListener('click', () => themeDlg.classList.remove('hidden'));
+  applyTheme();
+  for (const d of [reportDlg, inboxDlg, themeDlg]) {
     d.addEventListener('click', (e) => {
       if (e.target === d || e.target.closest('[data-close]')) d.classList.add('hidden');
     });
   }
   window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') { reportDlg.classList.add('hidden'); inboxDlg.classList.add('hidden'); }
+    if (e.key === 'Escape') { reportDlg.classList.add('hidden'); inboxDlg.classList.add('hidden'); themeDlg.classList.add('hidden'); }
   });
 
   function reportHint(text, cls) {

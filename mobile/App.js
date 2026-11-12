@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Linking,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -19,7 +20,8 @@ import * as Clipboard from 'expo-clipboard';
 import Constants from 'expo-constants';
 import { PLATFORMS, cleanChannel, hasLink, isInternalUrl, parseTargets } from './src/links';
 import { FIT_POPUPS_JS, PICK_USER_JS } from './src/injected';
-import ReportModal, { countNew, hasMineNews, loadAdmin, storeAdmin } from './src/ReportModal';
+import ReportModal, { applyModalTheme, countNew, hasMineNews, loadAdmin, storeAdmin } from './src/ReportModal';
+const { themeFrom, PRESETS: THEME_PRESETS, DEFAULT: THEME_DEFAULT } = require('./src/theme');
 import { OWNER_ACCOUNTS, logError, logModAction, reportRpc, sendPing } from './src/report';
 import { measureDelay } from './src/delay';
 
@@ -56,6 +58,7 @@ const DEFAULTS = {
   twitch: '',
   kick: '',
   layout: 'split', // split = iki chat aynı ekranda, tabs = sekmeli
+  themeColor: '#0e8f8a', // 🎨 renk teması
   topCollapsed: false, // üstteki link kutusu + tuşlar gizli mi (chat'lere daha çok yer)
   tab: 'twitch',
   zoom: { twitch: 1, kick: 1 },
@@ -103,6 +106,13 @@ export default function App() {
 
 function PenguChat() {
   const [s, setS] = useState(DEFAULTS);
+  // 🎨 Renk teması: renk değişince stiller çizimden önce yenilenir
+  const themeApplied = useRef(null);
+  if (themeApplied.current !== s.themeColor) {
+    applyThemeColors(s.themeColor);
+    themeApplied.current = s.themeColor;
+  }
+  const [themeOpen, setThemeOpen] = useState(false);
   const [ready, setReady] = useState(false);
   // Android: chat'ler, telefonun gerçek Chrome sürümü öğrenildikten sonra açılır (en fazla 2,5 sn beklenir)
   const [uaReady, setUaReady] = useState(Platform.OS !== 'android');
@@ -720,6 +730,7 @@ function PenguChat() {
           />
         )}
         <Act label={tabs ? '▤ Alt alta' : '⇆ Sekmeli'} onPress={() => update({ layout: tabs ? 'split' : 'tabs' })} />
+        <Act label="🎨 Renk" onPress={() => setThemeOpen(true)} />
         <Act label="▲ Gizle" onPress={() => update({ topCollapsed: true })} />
         {Platform.OS === 'android' && <Act label={dlPct != null ? `⬆ İniyor %${dlPct}` : checking ? '⬆ Bakılıyor…' : '⬆ Güncelleme'} dot={!!newVersion} onPress={checkUpdateNow} />}
         {anyModAccess && delayPill && (
@@ -751,6 +762,7 @@ function PenguChat() {
           <Text style={styles.maintSmall}>Her 30 saniyede bir kontrol ediliyor…</Text>
         </View>
       )}
+      {themeOpen && <ThemePicker current={s.themeColor} onPick={(c) => update({ themeColor: c })} onClose={() => setThemeOpen(false)} />}
       {reportMode && <ReportModal accounts={accounts} roles={roles} onUndo={undoAction} annNow={ann} mode={reportMode} onClose={() => setReportMode(null)} appVersion={APP_VERSION} admin={admin} onAdminChange={changeAdmin} startTab={mineNews ? 'mine' : 'new'} onMineSeen={() => setMineNews(false)} />}
       {!!ann.text && ann.seen !== ann.at && (
         <View style={styles.annBar}>
@@ -904,6 +916,46 @@ function PenguChat() {
   );
 }
 
+// 🎨 Renk seçici: hazır renkler + bütün tonlar (36 renk) + gri tonları
+const HUES = Array.from({ length: 36 }, (_, i) => {
+  const h = i * 10;
+  const f = (n) => { const k = (n + h / 30) % 12; return Math.round((0.5 - 0.45 * Math.max(-1, Math.min(k - 3, 9 - k, 1))) * 255).toString(16).padStart(2, '0'); };
+  return '#' + f(0) + f(8) + f(4);
+});
+function ThemePicker({ current, onPick, onClose }) {
+  const cur = String(current || THEME_DEFAULT).toLowerCase();
+  const Sw = ({ c, label, size = 44 }) => {
+    const t = themeFrom(c);
+    return (
+      <Pressable onPress={() => onPick(c)} style={{ width: size, height: size, borderRadius: 8, backgroundColor: t.panel, borderWidth: cur === c.toLowerCase() ? 3 : 1, borderColor: cur === c.toLowerCase() ? '#fff' : 'rgba(255,255,255,.3)', alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 2 }}>
+        {!!label && <Text style={{ color: '#fff', fontSize: 9, fontWeight: '700' }}>{label}</Text>}
+      </Pressable>
+    );
+  };
+  return (
+    <Modal transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,.55)', justifyContent: 'center', padding: 16 }} onPress={onClose}>
+        <Pressable style={{ backgroundColor: C.panel, borderRadius: 12, borderWidth: 1, borderColor: C.border, padding: 14, gap: 10 }} onPress={() => {}}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={{ color: C.text, fontSize: 16, fontWeight: '700', flex: 1 }}>🎨 Renk teması</Text>
+            <Pressable onPress={onClose} hitSlop={10}><Text style={{ color: C.text, fontSize: 18 }}>✕</Text></Pressable>
+          </View>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+            {THEME_PRESETS.map(([name, c]) => <Sw key={c} c={c} label={name} size={58} />)}
+          </View>
+          <Text style={{ color: C.muted, fontSize: 12 }}>Tüm renkler</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
+            {HUES.map((c) => <Sw key={c} c={c} size={30} />)}
+          </View>
+          <Pressable onPress={() => onPick(THEME_DEFAULT)} style={{ alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: C.border, backgroundColor: C.input }}>
+            <Text style={{ color: C.text, fontWeight: '600' }}>↺ Varsayılan (Turkuaz)</Text>
+          </Pressable>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
 function Act({ label, on, dot, count, onPress, onLongPress }) {
   return (
     <Pressable
@@ -1035,8 +1087,14 @@ function ChatView({ k, url, zoom, onRef, onMessage, onLoaded, onFail }) {
   );
 }
 
+// 🎨 Renk teması: C değiştirilir ve stiller yeniden üretilir (ayarlardan themeColor)
+function applyThemeColors(color) {
+  Object.assign(C, themeFrom(color));
+  styles = makeStyles();
+  applyModalTheme(C);
+}
 const C = {
-  // Turkuaz tema
+  // Turkuaz tema (varsayılan)
   bg: '#0a6b67',
   panel: '#0e8f8a',
   panel2: '#0b7c77',
@@ -1046,7 +1104,9 @@ const C = {
   muted: '#c9f3ef',
 };
 
-const styles = StyleSheet.create({
+let styles = makeStyles();
+function makeStyles() {
+  return StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
   row: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   hidden: { display: 'none' },
@@ -1105,7 +1165,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     zIndex: 200,
     elevation: 20,
-    backgroundColor: '#0a6b67',
+    backgroundColor: C.bg,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
@@ -1231,4 +1291,5 @@ const styles = StyleSheet.create({
   divider: { backgroundColor: C.border },
   dividerV: { height: 2 },
   dividerH: { width: 2 },
-});
+  });
+}
