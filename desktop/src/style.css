@@ -422,3 +422,6 @@ body.top-collapsed .toolbar, body.top-collapsed .actionbar, body.top-collapsed .
 .custom-color input { width: 44px; height: 28px; border: 1px solid var(--border); border-radius: 6px; background: none; padding: 0; cursor: pointer; }
 .custom-color input[type=text] { width: 86px; height: 28px; background: var(--input); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font: inherit; padding: 0 7px; text-transform: lowercase; }
 .custom-color input[type=text].bad { border-color: #dc2626; }
+.theme-dlg .dlg-foot { flex-wrap: wrap; row-gap: 8px; }
+.theme-dlg .custom-color { white-space: nowrap; }
+.theme-dlg #themeReset { white-space: nowrap; }
