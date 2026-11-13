@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="robots" content="noindex, nofollow" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="PengusChat Yönetim" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="theme-color" content="#ffffff" />
+<link rel="apple-touch-icon" href="../media/icon.png" />
+<link rel="icon" href="../media/icon.png" />
+<title>PengusChat Yönetim</title>
+<style>
+  :root {
+    --bg: #f0f0f2; --panel: #ffffff; --input: #e9e9ec; --border: #d4d6db; --text: #111827; --muted: #5b6472;
+    --accent: #9146ff; --ok: #16a34a; --err: #dc2626; --blue: #2563eb;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.4 -apple-system, "Segoe UI", system-ui, Roboto, sans-serif; -webkit-text-size-adjust: 100%; }
+  header { position: sticky; top: 0; z-index: 5; background: var(--panel); border-bottom: 1px solid var(--border); padding: calc(env(safe-area-inset-top) + 8px) 12px 0; }
+  .top { display: flex; align-items: center; gap: 8px; }
+  .top h1 { font-size: 17px; margin: 0; flex: 1; }
+  .tabs { display: flex; gap: 6px; overflow-x: auto; padding: 10px 0; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { flex: 0 0 auto; border: 1px solid var(--border); background: var(--input); color: var(--text); border-radius: 18px; padding: 7px 12px; font: inherit; font-size: 14px; }
+  .tab.active { background: var(--text); color: #fff; border-color: var(--text); }
+  main { padding: 12px; padding-bottom: calc(env(safe-area-inset-bottom) + 24px); max-width: 760px; margin: 0 auto; }
+  button.b { border: 1px solid var(--border); background: var(--input); color: var(--text); border-radius: 8px; padding: 8px 12px; font: inherit; font-size: 14px; }
+  button.b.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  button.b.danger { background: var(--err); border-color: var(--err); color: #fff; font-weight: 600; }
+  button.b.small { padding: 5px 9px; font-size: 13px; }
+  button:disabled { opacity: .5; }
+  input, textarea, select { width: 100%; border: 1px solid var(--border); background: var(--panel); color: var(--text); border-radius: 8px; padding: 10px; font: inherit; font-size: 16px; }
+  textarea { min-height: 80px; resize: vertical; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 10px; }
+  .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+  .meta b { color: var(--text); font-size: 14px; }
+  .msg { white-space: pre-wrap; word-break: break-word; margin: 8px 0; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .st { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 700; color: #fff; }
+  .st-bekliyor { background: #6b7280; } .st-onaylandi { background: var(--blue); } .st-cozuldu { background: var(--ok); } .st-reddedildi { background: var(--err); }
+  .note { border-left: 3px solid var(--err); padding: 4px 8px; background: #fef2f2; border-radius: 0 6px 6px 0; font-size: 13px; margin-top: 6px; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+  .stat { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 10px 6px; text-align: center; }
+  .stat b { display: block; font-size: 22px; }
+  .stat span { font-size: 11px; color: var(--muted); }
+  .on { color: var(--ok); } .off { color: var(--muted); }
+  .empty { text-align: center; color: var(--muted); padding: 40px 10px; }
+  .hint { font-size: 13px; color: var(--muted); }
+  .hint.err { color: var(--err); } .hint.ok { color: var(--ok); }
+  .login { max-width: 360px; margin: 18vh auto 0; text-align: center; }
+  .login img { width: 72px; height: 72px; border-radius: 16px; }
+  .login h1 { font-size: 20px; }
+  .login input { margin: 12px 0; text-align: center; }
+  label.cb { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; margin-right: 12px; }
+  label.cb input { width: auto; }
+  .hidden { display: none !important; }
+  .spin { text-align: center; color: var(--muted); padding: 30px; }
+</style>
+</head>
+<body>
+<div id="loginView" class="login hidden">
+  <img src="../media/icon.png" alt="" />
+  <h1>PengusChat Yönetim</h1>
+  <p class="hint">Yönetici şifreni gir.</p>
+  <input id="pw" type="password" placeholder="Şifre" autocomplete="current-password" />
+  <button class="b primary" id="loginBtn" style="width:100%">Giriş</button>
+  <p id="loginHint" class="hint err"></p>
+</div>
+
+<div id="appView" class="hidden">
+  <header>
+    <div class="top">
+      <h1>🐧 PengusChat Yönetim</h1>
+      <button class="b small" id="refreshBtn">⟳</button>
+      <button class="b small" id="logoutBtn">Çıkış</button>
+    </div>
+    <nav class="tabs" id="tabs">
+      <button class="tab" data-t="reports">📥 Sorunlar</button>
+      <button class="tab" data-t="mod">🛡️ Mod log</button>
+      <button class="tab" data-t="stats">📊 İstatistik</button>
+      <button class="tab" data-t="log">📜 Log</button>
+      <button class="tab" data-t="roles">👥 Yetkiler</button>
+      <button class="tab" data-t="ann">📢 Duyuru</button>
+      <button class="tab" data-t="maint">🛠️ Bakım</button>
+      <button class="tab" data-t="errors">⚠️ Hatalar</button>
+    </nav>
+  </header>
+  <main id="main"></main>
+</div>
+
+<script>
+(() => {
+  // Uygulamayla aynı sunucu (herkese açık anahtar). Her işlem yönetici şifresiyle sunucuda kontrol edilir.
+  const API = 'https://squocugdzebbfovvibmq.supabase.co';
+  const KEY = 'sb_publishable_vn8KFF_4jSrzvIa9jPNUIw_YC4dtKjq';
+  const PW_KEY = 'penguchat:webAdmin';
+  const $ = (s) => document.querySelector(s);
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  let pw = '';
+  try { pw = localStorage.getItem(PW_KEY) || ''; } catch {}
+  let tab = 'reports';
+  try { tab = localStorage.getItem('penguchat:webTab') || 'reports'; } catch {}
+
+  async function rpc(fn, args) {
+    const res = await fetch(`${API}/rest/v1/rpc/${fn}`, {
+      method: 'POST',
+      headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(args || {}),
+    });
+    const text = await res.text();
+    if (!res.ok) throw new Error(/yetkisiz/.test(text) ? 'Şifre yanlış' : `Sunucu hatası (${res.status})`);
+    return text ? JSON.parse(text) : null;
+  }
+  const A = (extra) => ({ p_password: pw, ...(extra || {}) });
+
+  const fmtDate = (iso) => { try { return new Date(iso).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); } catch { return ''; } };
+  const ago = (iso) => {
+    const s = (Date.now() - new Date(iso)) / 1000;
+    if (s < 90) return 'şimdi';
+    if (s < 3600) return Math.round(s / 60) + ' dk önce';
+    if (s < 86400) return Math.round(s / 3600) + ' saat önce';
+    return Math.round(s / 86400) + ' gün önce';
+  };
+  const fmtDur = (secs) => !secs ? '' : secs % 86400 === 0 ? secs / 86400 + ' gün' : secs % 3600 === 0 ? secs / 3600 + ' saat' : secs % 60 === 0 ? secs / 60 + ' dk' : secs + ' sn';
+  const devLabel = (pl) => { const [a, m] = String(pl || '').split(' · '); return a.split(' ')[0] + (m ? ' · ' + m : ''); };
+
+  // ---- Giriş ----
+  function showLogin(msg) {
+    $('#appView').classList.add('hidden');
+    $('#loginView').classList.remove('hidden');
+    $('#loginHint').textContent = msg || '';
+  }
+  async function login() {
+    const v = $('#pw').value;
+    if (!v) return;
+    $('#loginBtn').disabled = true;
+    try {
+      const ok = await rpc('is_admin', { p_password: v });
+      if (ok !== true) throw new Error('Şifre yanlış');
+      pw = v;
+      try { localStorage.setItem(PW_KEY, v); } catch {}
+      $('#pw').value = '';
+      start();
+    } catch (e) {
+      $('#loginHint').textContent = e.message;
+    } finally {
+      $('#loginBtn').disabled = false;
+    }
+  }
+  $('#loginBtn').addEventListener('click', login);
+  $('#pw').addEventListener('keydown', (e) => { if (e.key === 'Enter') login(); });
+  $('#logoutBtn').addEventListener('click', () => { pw = ''; try { localStorage.removeItem(PW_KEY); } catch {} showLogin(); });
+  $('#refreshBtn').addEventListener('click', () => load());
+  $('#tabs').addEventListener('click', (e) => { const b = e.target.closest('.tab'); if (b) { tab = b.dataset.t; try { localStorage.setItem('penguchat:webTab', tab); } catch {} load(); } });
+
+  function start() {
+    $('#loginView').classList.add('hidden');
+    $('#appView').classList.remove('hidden');
+    load();
+  }
+
+  // ---- Bölümler ----
+  const main = $('#main');
+  async function load() {
+    document.querySelectorAll('.tab').forEach((b) => b.classList.toggle('active', b.dataset.t === tab));
+    const active = document.querySelector('.tab.active');
+    if (active) active.scrollIntoView({ inline: 'center', block: 'nearest' });
+    main.innerHTML = '<div class="spin">Yükleniyor…</div>';
+    try {
+      await ({ reports, mod: modLog, stats, log, roles, ann, maint, errors })[tab]();
+    } catch (e) {
+      if (e.message === 'Şifre yanlış') { pw = ''; try { localStorage.removeItem(PW_KEY); } catch {} return showLogin('Şifre değişmiş, yeniden gir.'); }
+      main.innerHTML = `<div class="empty">⚠️ ${esc(e.message)}</div>`;
+    }
+  }
+
+  // 📥 Sorunlar: Gönderildi → Sıraya al → Çözüldü; ya da (sıraya almadan önce) Reddet + sebep
+  const STATUS = { bekliyor: '📨 Gönderildi', onaylandi: '📋 Sırada', cozuldu: '✅ Çözüldü', reddedildi: '❌ Reddedildi' };
+  const NEXT = { bekliyor: ['onaylandi', 'reddedildi'], onaylandi: ['cozuldu'], cozuldu: [], reddedildi: [] };
+  const ACTION = { onaylandi: '➡️ Sıraya al', cozuldu: '✅ Çözüldü', reddedildi: '❌ Reddet' };
+  async function reports() {
+    const list = (await rpc('get_reports', A())) || [];
+    main.innerHTML = list.length ? list.map((x) => {
+      const st = STATUS[x.status] ? x.status : 'bekliyor';
+      const next = NEXT[st];
+      return `<div class="card" data-id="${Number(x.id)}">
+        <div class="meta"><span class="st st-${st}">${STATUS[st]}</span><b>${esc(x.contact || 'İsimsiz')}</b><span>${esc(fmtDate(x.created_at))}</span></div>
+        <div class="meta"><span>${esc(devLabel(x.platform))} · v${esc(x.app_version || '?')}</span></div>
+        <div class="msg">${esc(x.message)}</div>
+        ${st === 'reddedildi' && x.admin_note ? `<div class="note"><b>Red sebebi:</b> ${esc(x.admin_note)}</div>` : ''}
+        <div class="row">
+          ${next.map((n) => `<button class="b small ${n === 'reddedildi' ? '' : 'primary'}" data-st="${n}">${ACTION[n]}</button>`).join('')}
+          ${next.length ? '' : '<span class="hint">🔒 Kesinleşti</span>'}
+          <span style="flex:1"></span>
+          <button class="b small" data-del>🗑</button>
+        </div>
+        <div class="reject hidden" style="margin-top:8px">
+          <textarea placeholder="Red sebebi (zorunlu — kullanıcı görür)" maxlength="1000"></textarea>
+          <div class="row" style="margin-top:6px"><button class="b small danger" data-reject>Reddet</button><button class="b small" data-cancel>Vazgeç</button><span class="hint err"></span></div>
+        </div>
+      </div>`;
+    }).join('') : '<div class="empty">Gelen sorun yok 🎉</div>';
+  }
+  main.addEventListener('click', async (e) => {
+    const card = e.target.closest('.card[data-id]');
+    if (!card) return;
+    const id = Number(card.dataset.id);
+    const st = e.target.closest('[data-st]')?.dataset.st;
+    try {
+      if (st === 'reddedildi') { card.querySelector('.reject').classList.remove('hidden'); card.querySelector('textarea').focus(); return; }
+      if (st) { await rpc('set_report_status', A({ p_id: id, p_status: st, p_note: '' })); return load(); }
+      if (e.target.closest('[data-cancel]')) { card.querySelector('.reject').classList.add('hidden'); return; }
+      if (e.target.closest('[data-reject]')) {
+        const note = card.querySelector('textarea').value.trim();
+        if (!note) { card.querySelector('.reject .hint').textContent = 'Sebebi yaz.'; return; }
+        await rpc('set_report_status', A({ p_id: id, p_status: 'reddedildi', p_note: note.slice(0, 1000) }));
+        return load();
+      }
+      if (e.target.closest('[data-del]') && confirm('Bu sorun listenden kaldırılsın mı? (Gönderen kişi görmeye devam eder.)')) {
+        await rpc('delete_report', A({ p_id: id }));
+        return load();
+      }
+    } catch (err) { alert('Kaydedilemedi: ' + err.message); }
+  });
+
+  // 🛡️ Mod log
+  const MOD_KIND = { ban: '⛔ Ban', untimeout: '↩ Timeout kaldırıldı', unban: '↩ Ban kaldırıldı', delete: '🗑 Mesaj silindi' };
+  async function modLog() {
+    const list = (await rpc('get_mod_log', A())) || [];
+    main.innerHTML = list.length ? list.map((x) => {
+      const who = (x.platform === 'twitch' ? x.mod_twitch : x.mod_kick) || x.mod_twitch || x.mod_kick || '?';
+      return `<div class="card"><div class="meta"><b>${MOD_KIND[x.action] || '⏱ Timeout ' + esc(fmtDur(x.secs))} · ${esc(x.target)}</b><span style="flex:1"></span><span>${esc(fmtDate(x.at))}</span></div>
+        <div class="meta">${x.platform === 'twitch' ? 'Twitch' : 'Kick'} · mod: ${esc(who)}${x.ok === false ? ' · ✗ gönderilemedi' : ''}</div></div>`;
+    }).join('') : '<div class="empty">Henüz mod işlemi yok.</div>';
+  }
+
+  // 📊 İstatistik (aynı telefonun tekrar kurulumla oluşan ikinci satırı gizlenir)
+  function mergeStats(d) {
+    const list = [...(d.list || [])].sort((a, b) => new Date(b.last_seen) - new Date(a.last_seen));
+    const phoneKey = (x) => { const pl = String(x.platform || ''); return /^(android|ios)\b/.test(pl) && pl.includes(' · ') ? pl.split(' ')[0] + '|' + pl.split(' · ')[1] : null; };
+    const seen = new Set();
+    const withAcc = new Set(list.filter((x) => phoneKey(x) && (x.twitch || x.kick)).map(phoneKey));
+    const out = [];
+    for (const x of list) {
+      const k = phoneKey(x);
+      if (k) {
+        const key = k + '|' + (x.twitch || '') + '|' + (x.kick || '');
+        if (seen.has(key) || (!(x.twitch || x.kick) && withAcc.has(k))) continue;
+        seen.add(key);
+      }
+      out.push(x);
+    }
+    const removed = list.length - out.length;
+    if (!removed) return d;
+    const now = Date.now();
+    return { ...d, list: out, total: Math.max(0, (Number(d.total) || 0) - removed),
+      online: out.filter((x) => now - new Date(x.last_seen) < 600000).length,
+      today: out.filter((x) => now - new Date(x.last_seen) < 86400000).length };
+  }
+  async function stats() {
+    const d = mergeStats((await rpc('get_stats', A())) || {});
+    const tile = (n, l) => `<div class="stat"><b>${Number(n) || 0}</b><span>${l}</span></div>`;
+    const on = (x) => Date.now() - new Date(x.last_seen) < 600000;
+    main.innerHTML = `<div class="stats">${tile(d.total, 'Toplam kullanıcı')}${tile(d.online, 'Şu an açık')}${tile(d.today, 'Son 24 saat')}${tile(d.mods, 'Mod (7 gün)')}${tile(d.bans, 'Ban')}${tile(d.timeouts, 'Timeout')}</div>`
+      + (d.list || []).map((x) => `<div class="card"><div class="meta"><span class="${on(x) ? 'on' : 'off'}">${on(x) ? '●' : '○'}</span>
+          <b>${esc([x.twitch && 'Twitch: ' + x.twitch, x.kick && 'Kick: ' + x.kick].filter(Boolean).join(' · ') || 'Giriş yapılmamış')}${x.is_mod ? ' 🛡️' : ''}</b></div>
+          <div class="meta">${esc(devLabel(x.platform))} · v${esc(x.version || '?')} · ${esc(ago(x.last_seen))}</div></div>`).join('');
+  }
+
+  // 📜 Log
+  const LOG_KIND = { gonderildi: '📨 Gönderildi', onaylandi: '📋 Sıraya alındı', cozuldu: '✅ Çözüldü', reddedildi: '❌ Reddedildi', silindi: '🗑 Silindi' };
+  async function log() {
+    const list = (await rpc('get_log', A())) || [];
+    main.innerHTML = list.length ? list.map((x) => `<div class="card"><div class="meta"><b>${LOG_KIND[x.kind] || esc(x.kind)}</b><span style="flex:1"></span><span>${esc(fmtDate(x.at))}</span></div>
+      <div class="msg" style="margin:4px 0 0"><b>${esc(x.contact || 'İsimsiz')}</b> · ${esc(x.message || '')}</div>${x.note ? `<div class="hint">Sebep: ${esc(x.note)}</div>` : ''}</div>`).join('') : '<div class="empty">Henüz kayıt yok.</div>';
+  }
+
+  // 👥 Yetkiler
+  const ROLE = { modlog: '🛡️ Mod log', reports: '📥 Sorunlar', stats: '📊 İstatistik' };
+  const boxes = (x) => Object.keys(ROLE).map((k) => `<label class="cb"><input type="checkbox" data-role="${k}" ${x && x['can_' + k] ? 'checked' : ''} /> ${ROLE[k]}</label>`).join('');
+  async function roles() {
+    const list = (await rpc('list_roles', A())) || [];
+    main.innerHTML = `<div class="card" id="roleAdd"><b>Yeni kişiye yetki ver</b>
+        <div class="row" style="margin:8px 0"><select id="roleP" style="width:110px"><option value="twitch">Twitch</option><option value="kick">Kick</option></select>
+        <input id="roleU" placeholder="kullanıcı adı" autocapitalize="none" style="flex:1;min-width:140px" /></div>
+        <div>${boxes(null)}</div><div class="row" style="margin-top:8px"><button class="b small primary" id="roleSave">Ver</button><span class="hint" id="roleHint"></span></div></div>`
+      + list.map((x) => `<div class="card role" data-p="${esc(x.platform)}" data-u="${esc(x.username)}"><div class="meta"><b>${esc(x.username)}</b><span>${x.platform === 'twitch' ? 'Twitch' : 'Kick'}</span></div><div style="margin-top:6px">${boxes(x)}</div></div>`).join('')
+      + (list.length ? '' : '<div class="empty">Henüz yetki verilen kimse yok.</div>');
+  }
+  async function saveRole(platform, username, el) {
+    const get = (k) => !!el.querySelector(`[data-role="${k}"]`)?.checked;
+    await rpc('set_role', A({ p_platform: platform, p_username: username, p_modlog: get('modlog'), p_reports: get('reports'), p_stats: get('stats') }));
+  }
+  main.addEventListener('click', async (e) => {
+    if (e.target.id !== 'roleSave') return;
+    const u = $('#roleU').value.trim().replace(/^@/, '').toLowerCase();
+    if (!u) { $('#roleHint').textContent = 'Kullanıcı adını yaz.'; $('#roleHint').className = 'hint err'; return; }
+    try { await saveRole($('#roleP').value, u, $('#roleAdd')); load(); } catch (err) { $('#roleHint').textContent = 'Kaydedilemedi: ' + err.message; $('#roleHint').className = 'hint err'; }
+  });
+  main.addEventListener('change', async (e) => {
+    const card = e.target.closest('.card.role');
+    if (!card || !e.target.matches('[data-role]')) return;
+    try { await saveRole(card.dataset.p, card.dataset.u, card); if (![...card.querySelectorAll('[data-role]')].some((c) => c.checked)) load(); }
+    catch (err) { alert('Kaydedilemedi: ' + err.message); e.target.checked = !e.target.checked; }
+  });
+
+  // 📢 Duyuru
+  async function ann() {
+    const d = (await rpc('app_status', {})) || {};
+    main.innerHTML = `<div class="card"><b>📢 Duyuru</b>
+      ${d.announcement ? `<div class="note" style="border-color:var(--blue);background:#eff6ff">Şu an yayında: ${esc(d.announcement)}</div>` : ''}
+      <textarea id="annText" maxlength="300" style="margin-top:8px" placeholder="${d.announcement ? 'Yeni duyuru yaz — yayınlayınca eskisinin yerine geçer' : 'Herkesin ekranının üstünde görünecek duyuru'}"></textarea>
+      <div class="row" style="margin-top:8px">${d.announcement ? '<button class="b small" id="annOff">Duyuruyu kaldır</button>' : ''}<span style="flex:1"></span><button class="b small primary" id="annOn">📢 Yayınla</button></div>
+      <p class="hint" id="annHint">Duyuru uygulamayı kapatmaz; herkes ✕ ile kapatabilir.</p></div>`;
+  }
+  // 🛠️ Bakım
+  const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+  async function maint() {
+    const d = (await rpc('app_status', {})) || {};
+    const on = !!d.maintenance;
+    main.innerHTML = `<div class="card"><b>${on ? '🛠️ Bakım modu AÇIK — uygulama sadece sende çalışıyor' : '✅ Uygulama herkese açık'}</b>
+      <p class="hint" style="margin:10px 0 4px">Sebep (zorunlu · kullanıcılar görür)</p>
+      <textarea id="mText" maxlength="300" placeholder="örn: Yeni özellik ekleniyor">${on ? esc(d.message || '') : ''}</textarea>
+      <p class="hint" style="margin:10px 0 4px">⏰ Tahmini açılış (zorunlu)</p>
+      <input id="mEta" type="time" value="${on && TIME.test(d.eta || '') ? esc(d.eta) : ''}" />
+      <div class="row" style="margin-top:10px">${on ? '<button class="b small" id="mSave">Bilgiyi güncelle</button><span style="flex:1"></span><button class="b small primary" id="mOff">Bakımı kapat</button>' : '<span style="flex:1"></span><button class="b danger" id="mOn">🛠️ Bakıma al</button>'}</div>
+      <p class="hint" id="mHint">Bakımdayken herkeste uygulama "Bakımdayız" ekranıyla kapanır, sen kullanmaya devam edersin.</p></div>`;
+  }
+  main.addEventListener('click', async (e) => {
+    const id = e.target.id;
+    const hint = (el, t) => { el.textContent = t; el.className = 'hint err'; };
+    try {
+      if (id === 'annOn' || id === 'annOff') {
+        const text = id === 'annOff' ? '' : $('#annText').value.trim();
+        if (id === 'annOn' && !text) return hint($('#annHint'), 'Duyuru metnini yaz.');
+        await rpc('set_announcement', A({ p_text: text }));
+        return load();
+      }
+      if (['mOn', 'mOff', 'mSave'].includes(id)) {
+        if (id !== 'mOff') {
+          if (!$('#mText').value.trim()) return hint($('#mHint'), 'Sebebi yaz.');
+          if (!TIME.test($('#mEta').value)) return hint($('#mHint'), 'Tahmini açılış saatini seç (örn: 22:30).');
+        }
+        if (id === 'mOn' && !confirm('Uygulama senin dışındaki herkese kapansın mı?')) return;
+        const on = id !== 'mOff';
+        await rpc('set_maintenance', A({ p_on: on, p_message: on ? $('#mText').value : '', p_eta: on ? $('#mEta').value : '' }));
+        return load();
+      }
+      if (id === 'errClear' && confirm('Bütün hata kayıtları silinsin mi?')) { await rpc('clear_errors', A()); return load(); }
+    } catch (err) { alert('Kaydedilemedi: ' + err.message); }
+  });
+
+  // ⚠️ Hatalar
+  async function errors() {
+    const list = (await rpc('get_errors', A())) || [];
+    main.innerHTML = (list.length ? '<div class="row" style="margin-bottom:10px"><span style="flex:1"></span><button class="b small" id="errClear">🗑 Hepsini temizle</button></div>' : '')
+      + (list.length ? list.map((x) => `<div class="card"><div class="meta"><b>⚠️ ${esc(x.kind)}</b><span style="flex:1"></span><span>${esc(fmtDate(x.at))}</span></div>
+        <div class="msg" style="margin:4px 0">${esc(x.detail)}</div><div class="hint">${esc(x.account || 'giriş yok')} · ${esc(devLabel(x.platform))} · v${esc(x.version || '?')}</div></div>`).join('') : '<div class="empty">Kayıtlı hata yok 🎉</div>');
+  }
+
+  // İstatistik açıkken her dakika kendiliğinden yenilensin
+  setInterval(() => { if (pw && tab === 'stats' && !document.hidden) load(); }, 60000);
+
+  if (pw) start(); else showLogin();
+})();
+</script>
+</body>
+</html>
