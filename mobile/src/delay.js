@@ -4,7 +4,7 @@
 import { reportRpc } from './report';
 
 const TWITCH_CLIENT_ID = 'kimne78kx3ncx6brgo4mv6wki5h1ko';
-const WINDOW_MS = 20000;
+const WINDOW_MS = 6000; // kısa pencere: yayın takılınca birkaç saniyede görünür
 
 async function fetchText(url) {
   const res = await fetch(url, { cache: 'no-store' });
@@ -106,9 +106,10 @@ async function sample(p, key, getMasterUrl) {
   const edge = liveEdgeTime(media);
   if (!edge) throw new Error('zaman bilgisi yok');
   const now = Date.now();
+  if (edge !== st.lastEdge) { st.lastEdge = edge; st.edgeAt = now; }
   st.samples.push({ t: now, lag: trueNow() - edge });
   st.samples = st.samples.filter((x) => now - x.t <= WINDOW_MS);
-  return { lag: Math.min(...st.samples.map((x) => x.lag)), n: st.samples.length };
+  return { lag: Math.min(...st.samples.map((x) => x.lag)), n: st.samples.length, stalled: now - (st.edgeAt || now) };
 }
 
 // Dönüş: { twitch: { lag, n } | { err }, kick: ... }  (kanal yoksa null)

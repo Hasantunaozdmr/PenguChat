@@ -321,7 +321,8 @@ async function syncClock() {
 const trueNow = () => Date.now() + clockOffset;
 
 // Her platform için: medya listesinin adresi (birkaç dakika geçerli) ve son ölçümler
-const SAMPLE_WINDOW_MS = 20000;
+// Son 6 sn'nin en küçüğü: parça sınırındaki 0-2 sn'lik zıplamayı siler ama yayın takılınca birkaç saniyede fark eder
+const SAMPLE_WINDOW_MS = 6000;
 const delayState = {
   twitch: { key: null, mediaUrl: null, mediaAt: 0, samples: [] },
   kick: { key: null, mediaUrl: null, mediaAt: 0, samples: [] },
@@ -355,9 +356,11 @@ async function sampleLag(p, key, getMasterUrl) {
   const edge = liveEdgeTime(media);
   if (!edge) throw new Error('zaman bilgisi yok');
   const now = Date.now();
+  // Yayın takıldı mı: listenin son parçası ne zamandan beri değişmiyor
+  if (edge !== st.lastEdge) { st.lastEdge = edge; st.edgeAt = now; }
   st.samples.push({ t: now, lag: trueNow() - edge });
   st.samples = st.samples.filter((x) => now - x.t <= SAMPLE_WINDOW_MS);
-  return { lag: Math.min(...st.samples.map((x) => x.lag)), n: st.samples.length };
+  return { lag: Math.min(...st.samples.map((x) => x.lag)), n: st.samples.length, stalled: now - (st.edgeAt || now) };
 }
 
 async function twitchMasterUrl(channel) {
@@ -387,7 +390,7 @@ async function twitchMasterUrl(channel) {
 
 ipcMain.handle('measure-delay', async (_e, { twitch, kick, kickPlaybackUrl }) => {
   await syncClock().catch(() => {});
-  const out = { twitch: null, kick: null, n: { twitch: 0, kick: 0 }, errors: {}, clock: { offset: clockOffset, source: clockSource } };
+  const out = { twitch: null, kick: null, n: { twitch: 0, kick: 0 }, stalled: { twitch: 0, kick: 0 }, errors: {}, clock: { offset: clockOffset, source: clockSource } };
   await Promise.all([
     (async () => {
       try {
@@ -395,6 +398,7 @@ ipcMain.handle('measure-delay', async (_e, { twitch, kick, kickPlaybackUrl }) =>
         const r = await sampleLag('twitch', twitch, () => twitchMasterUrl(twitch));
         out.twitch = r.lag;
         out.n.twitch = r.n;
+        out.stalled.twitch = r.stalled;
       } catch (e) {
         delayState.twitch.samples = [];
         out.errors.twitch = String(e.message || e);
@@ -406,6 +410,7 @@ ipcMain.handle('measure-delay', async (_e, { twitch, kick, kickPlaybackUrl }) =>
         const r = await sampleLag('kick', kick, async () => kickPlaybackUrl);
         out.kick = r.lag;
         out.n.kick = r.n;
+        out.stalled.kick = r.stalled;
       } catch (e) {
         delayState.kick.samples = [];
         out.errors.kick = String(e.message || e);
