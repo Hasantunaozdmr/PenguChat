@@ -251,7 +251,7 @@
     }
   };
   menu.addEventListener('click', onMenuAction);
-  // ⚙️ Ayarlar: Yönetim, Renk, Güncelleme, Çıkış tek pencerede
+  // 🔧 Ayarlar: Renk, Güncelleme, Çıkış tek pencerede
   const settingsDlg = $('#settingsDlg');
   $('#settingsBtn').addEventListener('click', () => settingsDlg.classList.remove('hidden'));
   settingsDlg.addEventListener('click', (e) => {
@@ -306,9 +306,6 @@
     const b = $('#inboxBadge');
     b.textContent = n > 9 ? '9+' : String(n);
     b.classList.toggle('hidden', !n);
-    const sb = $('#settingsBadge'); // Ayarlar tuşunda da görünsün
-    sb.textContent = b.textContent;
-    sb.classList.toggle('hidden', !n);
   }
   function markSeen(list) {
     const max = Math.max(getSeen(), ...list.map((x) => Number(x.id) || 0));

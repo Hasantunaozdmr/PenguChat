@@ -32,12 +32,13 @@
   <nav class="actionbar" id="menu">
     <button id="modToggle" class="btn act hidden" title="Hızlı timeout / ban çubuğunu aç / kapat">👤 Mod araçları</button>
     <button id="reportBtn" class="btn act" title="Bir sorun bildir">🐞 Sorun bildir<span id="reportDot" class="dot-new hidden"></span></button>
+    <button id="inboxBtn" class="btn act hidden" title="Sorunlar, mod log, istatistik…">⚙️ Yönetim<span id="inboxBadge" class="badge hidden"></span></button>
     <span class="mb-sep"></span>
     <button id="layoutBtn" class="btn act" title="Yan yana / Alt alta">⇆ Yan yana</button>
     <button id="swapBtn" class="btn act" title="Panellerin yerini değiştir">⇄ Yer değiştir</button>
     <button class="btn act" data-action="reload-all" title="Her iki chat'i yenile (F5)">⟳ Chat'leri yenile</button>
     <div class="spacer"></div>
-    <button id="settingsBtn" class="btn act" title="Yönetim, renk, güncelleme, çıkış">⚙️ Ayarlar<span id="settingsBadge" class="badge hidden"></span></button>
+    <button id="settingsBtn" class="btn act" title="Renk, güncelleme, çıkış">🔧 Ayarlar</button>
     <button class="btn act" id="collapseBtn" title="Üstteki çubukları gizle (chat'lere daha çok yer)">▲ Gizle</button>
   </nav>
   <!-- Üst kısım gizliyken: ince şerit, tıklayınca geri açılır -->
@@ -107,9 +108,8 @@
 
   <div id="settingsDlg" class="dlg-wrap hidden">
     <div class="dlg settings-dlg">
-      <div class="dlg-head"><strong>⚙️ Ayarlar</strong><div class="spacer"></div><button class="btn mini" data-close>✕</button></div>
+      <div class="dlg-head"><strong>🔧 Ayarlar</strong><div class="spacer"></div><button class="btn mini" data-close>✕</button></div>
       <div class="settings-list" id="settingsList">
-        <button id="inboxBtn" class="set-item hidden"><b>🛠️ Yönetim<span id="inboxBadge" class="badge hidden"></span></b><small>Sorunlar, mod log, istatistik, yetkiler, duyuru, bakım</small></button>
         <button id="themeBtn" class="set-item"><b>🎨 Renk</b><small>Uygulamanın rengini değiştir</small></button>
         <button class="set-item" data-action="check-update"><b>⬆ Güncelleme <kbd id="versionLabel"></kbd></b><small>Yeni sürüm var mı bak</small></button>
         <button class="set-item" data-action="logout"><b>🚪 Hesaplardan çık</b><small>Twitch ve Kick hesaplarından çıkış yap</small></button>

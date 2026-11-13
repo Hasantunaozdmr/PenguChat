@@ -728,7 +728,17 @@ function PenguChat() {
           onLongPress={() => setReportMode('inbox')}
         />
         <Act label={tabs ? '▤ Alt alta' : '⇆ Sekmeli'} onPress={() => update({ layout: tabs ? 'split' : 'tabs' })} />
-        <Act label="⚙️ Ayarlar" count={canInbox ? newReports : 0} dot={!!newVersion} onPress={() => setSettingsOpen(true)} />
+        {canInbox && (
+          <Act
+            label="⚙️ Yönetim"
+            count={newReports}
+            onPress={() => {
+              setNewReports(0);
+              setReportMode('inbox');
+            }}
+          />
+        )}
+        <Act label="🔧 Ayarlar" dot={!!newVersion} onPress={() => setSettingsOpen(true)} />
         <Act label="▲ Gizle" onPress={() => update({ topCollapsed: true })} />
         {anyModAccess && delayPill && (
           <Pressable
@@ -763,7 +773,6 @@ function PenguChat() {
         <SettingsSheet
           onClose={() => setSettingsOpen(false)}
           items={[
-            canInbox && { label: '🛠️ Yönetim', sub: 'Sorunlar, mod log, istatistik, yetkiler, duyuru, bakım', count: newReports, onPress: () => { setNewReports(0); setReportMode('inbox'); } },
             { label: '🎨 Renk', sub: 'Uygulamanın rengini değiştir', onPress: () => setThemeOpen(true) },
             Platform.OS === 'android' && { label: checking ? '⬆ Bakılıyor…' : '⬆ Güncelleme', sub: newVersion ? 'Yeni sürüm var!' : 'Yeni sürüm var mı bak', dot: !!newVersion, onPress: checkUpdateNow },
           ].filter(Boolean)}
@@ -936,7 +945,7 @@ function SettingsSheet({ items, onClose }) {
       <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,.55)', justifyContent: 'center', padding: 16 }} onPress={onClose}>
         <Pressable style={{ backgroundColor: C.panel, borderRadius: 12, borderWidth: 1, borderColor: C.border, padding: 14, gap: 8 }} onPress={() => {}}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-            <Text style={{ color: C.text, fontSize: 16, fontWeight: '700', flex: 1 }}>⚙️ Ayarlar</Text>
+            <Text style={{ color: C.text, fontSize: 16, fontWeight: '700', flex: 1 }}>🔧 Ayarlar</Text>
             <Pressable onPress={onClose} hitSlop={10}><Text style={{ color: C.text, fontSize: 18 }}>✕</Text></Pressable>
           </View>
           {items.map((it) => (
