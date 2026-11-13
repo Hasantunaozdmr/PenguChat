@@ -54,10 +54,15 @@ export async function sendPing(info) {
     await reportRpc('ping', { p_id: await clientId(), ...info });
   } catch {}
 }
+// p_source: tel-app (uygulamanın tuşu) / tel-site (Twitch'in, Kick'in kendi tuşu)
 export async function logModAction(info) {
+  const { p_source = 'tel-app', ...rest } = info;
+  const args = { p_client: await clientId(), ...rest };
   try {
-    await reportRpc('log_mod_action', { p_client: await clientId(), ...info });
-  } catch {}
+    await reportRpc('log_mod_action', { ...args, p_source });
+  } catch (e) {
+    if (/\(404\)/.test(String(e && e.message))) reportRpc('log_mod_action', args).catch(() => {}); // sunucu henüz eski
+  }
 }
 
 const reportedErrors = new Map();

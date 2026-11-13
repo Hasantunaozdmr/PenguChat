@@ -487,8 +487,8 @@ ipcMain.handle('rpc', reportHandler((_e, { fn, args }) => {
   return reportRpc(fn, args || {});
 }));
 ipcMain.handle('report-modlog', reportHandler((_e, password) => reportRpc('get_mod_log', { p_password: String(password || '') })));
-ipcMain.handle('mod-action', reportHandler((_e, a) =>
-  reportRpc('log_mod_action', {
+ipcMain.handle('mod-action', reportHandler(async (_e, a) => {
+  const args = {
     p_client: String(a.client || ''),
     p_mod_twitch: String(a.twitch || '').slice(0, 40),
     p_mod_kick: String(a.kick || '').slice(0, 40),
@@ -497,7 +497,15 @@ ipcMain.handle('mod-action', reportHandler((_e, a) =>
     p_target: String(a.target || '').slice(0, 40),
     p_secs: a.secs ? Number(a.secs) : null,
     p_ok: !!a.ok,
-  })));
+  };
+  // Nereden yapıldı: pc-app (uygulamanın tuşu) / pc-site (Twitch'in, Kick'in kendi tuşu)
+  try {
+    return await reportRpc('log_mod_action', { ...args, p_source: String(a.source || 'pc-app').slice(0, 20) });
+  } catch (e) {
+    if (/\(404\)/.test(String(e.message))) return reportRpc('log_mod_action', args); // sunucu henüz eski
+    throw e;
+  }
+}));
 ipcMain.handle('ping', reportHandler((_e, { id, mod, twitch, kick }) =>
   reportRpc('ping', {
     p_id: String(id || ''),

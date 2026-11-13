@@ -227,13 +227,14 @@
   });
 
   // 🛡️ Mod log
+  const SOURCE = { 'pc-app': '💻 PC · uygulama tuşu', 'pc-site': '💻 PC · sitenin kendi tuşu', 'tel-app': '📱 Telefon · uygulama tuşu', 'tel-site': '📱 Telefon · sitenin kendi tuşu' };
   const MOD_KIND = { ban: '⛔ Ban', untimeout: '↩ Timeout kaldırıldı', unban: '↩ Ban kaldırıldı', delete: '🗑 Mesaj silindi' };
   async function modLog() {
     const list = (await rpc('get_mod_log', A())) || [];
     main.innerHTML = list.length ? list.map((x) => {
       const who = (x.platform === 'twitch' ? x.mod_twitch : x.mod_kick) || x.mod_twitch || x.mod_kick || '?';
       return `<div class="card"><div class="meta"><b>${MOD_KIND[x.action] || '⏱ Timeout ' + esc(fmtDur(x.secs))} · ${esc(x.target)}</b><span style="flex:1"></span><span>${esc(fmtDate(x.at))}</span></div>
-        <div class="meta">${x.platform === 'twitch' ? 'Twitch' : 'Kick'} · mod: ${esc(who)}${x.ok === false ? ' · ✗ gönderilemedi' : ''}</div></div>`;
+        <div class="meta">${x.platform === 'twitch' ? 'Twitch' : 'Kick'} · mod: ${esc(who)}${x.source ? ' · ' + esc(SOURCE[x.source] || x.source) : ''}${x.ok === false ? ' · ✗ gönderilemedi' : ''}</div></div>`;
     }).join('') : '<div class="empty">Henüz mod işlemi yok.</div>';
   }
 

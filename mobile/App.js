@@ -524,7 +524,7 @@ function PenguChat() {
       try {
         const a = JSON.parse(data.slice(16));
         if (!['timeout', 'ban', 'untimeout', 'unban', 'delete'].includes(a.action) || !canMod(k)) return;
-        logModAction({ p_mod_twitch: accounts.twitch, p_mod_kick: accounts.kick, p_platform: k, p_action: a.action, p_target: String(a.target || '?').slice(0, 40), p_secs: a.action === 'timeout' ? Number(a.secs) || null : null, p_ok: true });
+        logModAction({ p_mod_twitch: accounts.twitch, p_mod_kick: accounts.kick, p_platform: k, p_action: a.action, p_target: String(a.target || '?').slice(0, 40), p_secs: a.action === 'timeout' ? Number(a.secs) || null : null, p_ok: true, p_source: 'tel-site' });
       } catch {}
     } else if (data.startsWith('__PENGU_PICK__')) {
       if (!anyModAccess) return; // izleyici modunda dokunma bir şey yapmaz

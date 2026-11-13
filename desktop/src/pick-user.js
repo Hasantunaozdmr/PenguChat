@@ -430,7 +430,8 @@
   const recentAuthor = () => (Date.now() - lastAuthor.at < 60000 ? lastAuthor.name : '');
   function reportSiteAction(action, target, secs) {
     if (Date.now() < (window.__penguOwnUntil || 0)) return;
-    target = String(target || recentAuthor() || '?').replace(/^@/, '').toLowerCase().slice(0, 40);
+    target = String(target || recentAuthor() || '').replace(/^@/, '').toLowerCase().slice(0, 40);
+    if (!target) return; // kime yapıldığı bilinmiyorsa kaydetme (yanlış kayıt olmasın)
     post('__PENGU_MODACT__' + JSON.stringify({ action, target, secs: secs || null }));
   }
   function durSecs(v) {
@@ -445,15 +446,20 @@
     try { ops = JSON.parse(bodyText); } catch { return; }
     for (const op of Array.isArray(ops) ? ops : [ops]) {
       const name = String((op && op.operationName) || '');
+      // Sadece gerçek işlemler (mutation): "ban talepleri", "ban durumu" gibi okuma sorguları sayılmaz
+      if (op && typeof op.query === 'string' && !/^\s*mutation\b/.test(op.query)) continue;
+      if (/request|status|evasion|list|count|setting|log|history|suspicious|restrict/i.test(name)) continue;
       const v = (op && op.variables) || {};
       const inp = v.input || v;
-      const target = inp.bannedUserLogin || inp.targetUserLogin || inp.userLogin || inp.login || inp.targetLogin || '';
-      if (/unban|untimeout/i.test(name)) reportSiteAction(/timeout/i.test(name) ? 'untimeout' : 'unban', target);
-      else if (/timeout/i.test(name)) reportSiteAction('timeout', target, durSecs(inp.duration || inp.expiresIn));
+      const target = inp.bannedUserLogin || inp.targetUserLogin || inp.timedOutUserLogin || inp.userLogin || inp.targetLogin || '';
+      const hasTarget = typeof target === 'string' && /^[A-Za-z0-9_]{2,25}$/.test(target);
+      if (/unban|untimeout/i.test(name)) { if (hasTarget) reportSiteAction(/timeout/i.test(name) ? 'untimeout' : 'unban', target); }
+      else if (/timeout/i.test(name)) { if (hasTarget) reportSiteAction('timeout', target, durSecs(inp.duration || inp.expiresIn)); }
       else if (/ban/i.test(name)) {
+        if (!hasTarget) continue;
         const secs = durSecs(inp.expiresIn || inp.duration);
         reportSiteAction(secs ? 'timeout' : 'ban', target, secs);
-      } else if (/delete.*message|message.*delete/i.test(name)) reportSiteAction('delete', '');
+      } else if (/delete.*message|message.*delete/i.test(name) && (inp.messageID || inp.messageId || inp.msgID)) reportSiteAction('delete', '');
     }
   }
   function inspectKick(method, url, bodyText) {

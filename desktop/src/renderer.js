@@ -97,7 +97,7 @@
         try {
           const a = JSON.parse(e.message.slice(16));
           if (!['timeout', 'ban', 'untimeout', 'unban', 'delete'].includes(a.action) || !canMod(p)) return;
-          window.dualChat.modAction({ client: clientId(), twitch: accounts.twitch, kick: accounts.kick, platform: p, action: a.action, target: a.target, secs: a.action === 'timeout' ? Number(a.secs) || null : null, ok: true }).catch(() => {});
+          window.dualChat.modAction({ client: clientId(), twitch: accounts.twitch, kick: accounts.kick, platform: p, action: a.action, target: a.target, secs: a.action === 'timeout' ? Number(a.secs) || null : null, ok: true, source: 'pc-site' }).catch(() => {});
         } catch {}
       }
     });
@@ -714,6 +714,7 @@
   }
   // "android 14 · SM-A546B" → "android · SM-A546B"
   const devLabel = (pl) => { const [a, m] = String(pl || '').split(' · '); return a.split(' ')[0] + (m ? ' · ' + m : ''); };
+  const SOURCE = { 'pc-app': '💻 PC · uygulama tuşu', 'pc-site': '💻 PC · sitenin kendi tuşu', 'tel-app': '📱 Telefon · uygulama tuşu', 'tel-site': '📱 Telefon · sitenin kendi tuşu' };
   const MOD_KIND = { ban: '⛔ Ban', untimeout: '↩ Timeout kaldırıldı', unban: '↩ Ban kaldırıldı', delete: '🗑 Mesaj silindi' };
   function renderModLog(list, box, countEl) {
     countEl.textContent = list.length ? `${list.length} işlem` : '';
@@ -731,7 +732,7 @@
           const canUndo = (x.action === 'timeout' || x.action === 'ban') && x.ok !== false && !undone.has(x.id);
           return `<div class="log-row ${undone.has(x.id) ? 'undone' : ''}"><span class="t">${esc(fmtDate(x.at))}</span>
             <span class="k">${MOD_KIND[x.action] || '⏱ Timeout ' + esc(fmtDur(x.secs))}</span>
-            <span class="d"><b>${esc(x.target)}</b> · ${x.platform === 'twitch' ? 'Twitch' : 'Kick'}<small>mod: ${esc(who)}${x.ok === false ? ' · ✗ gönderilemedi' : ''}${undone.has(x.id) ? ' · geri alındı' : ''}</small></span>
+            <span class="d"><b>${esc(x.target)}</b> · ${x.platform === 'twitch' ? 'Twitch' : 'Kick'}<small>mod: ${esc(who)}${x.source ? ' · ' + esc(SOURCE[x.source] || x.source) : ''}${x.ok === false ? ' · ✗ gönderilemedi' : ''}${undone.has(x.id) ? ' · geri alındı' : ''}</small></span>
             ${canUndo ? `<button class="btn mini undo" data-undo="${esc(x.action)}" data-p="${esc(x.platform)}" data-t="${esc(x.target)}" title="Bu cezayı kaldır">↩ Geri al</button>` : ''}</div>`;
         }).join('')
       : '<div class="empty">Henüz mod işlemi yok. (Uygulamanın içinde yapılan timeout / ban / mesaj silme kaydedilir.)</div>';
