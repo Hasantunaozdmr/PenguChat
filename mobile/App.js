@@ -113,6 +113,7 @@ function PenguChat() {
     themeApplied.current = s.themeColor;
   }
   const [themeOpen, setThemeOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false); // ⚙️ Ayarlar: Yönetim, Renk, Güncelleme
   const [ready, setReady] = useState(false);
   // Android: chat'ler, telefonun gerçek Chrome sürümü öğrenildikten sonra açılır (en fazla 2,5 sn beklenir)
   const [uaReady, setUaReady] = useState(Platform.OS !== 'android');
@@ -259,7 +260,6 @@ function PenguChat() {
   };
   // Yeni sürüm tarayıcıdan indirilir, sonra Android'in kurulum ekranı açılır.
   // (Uygulamanın içinden kurma izni Google Play Protect'e takıldığı için kaldırıldı.)
-  const dlPct = null;
   const installUpdate = () => Linking.openURL(`${RELEASE_BASE}/PenguChat.apk`);
 
 
@@ -683,6 +683,7 @@ function PenguChat() {
 
   const tabs = s.layout === 'tabs';
   const collapsed = !!s.topCollapsed;
+  const canInbox = !!admin || ownerOn.twitch || ownerOn.kick || anyRole;
 
   return (
     <View style={styles.root}>
@@ -726,20 +727,9 @@ function PenguChat() {
           }}
           onLongPress={() => setReportMode('inbox')}
         />
-        {(!!admin || ownerOn.twitch || ownerOn.kick || anyRole) && (
-          <Act
-            label="⚙️ Yönetim"
-            count={newReports}
-            onPress={() => {
-              setNewReports(0);
-              setReportMode('inbox');
-            }}
-          />
-        )}
         <Act label={tabs ? '▤ Alt alta' : '⇆ Sekmeli'} onPress={() => update({ layout: tabs ? 'split' : 'tabs' })} />
-        <Act label="🎨 Renk" onPress={() => setThemeOpen(true)} />
+        <Act label="⚙️ Ayarlar" count={canInbox ? newReports : 0} dot={!!newVersion} onPress={() => setSettingsOpen(true)} />
         <Act label="▲ Gizle" onPress={() => update({ topCollapsed: true })} />
-        {Platform.OS === 'android' && <Act label={dlPct != null ? `⬆ İniyor %${dlPct}` : checking ? '⬆ Bakılıyor…' : '⬆ Güncelleme'} dot={!!newVersion} onPress={checkUpdateNow} />}
         {anyModAccess && delayPill && (
           <Pressable
             onPress={flipDelay}
@@ -768,6 +758,16 @@ function PenguChat() {
           {!!maint.eta && <Text style={[styles.maintMsg, { fontWeight: '700', fontSize: 17 }]}>⏰ Tahmini açılış: {maint.eta}</Text>}
           <Text style={styles.maintSmall}>Her 30 saniyede bir kontrol ediliyor…</Text>
         </View>
+      )}
+      {settingsOpen && (
+        <SettingsSheet
+          onClose={() => setSettingsOpen(false)}
+          items={[
+            canInbox && { label: '🛠️ Yönetim', sub: 'Sorunlar, mod log, istatistik, yetkiler, duyuru, bakım', count: newReports, onPress: () => { setNewReports(0); setReportMode('inbox'); } },
+            { label: '🎨 Renk', sub: 'Uygulamanın rengini değiştir', onPress: () => setThemeOpen(true) },
+            Platform.OS === 'android' && { label: checking ? '⬆ Bakılıyor…' : '⬆ Güncelleme', sub: newVersion ? 'Yeni sürüm var!' : 'Yeni sürüm var mı bak', dot: !!newVersion, onPress: checkUpdateNow },
+          ].filter(Boolean)}
+        />
       )}
       {themeOpen && <ThemePicker current={s.themeColor} onPick={(c) => update({ themeColor: c })} onClose={() => setThemeOpen(false)} />}
       {reportMode && <ReportModal accounts={accounts} roles={roles} onUndo={undoAction} annNow={ann} mode={reportMode} onClose={() => setReportMode(null)} appVersion={APP_VERSION} admin={admin} onAdminChange={changeAdmin} startTab={mineNews ? 'mine' : 'new'} onMineSeen={() => setMineNews(false)} />}
@@ -929,6 +929,36 @@ const HUES = Array.from({ length: 36 }, (_, i) => {
   const f = (n) => { const k = (n + h / 30) % 12; return Math.round((0.5 - 0.45 * Math.max(-1, Math.min(k - 3, 9 - k, 1))) * 255).toString(16).padStart(2, '0'); };
   return '#' + f(0) + f(8) + f(4);
 });
+// ⚙️ Ayarlar penceresi: seçilen satır açılırken pencere kapanır
+function SettingsSheet({ items, onClose }) {
+  return (
+    <Modal transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,.55)', justifyContent: 'center', padding: 16 }} onPress={onClose}>
+        <Pressable style={{ backgroundColor: C.panel, borderRadius: 12, borderWidth: 1, borderColor: C.border, padding: 14, gap: 8 }} onPress={() => {}}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+            <Text style={{ color: C.text, fontSize: 16, fontWeight: '700', flex: 1 }}>⚙️ Ayarlar</Text>
+            <Pressable onPress={onClose} hitSlop={10}><Text style={{ color: C.text, fontSize: 18 }}>✕</Text></Pressable>
+          </View>
+          {items.map((it) => (
+            <Pressable
+              key={it.label}
+              onPress={() => { onClose(); it.onPress(); }}
+              style={{ borderWidth: 1, borderColor: C.border, backgroundColor: C.input, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10 }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={{ color: C.text, fontSize: 15, fontWeight: '700' }}>{it.label}</Text>
+                {!!it.count && <Text style={{ color: '#fff', backgroundColor: '#e5484d', borderRadius: 9, minWidth: 18, textAlign: 'center', fontSize: 11, fontWeight: '700', paddingHorizontal: 5, overflow: 'hidden' }}>{it.count}</Text>}
+                {!!it.dot && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#e5484d' }} />}
+              </View>
+              <Text style={{ color: C.muted, fontSize: 12, marginTop: 2 }}>{it.sub}</Text>
+            </Pressable>
+          ))}
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
 // "#ff8800", "ff8800" ya da kısa "#f80" → "#ff8800"; hatalıysa null
 function normHex(v) {
   const m = /^#?([0-9a-f]{6}|[0-9a-f]{3})$/i.exec(String(v || '').trim());

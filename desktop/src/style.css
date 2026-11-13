@@ -425,3 +425,13 @@ body.top-collapsed .toolbar, body.top-collapsed .actionbar, body.top-collapsed .
 .theme-dlg .dlg-foot { flex-wrap: wrap; row-gap: 8px; }
 .theme-dlg .custom-color { white-space: nowrap; }
 .theme-dlg #themeReset { white-space: nowrap; }
+
+/* ⚙️ Ayarlar penceresi */
+.settings-dlg { width: min(420px, 92vw); }
+.settings-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.set-item { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--input); color: var(--text); font: inherit; cursor: pointer; }
+.set-item:hover { background: var(--hover); }
+.set-item b { font-size: 14px; position: relative; display: inline-flex; align-items: center; gap: 6px; }
+.set-item small { color: var(--muted); font-size: 12px; }
+.set-item .badge { position: static; transform: none; }
+.set-item.hidden { display: none; }

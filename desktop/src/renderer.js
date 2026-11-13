@@ -241,7 +241,7 @@
 
   // ---------- Menü ----------
   const menu = $('#menu');
-  menu.addEventListener('click', async (e) => {
+  const onMenuAction = async (e) => {
     const action = e.target.closest('button')?.dataset.action;
     if (action === 'reload-all') { openChat('twitch'); openChat('kick'); }
     if (action === 'check-update') { manualCheck = true; window.dualChat.checkUpdates(); }
@@ -249,6 +249,16 @@
       await window.dualChat.logoutAll();
       openChat('twitch'); openChat('kick');
     }
+  };
+  menu.addEventListener('click', onMenuAction);
+  // ⚙️ Ayarlar: Yönetim, Renk, Güncelleme, Çıkış tek pencerede
+  const settingsDlg = $('#settingsDlg');
+  $('#settingsBtn').addEventListener('click', () => settingsDlg.classList.remove('hidden'));
+  settingsDlg.addEventListener('click', (e) => {
+    const item = e.target.closest('.set-item');
+    if (!item) return;
+    settingsDlg.classList.add('hidden'); // seçilen pencere açılırken ayarlar kapansın
+    onMenuAction(e);
   });
 
   window.addEventListener('keydown', (e) => {
@@ -296,6 +306,9 @@
     const b = $('#inboxBadge');
     b.textContent = n > 9 ? '9+' : String(n);
     b.classList.toggle('hidden', !n);
+    const sb = $('#settingsBadge'); // Ayarlar tuşunda da görünsün
+    sb.textContent = b.textContent;
+    sb.classList.toggle('hidden', !n);
   }
   function markSeen(list) {
     const max = Math.max(getSeen(), ...list.map((x) => Number(x.id) || 0));
@@ -353,13 +366,13 @@
   });
   $('#themeBtn').addEventListener('click', () => themeDlg.classList.remove('hidden'));
   applyTheme();
-  for (const d of [reportDlg, inboxDlg, themeDlg]) {
+  for (const d of [reportDlg, inboxDlg, themeDlg, $('#settingsDlg')]) {
     d.addEventListener('click', (e) => {
       if (e.target === d || e.target.closest('[data-close]')) d.classList.add('hidden');
     });
   }
   window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') { reportDlg.classList.add('hidden'); inboxDlg.classList.add('hidden'); themeDlg.classList.add('hidden'); }
+    if (e.key === 'Escape') { reportDlg.classList.add('hidden'); inboxDlg.classList.add('hidden'); themeDlg.classList.add('hidden'); $('#settingsDlg').classList.add('hidden'); }
   });
 
   function reportHint(text, cls) {
