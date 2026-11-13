@@ -1151,10 +1151,6 @@
       delayTag.textContent = `⏱ ${label} kapalı / ölçülemedi`;
       delayTag.title = 'Ölçülemedi: ' + (r.errors[showing] || '');
       delayTag.classList.add('muted');
-    } else if (r.stalled && r.stalled[showing] > 8000) {
-      // Yayın görüntüsü ilerlemiyor: kesinti / donma
-      delayTag.textContent = `⚠️ ${label} yayını takıldı (${Math.round(r.stalled[showing] / 1000)} sn)`;
-      delayTag.classList.add('warn');
     } else if (r.n[showing] < 3) {
       delayTag.textContent = `⏱ ${label} ölçülüyor…`;
       delayTag.classList.add('muted');

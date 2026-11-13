@@ -422,7 +422,6 @@ function PenguChat() {
     const label = PLATFORMS[k].label;
     const waitingKick = d.err && k === 'kick' && !kickPb.current.url && Date.now() - kickPb.current.asked < 8000;
     if (d.err && !waitingKick) return { text: `⏱ ${label} kapalı / ölçülemedi`, kind: 'muted' };
-    if (!d.err && d.stalled > 8000) return { text: `⚠️ ${label} yayını takıldı (${Math.round(d.stalled / 1000)} sn)`, kind: 'warn' };
     if (waitingKick || d.n < 3) return { text: `⏱ ${label} ölçülüyor…`, kind: 'muted' };
     const secs = Math.max(0, Math.round(d.lag / 1000));
     return { text: `⏱ ${label} gecikmesi: ${secs} sn`, kind: secs >= 10 ? 'warn' : 'ok' };
