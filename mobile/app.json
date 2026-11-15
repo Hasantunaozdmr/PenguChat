@@ -27,6 +27,18 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "backgroundColor": "#0a6b67"
+    "backgroundColor": "#0a6b67",
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "extraMavenRepos": [
+              "https://jitpack.io"
+            ]
+          }
+        }
+      ]
+    ]
   }
 }
