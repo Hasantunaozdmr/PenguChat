@@ -32,6 +32,8 @@ export default function LiveScreen({ C, onClose, userAgent }) {
   const ref = useRef(null);
   const [keys, setKeys] = useState({ twitch: '', kickUrl: '', kick: '', useTwitch: true, useKick: true });
   const [quality, setQuality] = useState('mid');
+  const [kbps, setKbps] = useState(0); // elle bitrate (0 = kaliteye göre)
+  const [kbpsText, setKbpsText] = useState('');
   const [muted, setMuted] = useState(false);
   const [running, setRunning] = useState(false); // yayıncı "Yayına başla"ya bastı
   const [status, setStatus] = useState({ twitch: 'idle', kick: 'idle' });
@@ -45,7 +47,11 @@ export default function LiveScreen({ C, onClose, userAgent }) {
   useEffect(() => {
     AsyncStorage.multiGet([KEY_STORE, SET_STORE]).then((r) => {
       try { const k = JSON.parse(r[0][1] || '{}'); setKeys((o) => ({ ...o, ...k })); if (!k.twitch && !k.kick) setSetup(true); } catch { setSetup(true); }
-      try { const st = JSON.parse(r[1][1] || '{}'); if (QUALITY[st.quality]) setQuality(st.quality); } catch {}
+      try {
+        const st = JSON.parse(r[1][1] || '{}');
+        if (QUALITY[st.quality]) setQuality(st.quality);
+        if (st.kbps > 0) { setKbps(st.kbps); setKbpsText(String(st.kbps)); }
+      } catch {}
     });
     // Kamera + mikrofon izni
     if (Platform.OS === 'android') {
@@ -68,7 +74,14 @@ export default function LiveScreen({ C, onClose, userAgent }) {
   }, [running]);
 
   const saveKeys = (k) => { setKeys(k); AsyncStorage.setItem(KEY_STORE, JSON.stringify(k)).catch(() => {}); };
-  const saveQuality = (q) => { setQuality(q); AsyncStorage.setItem(SET_STORE, JSON.stringify({ quality: q })).catch(() => {}); };
+  const saveQuality = (q, k = kbps) => { setQuality(q); setKbps(k); AsyncStorage.setItem(SET_STORE, JSON.stringify({ quality: q, kbps: k })).catch(() => {}); };
+  const applyKbps = () => {
+    const v = Math.round(Number(kbpsText));
+    if (!kbpsText.trim()) return saveQuality(quality, 0);
+    if (!(v >= 300 && v <= 20000)) { setError('Bitrate 300 ile 20000 kbps arasında olmalı (örn: 4500).'); return; }
+    setError('');
+    saveQuality(quality, v);
+  };
 
   const targets = () => [
     keys.useTwitch && keys.twitch.trim() ? TWITCH_INGEST + keys.twitch.trim() : '',
@@ -119,6 +132,7 @@ export default function LiveScreen({ C, onClose, userAgent }) {
             ref={ref}
             style={{ flex: 1 }}
             quality={quality}
+            bitrateKbps={kbps}
             onStatus={(e) => {
               const { platform, state, message } = e.nativeEvent;
               setStatus((s) => ({ ...s, [platform]: state }));
@@ -136,7 +150,7 @@ export default function LiveScreen({ C, onClose, userAgent }) {
             <Text style={[pill, { color: '#fff', fontWeight: '700', backgroundColor: running && anyLive ? '#dc2626' : 'rgba(0,0,0,.6)' }]}>
               {running ? (anyLive ? `● CANLI ${fmtTime(Math.floor((Date.now() - startedAt) / 1000))}` : 'Bağlanıyor…') : 'Yayında değil'}
             </Text>
-            <Text style={[pill, { color: '#fff', backgroundColor: 'rgba(0,0,0,.6)' }]}>{QUALITY[quality]}</Text>
+            <Text style={[pill, { color: '#fff', backgroundColor: 'rgba(0,0,0,.6)' }]}>{QUALITY[quality]}{kbps ? ` · ${kbps} kbps` : ''}</Text>
             <View style={{ flex: 1 }} />
             <Pressable onPress={close} hitSlop={10} style={{ backgroundColor: 'rgba(0,0,0,.6)', borderRadius: 18, width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
               <Text style={{ color: '#fff', fontSize: 18 }}>✕</Text>
@@ -177,8 +191,8 @@ export default function LiveScreen({ C, onClose, userAgent }) {
           <Pressable style={btn('rgba(0,0,0,.6)')} onPress={() => setEdit(keys.useTwitch || !keys.useKick ? 'twitch' : 'kick')}>
             <Text style={txt}>✏️</Text>
           </Pressable>
-          <Pressable style={btn('rgba(0,0,0,.6)')} disabled={running} onPress={() => setSetup(true)}>
-            <Text style={[txt, running && { opacity: 0.4 }]}>⚙️</Text>
+          <Pressable style={btn('rgba(0,0,0,.6)')} onPress={() => setSetup(true)}>
+            <Text style={txt}>⚙️</Text>
           </Pressable>
         </View>
 
@@ -237,15 +251,30 @@ export default function LiveScreen({ C, onClose, userAgent }) {
               <Field C={C} value={keys.kick} onChange={(v) => saveKeys({ ...keys, kick: v.trim() })} placeholder="Kick Stream Key" secure />
               <Text style={{ color: C.muted, fontSize: 11 }}>Kick → Creator Dashboard → Ayarlar → Yayın anahtarı: "Stream URL" ve "Stream Key"</Text>
 
-              <Text style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>Kalite (iki platforma birden gider; internetin yetmezse düşür)</Text>
+              <Text style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>Kalite (iki platforma birden gider; yayın sırasında değişmez)</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
                 {Object.entries(QUALITY).map(([k, v]) => (
-                  <Pressable key={k} onPress={() => saveQuality(k)} style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: quality === k ? '#9146ff' : C.border, backgroundColor: quality === k ? '#9146ff' : C.input }}>
+                  <Pressable key={k} disabled={running} onPress={() => saveQuality(k)} style={{ opacity: running && quality !== k ? 0.4 : 1, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: quality === k ? '#9146ff' : C.border, backgroundColor: quality === k ? '#9146ff' : C.input }}>
                     <Text style={{ color: quality === k ? '#fff' : C.text, fontWeight: '600' }}>{v}</Text>
                   </Pressable>
                 ))}
               </View>
-              <Pressable onPress={() => setSetup(false)} style={{ alignSelf: 'flex-end', paddingHorizontal: 18, height: 40, borderRadius: 8, backgroundColor: '#9146ff', justifyContent: 'center', marginTop: 6 }}>
+              <Text style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>Bitrate (kbps) — boş bırakırsan kaliteye göre: 480p 1500, 720p 3000, 1080p 6000</Text>
+              <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+                <TextInput
+                  value={kbpsText}
+                  onChangeText={(v) => setKbpsText(v.replace(/[^0-9]/g, '').slice(0, 5))}
+                  onEndEditing={applyKbps}
+                  onSubmitEditing={applyKbps}
+                  placeholder="örn: 4500"
+                  placeholderTextColor={C.ph}
+                  keyboardType="number-pad"
+                  style={{ flex: 1, height: 42, borderRadius: 8, borderWidth: 1, borderColor: C.border, backgroundColor: C.input, color: C.text, paddingHorizontal: 10 }}
+                />
+                <Text style={{ color: C.text, fontWeight: '600' }}>kbps</Text>
+              </View>
+              <Text style={{ color: C.muted, fontSize: 11 }}>İki platforma birden gittiği için internetin yükleme hızı bunun en az 2,5 katı olmalı. Yayın sırasında da değiştirilebilir.</Text>
+              <Pressable onPress={() => { applyKbps(); setSetup(false); }} style={{ alignSelf: 'flex-end', paddingHorizontal: 18, height: 40, borderRadius: 8, backgroundColor: '#9146ff', justifyContent: 'center', marginTop: 6 }}>
                 <Text style={{ color: '#fff', fontWeight: '700' }}>Tamam</Text>
               </Pressable>
             </ScrollView>

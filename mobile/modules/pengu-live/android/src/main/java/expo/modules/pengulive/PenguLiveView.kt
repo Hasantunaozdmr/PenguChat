@@ -117,15 +117,35 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
     main.post(statsTick)
   }
 
+  private var presetBitrate = 3_000_000
+  private var customBitrate = 0 // yayıncının elle girdiği (bps), 0 = hazır kalitedeki değer
+
   fun setQuality(q: String) {
     val (w, h, b) = when (q) {
       "low" -> Triple(854, 480, 1_500_000)
       "high" -> Triple(1920, 1080, 6_000_000)
       else -> Triple(1280, 720, 3_000_000)
     }
-    if (w == width && b == videoBitrate) return
+    presetBitrate = b
+    applyConfig(w, h)
+  }
+
+  // Elle bitrate (kbps). Yayın sürerken de hemen uygulanır.
+  fun setBitrateKbps(kbps: Int) {
+    customBitrate = if (kbps in 300..20000) kbps * 1000 else 0
+    applyConfig(width, height)
+  }
+
+  private fun applyConfig(w: Int, h: Int) {
+    val b = if (customBitrate > 0) customBitrate else presetBitrate
+    if (w == width && h == height && b == videoBitrate) return
+    if (stream.isStreaming) {
+      // Çözünürlük yayın sırasında değişmez; bitrate değişir
+      if (w == width && h == height) { videoBitrate = b; runCatching { stream.setVideoBitrateOnFly(b) } }
+      return
+    }
     width = w; height = h; videoBitrate = b
-    if (prepared && !stream.isStreaming) {
+    if (prepared) {
       // Önizleme sürerken ayar değişmez: önizlemeyi durdurup yeniden hazırla
       val wasOnPreview = stream.isOnPreview
       if (wasOnPreview) stream.stopPreview()

@@ -16,6 +16,11 @@ class PenguLiveModule : Module() {
         view.setQuality(quality)
       }
 
+      // Elle bitrate (kbps); 0 = kalite seçimindeki değer
+      Prop("bitrateKbps") { view: PenguLiveView, kbps: Int ->
+        view.setBitrateKbps(kbps)
+      }
+
       // urls[0] = Twitch, urls[1] = Kick (boş bırakılan atlanır)
       AsyncFunction("start") { view: PenguLiveView, urls: List<String> ->
         view.start(urls)
