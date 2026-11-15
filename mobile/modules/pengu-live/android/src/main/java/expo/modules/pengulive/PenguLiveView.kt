@@ -24,7 +24,7 @@ import expo.modules.kotlin.views.ExpoView
 /**
  * Kamera önizlemesi + aynı görüntüyü aynı anda iki yere (0 = Twitch, 1 = Kick) gönderir.
  * - Bağlantı koparsa yayıncı "Bitir"e basana kadar tekrar tekrar bağlanmayı dener.
- * - Gönderilen bitrate çok düşerse kamera yerine "bağlantı zayıf" bekleme görüntüsüne geçer,
+ * - Gönderilen bitrate çok düşerse kamera yerine "Bitrate düşük, lütfen bekleyiniz" yazısına geçer,
  *   düzelince kameraya döner.
  */
 class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context, appContext) {
@@ -204,10 +204,10 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
     c.drawColor(Color.rgb(17, 24, 39))
     val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; textAlign = Paint.Align.CENTER }
     p.textSize = height / 9f
-    c.drawText("📶 Bağlantı zayıf", width / 2f, height / 2f - p.textSize / 2, p)
+    c.drawText("Bitrate düşük", width / 2f, height / 2f - p.textSize / 2, p)
     p.textSize = height / 16f
     p.color = Color.rgb(200, 200, 210)
-    c.drawText("Birazdan dönüyoruz…", width / 2f, height / 2f + p.textSize * 1.5f, p)
+    c.drawText("Lütfen bekleyiniz…", width / 2f, height / 2f + p.textSize * 1.5f, p)
     return bmp
   }
 

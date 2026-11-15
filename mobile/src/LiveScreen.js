@@ -1,6 +1,6 @@
 // 📡 Telefondan yayın: aynı anda Twitch + Kick. Kamera + mikrofon görüntüsü RTMP / RTMPS ile gönderilir.
 // - Bağlantı koparsa yayın "Bitir"e basılana kadar kendiliğinden tekrar bağlanır.
-// - Bitrate çok düşerse "bağlantı zayıf" bekleme görüntüsüne geçer, düzelince kameraya döner.
+// - Bitrate çok düşerse yayına "Bitrate düşük, lütfen bekleyiniz" yazısı gider, düzelince kameraya döner.
 // Yayın anahtarları sadece bu telefonda saklanır; sadece Twitch'e / Kick'e gönderilir.
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Modal, PermissionsAndroid, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
@@ -147,7 +147,7 @@ export default function LiveScreen({ C, onClose }) {
             </View>
           )}
           {running && stats.lowMode && (
-            <Text style={[pill, { color: '#111', backgroundColor: '#fbbf24', fontWeight: '700' }]}>⚠️ Bitrate düşük — bekleme görüntüsüne geçildi (bağlantı düzelince kameraya döner)</Text>
+            <Text style={[pill, { color: '#111', backgroundColor: '#fbbf24', fontWeight: '700' }]}>⚠️ Bitrate düşük — izleyiciler "Bitrate düşük, lütfen bekleyiniz" yazısını görüyor (bağlantı düzelince kameraya döner)</Text>
           )}
           {!!error && (
             <Pressable onPress={() => setError('')} style={{ backgroundColor: 'rgba(220,38,38,.92)', borderRadius: 10, padding: 10 }}>
