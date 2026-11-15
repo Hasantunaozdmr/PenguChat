@@ -224,22 +224,6 @@ kbd { color: var(--muted); font: inherit; font-size: 11px; }
 .btn.mod:disabled { opacity: .45; cursor: default; }
 
 /* ---------- Gecikme yazısı ---------- */
-.delay-tag {
-  height: 24px;
-  padding: 0 9px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: var(--input);
-  color: var(--text);
-  font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-}
-.delay-tag.ok { border-color: var(--kick); }
-.delay-tag.warn { border-color: #ffb84d; color: #ffe2b0; }
-.delay-tag.muted { color: var(--muted); font-weight: 400; }
 #modToggle.active { background: var(--border); }
 .btn.chip:disabled { opacity: .25; cursor: not-allowed; }
 
@@ -408,7 +392,6 @@ kbd { color: var(--muted); font: inherit; font-size: 11px; }
 body.top-collapsed .toolbar, body.top-collapsed .actionbar, body.top-collapsed .modbar { display: none !important; }
 .expand-bar { display: flex; align-items: center; gap: 12px; padding: 4px 12px; background: var(--panel-2); border-bottom: 1px solid var(--border); cursor: pointer; font-size: 12px; color: var(--text); user-select: none; }
 .expand-bar:hover { filter: brightness(1.1); }
-.expand-bar #expandDelay { color: var(--muted); }
 .expand-bar.hidden { display: none; }
 .expand-bar .badge { position: static; transform: none; margin-left: -4px; }
 

@@ -940,7 +940,6 @@
     toggle.classList.toggle('hidden', !anyAccess);
     toggle.classList.toggle('active', anyAccess && state.modBarOpen);
     $('#modbar').classList.toggle('hidden', !(anyAccess && state.modBarOpen));
-    try { renderDelay(); } catch {} // gecikme yazısı da sadece modlara
     toggle.title =
       'Mod araçları (timeout / ban) aç / kapat' +
       (['twitch', 'kick'].some((p) => modStatus[p] === 'unknown') ? ' · Yetkin otomatik anlaşılamadı' : '');
@@ -1110,89 +1109,6 @@
   $('#toBtn').addEventListener('click', () => punish('timeout'));
   $('#banBtn').addEventListener('click', () => punish('ban'));
   renderTargets();
-
-  // ---------- Otomatik gecikme yazısı ----------
-  const delayTag = $('#delayTag');
-  // Kick yayın adresi birkaç dakika geçerli: sık sık API'ye gitmemek için sakla
-  let kickUrlCache = { slug: null, url: null, at: 0 };
-  async function kickPlaybackUrl() {
-    const wv = panes.kick.view;
-    if (!wv || !state.kick) return null;
-    if (kickUrlCache.slug === state.kick && kickUrlCache.url && Date.now() - kickUrlCache.at < 4 * 60 * 1000) {
-      return kickUrlCache.url;
-    }
-    // Kick chat sayfası kick.com'da açık: API'yi o sayfanın içinden (çerezleriyle) çağır
-    const js = `fetch('/api/v2/channels/' + ${JSON.stringify(state.kick)}, { credentials: 'include' })
-      .then(r => r.ok ? r.json() : null)
-      .then(j => (j && j.livestream && j.playback_url) || null)
-      .catch(() => null)`;
-    const url = await wv.executeJavaScript(js).catch(() => null);
-    kickUrlCache = { slug: state.kick, url, at: url ? Date.now() : 0 };
-    return url;
-  }
-
-  const DELAY_TITLE = 'Yayının izleyiciye ulaşma gecikmesi (son 6 sn ölçümü, bilgisayar saatine göre). 10 saniyede bir Twitch / Kick arasında değişir. Tıkla: diğerini göster.';
-  let lastDelay = null; // son ölçüm sonucu
-  let showing = 'twitch'; // yazının şu an gösterdiği platform
-
-  function renderDelay() {
-    // Normal izleyiciye gecikme yazısı gösterilmez
-    if (!canMod('twitch') && !canMod('kick')) { delayTag.classList.add('hidden'); return; }
-    const r = lastDelay;
-    if (!r) return;
-    delayTag.classList.remove('hidden', 'ok', 'warn', 'muted');
-    const c = r.clock;
-    const off = c ? Math.round(c.offset / 1000) : 0;
-    delayTag.title = DELAY_TITLE.replace('bilgisayar saatine göre', c && c.source !== 'bilgisayar' ? 'saat sunucudan alınır' : 'bilgisayar saatine göre')
-      + (c && c.source !== 'bilgisayar' ? (off ? `\nBilgisayarının saati ${Math.abs(off)} sn ${off > 0 ? 'geri' : 'ileri'} — düzeltildi.` : '\nBilgisayarının saati doğru.') : '');
-    const label = showing === 'twitch' ? 'Twitch' : 'Kick';
-    const lag = r[showing];
-    if (lag == null) {
-      delayTag.textContent = `⏱ ${label} kapalı / ölçülemedi`;
-      delayTag.title = 'Ölçülemedi: ' + (r.errors[showing] || '');
-      delayTag.classList.add('muted');
-    } else if (r.n[showing] < 3) {
-      delayTag.textContent = `⏱ ${label} ölçülüyor…`;
-      delayTag.classList.add('muted');
-    } else {
-      const secs = Math.max(0, Math.round(lag / 1000));
-      delayTag.textContent = `⏱ ${label} gecikmesi: ${secs} sn`;
-      delayTag.classList.add(secs >= 10 ? 'warn' : 'ok');
-    }
-  }
-
-  let measuring = false;
-  async function measureDelay() {
-    if (measuring) return;
-    if (!state.twitch && !state.kick) { delayTag.classList.add('hidden'); return; }
-    if (!canMod('twitch') && !canMod('kick')) { delayTag.classList.add('hidden'); return; } // izleyici: ölçme bile
-    measuring = true;
-    try {
-      const url = state.kick ? await kickPlaybackUrl() : null;
-      const r = await window.dualChat.measureDelay({ twitch: state.twitch, kick: state.kick, kickPlaybackUrl: url });
-      if (!r.kick) kickUrlCache.url = null; // yayın yeni açıldıysa adresi yeniden sor
-      lastDelay = r;
-      renderDelay();
-    } catch {
-      delayTag.classList.add('hidden');
-    } finally {
-      measuring = false;
-    }
-  }
-
-  function flipDelay() {
-    const other = showing === 'twitch' ? 'kick' : 'twitch';
-    if (state[other]) showing = other; // kanal açık değilse o platformu atla
-    renderDelay();
-  }
-  // 10 saniyede bir Twitch / Kick arasında geçiş
-  setInterval(flipDelay, 10000);
-  delayTag.addEventListener('click', flipDelay);
-  // Aralık rastgele: sabit 2 sn olsaydı listenin hep aynı anına denk gelir, doğru değeri kaçırırdı.
-  // Her okuma 1-2 KB'lık bir metin.
-  (function loop() {
-    measureDelay().finally(() => setTimeout(loop, 900 + Math.random() * 700));
-  })();
 
   // ---------- Yayının izleyici sayısı (herkese açık) ----------
   const fmtNum = (n) => n.toLocaleString('tr-TR');
@@ -1364,8 +1280,6 @@
   }
   function syncExpandBar() {
     if (!state.topCollapsed) return;
-    const tag = $('#delayTag');
-    $('#expandDelay').textContent = tag.classList.contains('hidden') ? '' : tag.textContent;
     const badge = $('#inboxBadge');
     $('#expandBadge').textContent = badge.textContent;
     $('#expandBadge').classList.toggle('hidden', badge.classList.contains('hidden') || !badge.textContent);
