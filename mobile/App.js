@@ -705,6 +705,7 @@ function PenguChat() {
           onClose={() => setSettingsOpen(false)}
           items={[
             { label: '🎨 Renk', sub: 'Uygulamanın rengini değiştir', onPress: () => setThemeOpen(true) },
+            { label: '🔒 Gizlilik', sub: 'Hangi verilerin neden toplandığı', onPress: () => Linking.openURL('https://hasantunaozdmr.github.io/PenguChat/gizlilik/') },
             Platform.OS === 'android' && { label: checking ? '⬆ Bakılıyor…' : '⬆ Güncelleme', sub: newVersion ? 'Yeni sürüm var!' : 'Yeni sürüm var mı bak', dot: !!newVersion, onPress: checkUpdateNow },
           ].filter(Boolean)}
         />

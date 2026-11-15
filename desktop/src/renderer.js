@@ -245,6 +245,7 @@
     const action = e.target.closest('button')?.dataset.action;
     if (action === 'reload-all') { openChat('twitch'); openChat('kick'); }
     if (action === 'check-update') { manualCheck = true; window.dualChat.checkUpdates(); }
+    if (action === 'privacy') window.dualChat.openExternal('https://hasantunaozdmr.github.io/PenguChat/gizlilik/');
     if (action === 'logout' && confirm('Twitch ve Kick hesaplarından çıkış yapılsın mı?')) {
       await window.dualChat.logoutAll();
       openChat('twitch'); openChat('kick');
