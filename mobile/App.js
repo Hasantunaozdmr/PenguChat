@@ -163,7 +163,7 @@ function PenguChat() {
   const [ownerOn, setOwnerOn] = useState({ twitch: false, kick: false }); // sahibin hesabıyla girilmiş mi
   const [accounts, setAccounts] = useState({ twitch: '', kick: '' }); // giriş yapılmış hesap adları
   // Uygulama içi yetkiler (📥 → 👥 Yetkiler'den verilir; giriş yapılan Twitch/Kick adına göre)
-  const [roles, setRoles] = useState({ modlog: false, reports: false, stats: false });
+  const [roles, setRoles] = useState({ modlog: false, reports: false, stats: false, stream: false });
   const anyRole = roles.modlog || roles.reports || roles.stats;
   // Bakım modu: açıkken uygulama herkese kapalı; yönetici (şifre ya da kendi hesabı) kullanmaya devam eder
   // ---- Otomatik hata kaydı ----
@@ -206,9 +206,9 @@ function PenguChat() {
     return () => clearInterval(t);
   }, []);
   useEffect(() => {
-    if (!accounts.twitch && !accounts.kick) return setRoles({ modlog: false, reports: false, stats: false });
+    if (!accounts.twitch && !accounts.kick) return setRoles({ modlog: false, reports: false, stats: false, stream: false });
     reportRpc('my_roles', { p_twitch: accounts.twitch, p_kick: accounts.kick })
-      .then((r) => r && setRoles({ modlog: !!r.modlog, reports: !!r.reports, stats: !!r.stats }))
+      .then((r) => r && setRoles({ modlog: !!r.modlog, reports: !!r.reports, stats: !!r.stats, stream: !!r.stream }))
       .catch(() => {});
   }, [accounts.twitch, accounts.kick]);
   const [viewers, setViewers] = useState({ twitch: undefined, kick: undefined }); // yayın izleyici sayısı (null = kapalı)
@@ -678,7 +678,8 @@ function PenguChat() {
             }}
           />
         )}
-        {Platform.OS === 'android' && <Act label="📡 Yayın" onPress={() => setLiveOpen(true)} />}
+        {/* 📡 Yayın: sadece Yetkiler'den "Yayın" yetkisi verilenler (ve sahip) görür */}
+        {Platform.OS === 'android' && (roles.stream || !!admin || ownerOn.twitch || ownerOn.kick) && <Act label="📡 Yayın" onPress={() => setLiveOpen(true)} />}
         <Act label="🔧 Ayarlar" dot={!!newVersion} onPress={() => setSettingsOpen(true)} />
         <Act label="▲ Gizle" onPress={() => update({ topCollapsed: true })} />
       </View>

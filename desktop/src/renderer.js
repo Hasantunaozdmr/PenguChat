@@ -818,13 +818,13 @@
   }
 
   // ---- 👥 Yetkiler (sadece yönetici) ----
-  const ROLE_LABEL = { modlog: '🛡️ Mod log', reports: '📥 Sorunlar', stats: '📊 İstatistik' };
+  const ROLE_LABEL = { modlog: '🛡️ Mod log', reports: '📥 Sorunlar', stats: '📊 İstatistik', stream: '📡 Yayın (telefon)' };
   async function loadRoles(pw) {
     const r = await window.dualChat.rpc('list_roles', { p_password: pw });
     if (!r.ok) return failed(r);
     const list = r.data || [];
     $('#inboxCount').textContent = list.length ? `${list.length} kişi` : '';
-    const boxes = (x) => ['modlog', 'reports', 'stats'].map((k) => `<label><input type="checkbox" data-role="${k}" ${x && x['can_' + k] ? 'checked' : ''}/> ${ROLE_LABEL[k]}</label>`).join(' ');
+    const boxes = (x) => ['modlog', 'reports', 'stats', 'stream'].map((k) => `<label><input type="checkbox" data-role="${k}" ${x && x['can_' + k] ? 'checked' : ''}/> ${ROLE_LABEL[k]}</label>`).join(' ');
     inboxList.innerHTML = `<div class="role-add" id="roleAdd">
         <select id="roleP"><option value="twitch">Twitch</option><option value="kick">Kick</option></select>
         <input type="text" id="roleU" placeholder="kullanıcı adı" spellcheck="false" />
@@ -839,10 +839,12 @@
   }
   async function saveRole(platform, username, row, hintEl) {
     const get = (k) => !!row.querySelector(`[data-role="${k}"]`).checked;
-    const r = await window.dualChat.rpc('set_role', {
+    const args = {
       p_password: getAdmin(), p_platform: platform, p_username: username,
       p_modlog: get('modlog'), p_reports: get('reports'), p_stats: get('stats'),
-    });
+    };
+    let r = await window.dualChat.rpc('set_role', { ...args, p_stream: get('stream') });
+    if (!r.ok && /404/.test(r.error)) r = await window.dualChat.rpc('set_role', args); // sunucu henüz eski
     if (!r.ok) { if (hintEl) { hintEl.textContent = 'Kaydedilemedi: ' + r.error; hintEl.className = 'hint err'; } else alert('Kaydedilemedi: ' + r.error); return false; }
     return true;
   }

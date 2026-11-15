@@ -107,7 +107,7 @@ export default function LiveScreen({ C, onClose }) {
   const anyLive = platforms.some((p) => status[p] === 'live');
 
   return (
-    <Modal animationType="slide" onRequestClose={close}>
+    <Modal animationType="slide" onRequestClose={close} supportedOrientations={['portrait', 'landscape', 'landscape-left', 'landscape-right']}>
       <View style={{ flex: 1, backgroundColor: '#000' }}>
         {PenguLiveView ? (
           <PenguLiveView

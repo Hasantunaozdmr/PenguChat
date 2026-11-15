@@ -280,7 +280,7 @@
   }
 
   // 👥 Yetkiler
-  const ROLE = { modlog: '🛡️ Mod log', reports: '📥 Sorunlar', stats: '📊 İstatistik' };
+  const ROLE = { modlog: '🛡️ Mod log', reports: '📥 Sorunlar', stats: '📊 İstatistik', stream: '📡 Yayın' };
   const boxes = (x) => Object.keys(ROLE).map((k) => `<label class="cb"><input type="checkbox" data-role="${k}" ${x && x['can_' + k] ? 'checked' : ''} /> ${ROLE[k]}</label>`).join('');
   async function roles() {
     const list = (await rpc('list_roles', A())) || [];
@@ -293,7 +293,9 @@
   }
   async function saveRole(platform, username, el) {
     const get = (k) => !!el.querySelector(`[data-role="${k}"]`)?.checked;
-    await rpc('set_role', A({ p_platform: platform, p_username: username, p_modlog: get('modlog'), p_reports: get('reports'), p_stats: get('stats') }));
+    const args = A({ p_platform: platform, p_username: username, p_modlog: get('modlog'), p_reports: get('reports'), p_stats: get('stats') });
+    try { await rpc('set_role', { ...args, p_stream: get('stream') }); }
+    catch (e) { if (!/404/.test(e.message)) throw e; await rpc('set_role', args); }
   }
   main.addEventListener('click', async (e) => {
     if (e.target.id !== 'roleSave') return;

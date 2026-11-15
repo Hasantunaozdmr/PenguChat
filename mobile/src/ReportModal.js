@@ -602,7 +602,7 @@ function Maint({ d, admin, onChanged }) {
 }
 
 // 👥 Yetkiler (sadece yönetici): Twitch / Kick adına uygulama içi yetki ver
-const ROLE_LABEL = { modlog: '🛡️ Mod log', reports: '📥 Sorunlar', stats: '📊 İstatistik' };
+const ROLE_LABEL = { modlog: '🛡️ Mod log', reports: '📥 Sorunlar', stats: '📊 İstatistik', stream: '📡 Yayın' };
 function Toggle({ on, label, onPress }) {
   return (
     <Pressable style={[s.mini, on && { backgroundColor: C.accent, borderColor: C.accent }]} onPress={onPress}>
@@ -613,11 +613,17 @@ function Toggle({ on, label, onPress }) {
 function Roles({ list, admin, onChanged }) {
   const [platform, setPlatform] = useState('twitch');
   const [name, setName] = useState('');
-  const [pick, setPick] = useState({ modlog: false, reports: false, stats: false });
+  const [pick, setPick] = useState({ modlog: false, reports: false, stats: false, stream: false });
   const [hint, setHint] = useState(null);
   const save = async (p, u, r) => {
     try {
-      await reportRpc('set_role', { p_password: admin, p_platform: p, p_username: u, p_modlog: r.modlog, p_reports: r.reports, p_stats: r.stats });
+      const args = { p_password: admin, p_platform: p, p_username: u, p_modlog: !!r.modlog, p_reports: !!r.reports, p_stats: !!r.stats };
+      try {
+        await reportRpc('set_role', { ...args, p_stream: !!r.stream });
+      } catch (e) {
+        if (!/404/.test(e.message)) throw e;
+        await reportRpc('set_role', args); // sunucu henüz eski
+      }
       onChanged();
       return true;
     } catch (e) {
@@ -628,10 +634,10 @@ function Roles({ list, admin, onChanged }) {
   const add = async () => {
     const u = name.trim().replace(/^@/, '');
     if (!u) return setHint('Kullanıcı adını yaz.');
-    if (!pick.modlog && !pick.reports && !pick.stats) return setHint('En az bir yetki seç.');
+    if (!pick.modlog && !pick.reports && !pick.stats && !pick.stream) return setHint('En az bir yetki seç.');
     if (await save(platform, u, pick)) {
       setName('');
-      setPick({ modlog: false, reports: false, stats: false });
+      setPick({ modlog: false, reports: false, stats: false, stream: false });
       setHint(null);
     }
   };
@@ -666,7 +672,7 @@ function Roles({ list, admin, onChanged }) {
       <Text style={s.note}>Kanal modluğu Twitch / Kick'ten otomatik okunur; buradakiler sadece bu uygulama için. Bütün yetkileri kapatınca kişi silinir.</Text>
       {list.length === 0 && <Text style={s.empty}>Henüz kimseye yetki verilmedi.</Text>}
       {list.map((x) => {
-        const cur = { modlog: x.can_modlog, reports: x.can_reports, stats: x.can_stats };
+        const cur = { modlog: x.can_modlog, reports: x.can_reports, stats: x.can_stats, stream: x.can_stream };
         return (
           <View key={x.platform + x.username} style={s.rep}>
             <Text style={s.repName}>
