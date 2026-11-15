@@ -3,8 +3,10 @@
 // - Bitrate çok düşerse yayına "Bitrate düşük, lütfen bekleyiniz" yazısı gider, düzelince kameraya döner.
 // Yayın anahtarları sadece bu telefonda saklanır; sadece Twitch'e / Kick'e gönderilir.
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Modal, PermissionsAndroid, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Alert, Linking, Modal, PermissionsAndroid, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { WebView } from 'react-native-webview';
+import { isInternalUrl } from './links';
 
 const PenguLiveView = Platform.OS === 'android' ? require('../modules/pengu-live/src').PenguLiveView : null;
 const keepAwake = Platform.OS === 'android' ? require('expo-keep-awake') : null;
@@ -14,6 +16,8 @@ const SET_STORE = 'penguchat:liveSettings';
 const TWITCH_INGEST = 'rtmp://live.twitch.tv/app/';
 const QUALITY = { low: 'Düşük (480p)', mid: 'Orta (720p)', high: 'Yüksek (1080p)' };
 const LABEL = { twitch: 'Twitch', kick: 'Kick' };
+// ✏️ Başlık / kategori: Twitch'in ve Kick'in kendi "yayın bilgisi" sayfaları (uygulamadaki girişle açılır)
+const EDIT_URL = { twitch: 'https://dashboard.twitch.tv/stream-manager', kick: 'https://kick.com/dashboard/stream' };
 const STATE = { idle: 'kapalı', connecting: 'bağlanıyor…', live: 'CANLI', reconnecting: 'tekrar bağlanıyor…', error: 'hata' };
 
 const fmtTime = (s) => {
@@ -24,7 +28,7 @@ const mbps = (b) => (b > 0 ? (b / 1e6).toFixed(1) + ' Mbps' : '—');
 // Kick "Stream URL" + "Stream Key" → tek adres
 const joinUrl = (url, key) => (url && key ? url.replace(/\/+$/, '') + '/' + key : '');
 
-export default function LiveScreen({ C, onClose }) {
+export default function LiveScreen({ C, onClose, userAgent }) {
   const ref = useRef(null);
   const [keys, setKeys] = useState({ twitch: '', kickUrl: '', kick: '', useTwitch: true, useKick: true });
   const [quality, setQuality] = useState('mid');
@@ -34,6 +38,7 @@ export default function LiveScreen({ C, onClose }) {
   const [stats, setStats] = useState({ twitch: 0, kick: 0, lowMode: false });
   const [error, setError] = useState('');
   const [setup, setSetup] = useState(false);
+  const [edit, setEdit] = useState(null); // null | 'twitch' | 'kick'
   const [startedAt, setStartedAt] = useState(0);
   const [, tick] = useState(0);
 
@@ -169,10 +174,52 @@ export default function LiveScreen({ C, onClose }) {
           ) : (
             <Pressable style={[btn('#9146ff'), { paddingHorizontal: 22 }]} onPress={start}><Text style={txt}>● Yayına başla</Text></Pressable>
           )}
+          <Pressable style={btn('rgba(0,0,0,.6)')} onPress={() => setEdit(keys.useTwitch || !keys.useKick ? 'twitch' : 'kick')}>
+            <Text style={txt}>✏️</Text>
+          </Pressable>
           <Pressable style={btn('rgba(0,0,0,.6)')} disabled={running} onPress={() => setSetup(true)}>
             <Text style={[txt, running && { opacity: 0.4 }]}>⚙️</Text>
           </Pressable>
         </View>
+
+        {/* ✏️ Başlık / kategori: platformun kendi sayfası */}
+        {edit && (
+          <View style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: C.panel }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, padding: 8, borderBottomWidth: 1, borderBottomColor: C.border }}>
+              <Text style={{ color: C.text, fontWeight: '700', fontSize: 15, marginRight: 4 }}>✏️ Başlık / Kategori</Text>
+              {['twitch', 'kick'].map((p) => (
+                <Pressable key={p} onPress={() => setEdit(p)} style={{ paddingHorizontal: 12, height: 34, borderRadius: 8, justifyContent: 'center', borderWidth: 1, borderColor: edit === p ? (p === 'twitch' ? '#9146ff' : '#16a34a') : C.border, backgroundColor: edit === p ? (p === 'twitch' ? '#9146ff' : '#16a34a') : C.input }}>
+                  <Text style={{ color: edit === p ? '#fff' : C.text, fontWeight: '700' }}>{LABEL[p]}</Text>
+                </Pressable>
+              ))}
+              <View style={{ flex: 1 }} />
+              <Pressable onPress={() => setEdit(null)} hitSlop={10} style={{ paddingHorizontal: 12, height: 34, borderRadius: 8, justifyContent: 'center', backgroundColor: '#9146ff' }}>
+                <Text style={{ color: '#fff', fontWeight: '700' }}>Bitti</Text>
+              </Pressable>
+            </View>
+            <Text style={{ color: C.muted, fontSize: 12, paddingHorizontal: 10, paddingVertical: 4 }}>
+              {edit === 'twitch' ? 'Twitch: "Yayın bilgisini düzenle" ile başlığı ve kategoriyi değiştirip kaydet.' : 'Kick: başlığı ve kategoriyi yazıp kaydet.'} Giriş istenirse uygulamadaki gibi giriş yap.
+            </Text>
+            <WebView
+              key={edit}
+              source={{ uri: EDIT_URL[edit] }}
+              style={{ flex: 1 }}
+              userAgent={userAgent}
+              sharedCookiesEnabled
+              thirdPartyCookiesEnabled
+              domStorageEnabled
+              javaScriptEnabled
+              setSupportMultipleWindows={false}
+              mixedContentMode="never"
+              allowFileAccess={false}
+              onShouldStartLoadWithRequest={(req) => {
+                if (req.isTopFrame === false || isInternalUrl(req.url)) return true;
+                Linking.openURL(req.url).catch(() => {});
+                return false;
+              }}
+            />
+          </View>
+        )}
 
         {/* Ayarlar: Twitch + Kick anahtarları, kalite */}
         {setup && (

@@ -699,7 +699,7 @@ function PenguChat() {
           <Text style={styles.maintSmall}>Her 30 saniyede bir kontrol ediliyor…</Text>
         </View>
       )}
-      {liveOpen && <LiveScreen C={C} onClose={() => setLiveOpen(false)} />}
+      {liveOpen && <LiveScreen C={C} userAgent={USER_AGENT} onClose={() => setLiveOpen(false)} />}
       {settingsOpen && (
         <SettingsSheet
           onClose={() => setSettingsOpen(false)}
