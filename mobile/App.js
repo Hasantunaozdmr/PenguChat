@@ -20,6 +20,7 @@ import * as Clipboard from 'expo-clipboard';
 import Constants from 'expo-constants';
 import { PLATFORMS, cleanChannel, hasLink, isInternalUrl, parseTargets } from './src/links';
 import { FIT_POPUPS_JS, PICK_USER_JS } from './src/injected';
+import LiveScreen from './src/LiveScreen';
 import ReportModal, { applyModalTheme, countNew, hasMineNews, loadAdmin, storeAdmin } from './src/ReportModal';
 const { themeFrom, PRESETS: THEME_PRESETS, DEFAULT: THEME_DEFAULT } = require('./src/theme');
 import { OWNER_ACCOUNTS, logError, logModAction, reportRpc, sendPing } from './src/report';
@@ -112,7 +113,8 @@ function PenguChat() {
     themeApplied.current = s.themeColor;
   }
   const [themeOpen, setThemeOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false); // ⚙️ Ayarlar: Yönetim, Renk, Güncelleme
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [liveOpen, setLiveOpen] = useState(false); // 📡 telefondan yayın // ⚙️ Ayarlar: Yönetim, Renk, Güncelleme
   const [ready, setReady] = useState(false);
   // Android: chat'ler, telefonun gerçek Chrome sürümü öğrenildikten sonra açılır (en fazla 2,5 sn beklenir)
   const [uaReady, setUaReady] = useState(Platform.OS !== 'android');
@@ -676,6 +678,7 @@ function PenguChat() {
             }}
           />
         )}
+        {Platform.OS === 'android' && <Act label="📡 Yayın" onPress={() => setLiveOpen(true)} />}
         <Act label="🔧 Ayarlar" dot={!!newVersion} onPress={() => setSettingsOpen(true)} />
         <Act label="▲ Gizle" onPress={() => update({ topCollapsed: true })} />
       </View>
@@ -695,6 +698,7 @@ function PenguChat() {
           <Text style={styles.maintSmall}>Her 30 saniyede bir kontrol ediliyor…</Text>
         </View>
       )}
+      {liveOpen && <LiveScreen C={C} onClose={() => setLiveOpen(false)} />}
       {settingsOpen && (
         <SettingsSheet
           onClose={() => setSettingsOpen(false)}
