@@ -694,7 +694,7 @@ function PenguChat() {
         <View style={styles.maint}>
           <Text style={{ fontSize: 64 }}>🛠️</Text>
           <Text style={styles.maintTitle}>Bakımdayız</Text>
-          <Text style={styles.maintMsg}>{maint.message ? 'Sebep: ' + maint.message : 'PengusChat kısa bir süre bakımda. Birazdan kendiliğinden açılacak.'}</Text>
+          <Text style={styles.maintMsg}>{maint.message ? 'Sebep: ' + maint.message : 'PenguLive kısa bir süre bakımda. Birazdan kendiliğinden açılacak.'}</Text>
           {!!maint.eta && <Text style={[styles.maintMsg, { fontWeight: '700', fontSize: 17 }]}>⏰ Tahmini açılış: {maint.eta}</Text>}
           <Text style={styles.maintSmall}>Her 30 saniyede bir kontrol ediliyor…</Text>
         </View>

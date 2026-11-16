@@ -1,7 +1,7 @@
 {
   "name": "pengu-live",
   "version": "0.1.0",
-  "description": "PengusChat: telefondan Twitch + Kick'e aynı anda yayın (RootEncoder)",
+  "description": "PenguLive: telefondan Twitch + Kick'e aynı anda yayın (RootEncoder)",
   "main": "src/index.js",
   "private": true
 }

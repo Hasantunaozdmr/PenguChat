@@ -56,7 +56,7 @@ export default function LiveScreen({ C, onClose, userAgent }) {
     // Kamera + mikrofon izni
     if (Platform.OS === 'android') {
       PermissionsAndroid.requestMultiple([PermissionsAndroid.PERMISSIONS.CAMERA, PermissionsAndroid.PERMISSIONS.RECORD_AUDIO]).then((res) => {
-        if (Object.values(res).some((v) => v !== PermissionsAndroid.RESULTS.GRANTED)) setError('Kamera ve mikrofon izni gerekli. Telefon Ayarları → Uygulamalar → PengusChat → İzinler.');
+        if (Object.values(res).some((v) => v !== PermissionsAndroid.RESULTS.GRANTED)) setError('Kamera ve mikrofon izni gerekli. Telefon Ayarları → Uygulamalar → PenguLive → İzinler.');
       });
     }
   }, []);

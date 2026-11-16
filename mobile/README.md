@@ -1,6 +1,6 @@
-# 🐧 PengusChat Mobile — Twitch + Kick (Android & iPhone)
+# 🐧 PenguLive Mobile — Twitch + Kick (Android & iPhone)
 
-Masaüstü PengusChat'in telefon sürümü. Twitch ve Kick'in resmi chat sayfalarını tek ekranda açar. Moderatör hesabınla giriş yaptığında ban, timeout, mesaj silme ve /komutlar normal çalışır. Girişler kalıcıdır.
+Masaüstü PenguLive'in telefon sürümü. Twitch ve Kick'in resmi chat sayfalarını tek ekranda açar. Moderatör hesabınla giriş yaptığında ban, timeout, mesaj silme ve /komutlar normal çalışır. Girişler kalıcıdır.
 
 ## Özellikler
 - **Link çubuğu:** Twitch veya Kick linkini yapıştırınca chat kendiliğinden doğru panelde açılır. **Yapıştır** düğmesi panodaki linki tek dokunuşla açar.

@@ -1,4 +1,4 @@
-/* PengusChat — renderer */
+/* PenguLive — renderer */
 (() => {
   const STORE_KEY = 'dualchat:settings';
   const defaults = {
@@ -897,7 +897,7 @@
       updateBtn.classList.remove('hidden');
     } else {
       updateBtn.classList.add('hidden');
-      if (manualCheck && u.state === 'latest') { manualCheck = false; alert(`PengusChat güncel (${ver(u.current)}).`); }
+      if (manualCheck && u.state === 'latest') { manualCheck = false; alert(`PenguLive güncel (${ver(u.current)}).`); }
       if (manualCheck && u.state === 'error') { manualCheck = false; alert('Güncelleme kontrol edilemedi. İnternet bağlantını kontrol et.'); }
     }
   }
@@ -1194,7 +1194,7 @@
   function applyMaint() {
     const on = maintState.maintenance && !maintExempt();
     $('#maintScreen').classList.toggle('hidden', !on);
-    $('#maintMsg').textContent = maintState.message ? 'Sebep: ' + maintState.message : 'PengusChat kısa bir süre bakımda. Birazdan kendiliğinden açılacak.';
+    $('#maintMsg').textContent = maintState.message ? 'Sebep: ' + maintState.message : 'PenguLive kısa bir süre bakımda. Birazdan kendiliğinden açılacak.';
     $('#maintEta').textContent = maintState.eta ? '⏰ Tahmini açılış: ' + maintState.eta : '';
     $('#maintEta').classList.toggle('hidden', !maintState.eta);
   }
