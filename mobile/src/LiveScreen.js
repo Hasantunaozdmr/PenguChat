@@ -2,6 +2,7 @@
 // - Bağlantı koparsa yayın "Bitir"e basılana kadar kendiliğinden tekrar bağlanır.
 // - Bitrate çok düşerse yayına "Bitrate düşük, lütfen bekleyiniz" yazısı gider, düzelince kameraya döner.
 // - 🖼️ Ekran öğeleri: PenguLive logosu, kendi resimlerin ve donate bar linklerin yayına eklenir; sürükle, büyüt / küçült, aç / kapat.
+//   Donate sayfasının abone / bağış sesleri de yayına karışır (🔊 / 🔇).
 // Yayın anahtarları ve donate linkleri sadece bu telefonda saklanır; sadece Twitch'e / Kick'e / donate sitesine gider.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Linking, Modal, PanResponder, PermissionsAndroid, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
@@ -97,7 +98,7 @@ export default function LiveScreen({ C, onClose, userAgent }) {
     const t = setTimeout(() => AsyncStorage.setItem(OV_STORE, JSON.stringify(overlays)).catch(() => {}), 500);
     return () => clearTimeout(t);
   }, [overlays, ovLoaded]);
-  const ovJson = useMemo(() => JSON.stringify(overlays.map(({ id, type, on, x, y, w, src, shape }) => ({ id, type, on, x, y, w, src: src || '', shape: shape || 'bar' }))), [overlays]);
+  const ovJson = useMemo(() => JSON.stringify(overlays.map(({ id, type, on, x, y, w, src, shape, sound }) => ({ id, type, on, x, y, w, src: src || '', shape: shape || 'bar', sound: sound !== false }))), [overlays]);
 
   // Önizlemede görüntünün kapladığı alan (yan tutunca 16:9, dik tutunca 9:16; kalanı siyah)
   const portrait = box.h > box.w;
@@ -290,6 +291,11 @@ export default function LiveScreen({ C, onClose, userAgent }) {
                     </Pressable>
                     <Pressable style={sbtn('rgba(255,255,255,.15)')} onPress={() => resize(selOv.id, -2)} disabled={!selOv.on}><Text style={stxt}>➖ Küçült</Text></Pressable>
                     <Pressable style={sbtn('rgba(255,255,255,.15)')} onPress={() => resize(selOv.id, 2)} disabled={!selOv.on}><Text style={stxt}>➕ Büyüt</Text></Pressable>
+                    {selOv.type === 'web' && (
+                      <Pressable style={sbtn(selOv.sound === false ? 'rgba(220,38,38,.85)' : 'rgba(255,255,255,.15)')} onPress={() => updOv(selOv.id, { sound: selOv.sound === false })}>
+                        <Text style={stxt}>{selOv.sound === false ? '🔇 Ses kapalı' : '🔊 Ses açık'}</Text>
+                      </Pressable>
+                    )}
                     {selOv.type !== 'logo' && (
                       <Pressable style={sbtn('rgba(220,38,38,.85)')} onPress={() => removeOv(selOv)}><Text style={stxt}>🗑️</Text></Pressable>
                     )}
@@ -347,7 +353,7 @@ export default function LiveScreen({ C, onClose, userAgent }) {
                   </Pressable>
                 ))}
               </View>
-              <Text style={{ color: C.muted, fontSize: 11 }}>Not: Uyarıların sesi yayına gitmez, sadece görüntüsü gider.</Text>
+              <Text style={{ color: C.muted, fontSize: 11 }}>Abone / bağış uyarılarının sesleri de yayına gider (mikrofon sesinin üstüne). İstersen 🔊 tuşuyla kapatabilirsin. Sesleri telefondan duymazsın, sadece izleyiciler duyar.</Text>
               <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'flex-end', marginTop: 6 }}>
                 <Pressable onPress={() => setAddWeb(null)} style={{ paddingHorizontal: 18, height: 40, borderRadius: 8, borderWidth: 1, borderColor: C.border, justifyContent: 'center' }}>
                   <Text style={{ color: C.text, fontWeight: '700' }}>Vazgeç</Text>

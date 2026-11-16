@@ -14,6 +14,7 @@ import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.View
 import android.view.ViewGroup
+import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
@@ -93,7 +94,8 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
     }
   }
 
-  private val stream: MultiStream = MultiStream(context, arrayOf(checker(0), checker(1)), null, null, null).apply {
+  private val stream: MultiStream = MultiStream(context, arrayOf(checker(0), checker(1)), null, null, null,
+    Camera2Source(context), MixMicSource()).apply {
     getGlInterface().autoHandleOrientation = true
   }
 
@@ -219,7 +221,7 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
   }
 
   fun setMuted(muted: Boolean) {
-    (stream.audioSource as? MicrophoneSource)?.let { if (muted) it.mute() else it.unMute() }
+    (stream.audioSource as? MixMicSource)?.let { if (muted) it.mute() else it.unMute() }
   }
 
   // ---- Bitrate çok düşerse bekleme görüntüsüne geç ----
@@ -278,7 +280,7 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
   }
 
   // ---- Ekran öğeleri (logo, resim, donate bar) ----
-  private class Ov(val id: String, val type: String, val x: Float, val y: Float, val w: Float, val src: String, val shape: String)
+  private class Ov(val id: String, val type: String, val x: Float, val y: Float, val w: Float, val src: String, val shape: String, val sound: Boolean)
   private class Live(var ov: Ov, val filter: ImageObjectFilterRender, var aspect: Float, var bmp: Bitmap?, val web: WebView?)
 
   private val overlays = LinkedHashMap<String, Live>()
@@ -291,7 +293,7 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
       val a = JSONArray(json)
       (0 until a.length()).map { a.getJSONObject(it) }.filter { it.optBoolean("on", true) }.map {
         Ov(it.optString("id"), it.optString("type"), it.optDouble("x", 0.0).toFloat(), it.optDouble("y", 0.0).toFloat(),
-          it.optDouble("w", 15.0).toFloat(), it.optString("src"), it.optString("shape", "bar"))
+          it.optDouble("w", 15.0).toFloat(), it.optString("src"), it.optString("shape", "bar"), it.optBoolean("sound", true))
       }
     }.getOrDefault(emptyList())
     val ids = list.map { it.id }.toSet()
@@ -327,7 +329,7 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
       "web" -> {
         if (!o.src.startsWith("https://")) return null
         val (pw, ph) = if (o.shape == "box") 800 to 600 else 1200 to 300
-        Live(o, filter, ph.toFloat() / pw, null, makeWeb(o.src, pw, ph))
+        Live(o, filter, ph.toFloat() / pw, null, makeWeb(o.id, o.src, pw, ph))
       }
       else -> null
     }
@@ -342,7 +344,18 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
   }.getOrNull()
 
   @SuppressLint("SetJavaScriptEnabled")
-  private fun makeWeb(url: String, pw: Int, ph: Int): WebView {
+  // Sayfa bir ses çalınca (abone / bağış uyarısı) bize haber verir; sesi yayına biz ekleriz
+  inner class AudioBridge(private val id: String) {
+    private fun on() = overlays[id]?.ov?.sound ?: false
+    @JavascriptInterface fun url(u: String, vol: Float) { if (on()) AlertAudio.playUrl(u, vol) }
+    @JavascriptInterface fun bytes(b64: String, vol: Float) { if (on()) AlertAudio.playBytes(b64, vol) }
+    @JavascriptInterface fun pcm(b64: String, rate: Int, ch: Int) { if (on()) AlertAudio.playPcm(b64, rate, ch, 1f) }
+  }
+
+  private fun hookAudio(wv: WebView) = wv.evaluateJavascript(AUDIO_HOOK, null)
+
+  private fun makeWeb(id: String, url: String, pw: Int, ph: Int): WebView {
+    AlertAudio.tmpDir = context.cacheDir
     val wv = WebView(context)
     wv.setLayerType(View.LAYER_TYPE_SOFTWARE, null)
     wv.setBackgroundColor(Color.TRANSPARENT)
@@ -350,7 +363,11 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
     wv.settings.domStorageEnabled = true
     wv.settings.mediaPlaybackRequiresUserGesture = false
     wv.settings.allowFileAccess = false
-    wv.webViewClient = WebViewClient()
+    wv.addJavascriptInterface(AudioBridge(id), "PenguAudio")
+    wv.webViewClient = object : WebViewClient() {
+      override fun onPageStarted(view: WebView, u: String?, favicon: Bitmap?) { hookAudio(view) }
+      override fun onPageFinished(view: WebView, u: String?) { hookAudio(view) }
+    }
     wv.isFocusable = false
     wv.isClickable = false
     wv.alpha = 0f // ekranda görünmez; sadece yayına çizilir
@@ -413,5 +430,47 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
 
   companion object {
     private const val RETRIES = 100000
+
+    // Sayfadaki sesleri yakalar: <audio>/<video> çalınınca adresini, Web Audio ile çalınınca ham sesi gönderir.
+    // Sayfanın kendi sesi kısılır (yayına bizim karıştırdığımız gider).
+    private val AUDIO_HOOK = """
+      (function(){
+        if (window.__penguA || !window.PenguAudio) return; window.__penguA = 1;
+        var B = window.PenguAudio;
+        function b64(u8){ var s=''; for (var i=0;i<u8.length;i+=32768) s+=String.fromCharCode.apply(null,u8.subarray(i,i+32768)); return btoa(s); }
+        function send(src, vol){
+          try {
+            if (!src) return;
+            if (/^https:/i.test(src)) B.url(src, vol);
+            else if (/^(blob|data):/i.test(src)) fetch(src).then(function(r){return r.arrayBuffer();}).then(function(a){ B.bytes(b64(new Uint8Array(a)), vol); }).catch(function(){});
+          } catch(e) {}
+        }
+        var P = HTMLMediaElement.prototype, op = P.play;
+        P.play = function(){
+          try {
+            var vol = this.muted ? 0 : (this.volume == null ? 1 : this.volume);
+            var src = this.currentSrc || this.src;
+            if (!src) { var so = this.querySelector && this.querySelector('source'); src = so && so.src; }
+            this.muted = true;
+            if (vol > 0) send(src, vol);
+          } catch(e) {}
+          return op.apply(this, arguments);
+        };
+        if (window.AudioBufferSourceNode) {
+          var S = AudioBufferSourceNode.prototype, os = S.start;
+          S.start = function(){
+            try {
+              var b = this.buffer;
+              if (b && b.length < b.sampleRate * 90) {
+                var ch = Math.min(2, b.numberOfChannels), n = b.length, out = new Int16Array(n*ch);
+                for (var c=0;c<ch;c++){ var d=b.getChannelData(c); for (var i=0;i<n;i++){ var v=d[i]; v=v<-1?-1:v>1?1:v; out[i*ch+c]=v*32767; } }
+                B.pcm(b64(new Uint8Array(out.buffer)), b.sampleRate, ch);
+              }
+            } catch(e) {}
+            return os.apply(this, arguments);
+          };
+        }
+      })();
+    """.trimIndent()
   }
 }
