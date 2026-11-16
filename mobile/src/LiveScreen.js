@@ -1,18 +1,26 @@
 // 📡 Telefondan yayın: aynı anda Twitch + Kick. Kamera + mikrofon görüntüsü RTMP / RTMPS ile gönderilir.
 // - Bağlantı koparsa yayın "Bitir"e basılana kadar kendiliğinden tekrar bağlanır.
 // - Bitrate çok düşerse yayına "Bitrate düşük, lütfen bekleyiniz" yazısı gider, düzelince kameraya döner.
-// Yayın anahtarları sadece bu telefonda saklanır; sadece Twitch'e / Kick'e gönderilir.
-import { useEffect, useRef, useState } from 'react';
-import { Alert, Linking, Modal, PermissionsAndroid, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+// - 🖼️ Ekran öğeleri: PenguLive logosu, kendi resimlerin ve donate bar linklerin yayına eklenir; sürükle, büyüt / küçült, aç / kapat.
+// Yayın anahtarları ve donate linkleri sadece bu telefonda saklanır; sadece Twitch'e / Kick'e / donate sitesine gider.
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Linking, Modal, PanResponder, PermissionsAndroid, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { WebView } from 'react-native-webview';
 import { isInternalUrl } from './links';
 
-const PenguLiveView = Platform.OS === 'android' ? require('../modules/pengu-live/src').PenguLiveView : null;
+const live = Platform.OS === 'android' ? require('../modules/pengu-live/src') : null;
+const PenguLiveView = live?.PenguLiveView || null;
 const keepAwake = Platform.OS === 'android' ? require('expo-keep-awake') : null;
 
 const KEY_STORE = 'penguchat:liveKeys';
 const SET_STORE = 'penguchat:liveSettings';
+const OV_STORE = 'penguchat:liveOverlays';
+// Yer ve boyut: görüntünün yüzdesi (x, y = sol üst köşe, w = genişlik)
+const DEFAULT_OV = [{ id: 'logo', type: 'logo', name: '🐧 PenguLive logosu', on: true, x: 84, y: 3, w: 13 }];
+const SHAPE = { bar: { label: 'Bar (geniş)', aspect: 0.25, w: 40 }, box: { label: 'Kutu (uyarı)', aspect: 0.75, w: 30 } };
+const ovAspect = (o) => (o.type === 'logo' ? 1 : o.type === 'web' ? (SHAPE[o.shape] || SHAPE.bar).aspect : o.aspect || 1);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const TWITCH_INGEST = 'rtmp://live.twitch.tv/app/';
 const QUALITY = { low: 'Düşük (480p)', mid: 'Orta (720p)', high: 'Yüksek (1080p)' };
 const LABEL = { twitch: 'Twitch', kick: 'Kick' };
@@ -42,9 +50,19 @@ export default function LiveScreen({ C, onClose, userAgent }) {
   const [setup, setSetup] = useState(false);
   const [edit, setEdit] = useState(null); // null | 'twitch' | 'kick'
   const [startedAt, setStartedAt] = useState(0);
+  const [overlays, setOverlays] = useState(DEFAULT_OV);
+  const [ovLoaded, setOvLoaded] = useState(false);
+  const [layoutMode, setLayoutMode] = useState(false); // 🖼️ ekran öğelerini düzenleme
+  const [sel, setSel] = useState('logo');
+  const [addWeb, setAddWeb] = useState(null); // null | { url, shape }
+  const [box, setBox] = useState({ w: 0, h: 0 });
   const [, tick] = useState(0);
 
   useEffect(() => {
+    AsyncStorage.getItem(OV_STORE).then((v) => {
+      try { const list = JSON.parse(v || 'null'); if (Array.isArray(list) && list.length) setOverlays(list); } catch {}
+      setOvLoaded(true);
+    }).catch(() => setOvLoaded(true));
     AsyncStorage.multiGet([KEY_STORE, SET_STORE]).then((r) => {
       try { const k = JSON.parse(r[0][1] || '{}'); setKeys((o) => ({ ...o, ...k })); if (!k.twitch && !k.kick) setSetup(true); } catch { setSetup(true); }
       try {
@@ -72,6 +90,69 @@ export default function LiveScreen({ C, onClose, userAgent }) {
     else keepAwake.deactivateKeepAwake('pengu-live');
     return () => keepAwake.deactivateKeepAwake('pengu-live');
   }, [running]);
+
+  // Ekran öğeleri: değişince kısa bir süre sonra kaydet (sürüklerken her harekette değil)
+  useEffect(() => {
+    if (!ovLoaded) return;
+    const t = setTimeout(() => AsyncStorage.setItem(OV_STORE, JSON.stringify(overlays)).catch(() => {}), 500);
+    return () => clearTimeout(t);
+  }, [overlays, ovLoaded]);
+  const ovJson = useMemo(() => JSON.stringify(overlays.map(({ id, type, on, x, y, w, src, shape }) => ({ id, type, on, x, y, w, src: src || '', shape: shape || 'bar' }))), [overlays]);
+
+  // Önizlemede görüntünün kapladığı alan (yan tutunca 16:9, dik tutunca 9:16; kalanı siyah)
+  const portrait = box.h > box.w;
+  const A = portrait ? 9 / 16 : 16 / 9;
+  const rect = (() => {
+    let w = box.w, h = box.w / A;
+    if (h > box.h) { h = box.h; w = box.h * A; }
+    return { x: (box.w - w) / 2, y: (box.h - h) / 2, w, h };
+  })();
+  const hPct = (o) => clamp(o.w * ovAspect(o) * A, 1, 100);
+  const updOv = (id, patch) => setOverlays((list) => list.map((o) => (o.id === id ? { ...o, ...patch } : o)));
+  const resize = (id, d) =>
+    setOverlays((list) => list.map((o) => {
+      if (o.id !== id) return o;
+      const w = clamp(o.w + d, 4, 100);
+      const n = { ...o, w };
+      return { ...n, x: clamp(o.x, 0, 100 - w), y: clamp(o.y, 0, 100 - hPct(n)) };
+    }));
+  const removeOv = (o) =>
+    Alert.alert('Kaldır', `"${o.name}" yayından kaldırılsın mı?`, [
+      { text: 'Vazgeç', style: 'cancel' },
+      { text: 'Kaldır', style: 'destructive', onPress: () => {
+        setOverlays((list) => list.filter((x) => x.id !== o.id));
+        if (o.type === 'image' && o.src) live?.deleteImage(o.src).catch(() => {});
+        setSel('logo');
+      } },
+    ]);
+  const pickImage = async () => {
+    try {
+      const ImagePicker = require('expo-image-picker');
+      const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1 });
+      if (r.canceled || !r.assets?.[0]) return;
+      const a = r.assets[0];
+      const src = live ? await live.importImage(a.uri) : a.uri;
+      const n = overlays.filter((o) => o.type === 'image').length + 1;
+      const o = { id: 'img' + Date.now(), type: 'image', name: '🖼️ Resim ' + n, on: true, x: 3, y: 3, w: 18, src, aspect: a.width && a.height ? a.height / a.width : 1 };
+      setOverlays((list) => [...list, o]);
+      setSel(o.id);
+    } catch (e) {
+      setError('Resim eklenemedi: ' + String(e?.message || e));
+    }
+  };
+  const saveWeb = () => {
+    const url = (addWeb?.url || '').trim();
+    if (!/^https:\/\/[^\s]+$/i.test(url)) { setError('Donate linki https:// ile başlamalı (sitenin "OBS / tarayıcı kaynağı" linki).'); return; }
+    const sh = SHAPE[addWeb.shape] ? addWeb.shape : 'bar';
+    const n = overlays.filter((o) => o.type === 'web').length + 1;
+    const o = { id: 'web' + Date.now(), type: 'web', name: '💰 Donate ' + n, on: true, x: 3, y: sh === 'bar' ? 84 : 55, w: SHAPE[sh].w, src: url, shape: sh };
+    setOverlays((list) => [...list, o]);
+    setSel(o.id);
+    setAddWeb(null);
+    setError('');
+  };
+  const selOv = overlays.find((o) => o.id === sel);
+  const panelTop = !!selOv && selOv.on && selOv.y + hPct(selOv) / 2 > 50;
 
   const saveKeys = (k) => { setKeys(k); AsyncStorage.setItem(KEY_STORE, JSON.stringify(k)).catch(() => {}); };
   const saveQuality = (q, k = kbps) => { setQuality(q); setKbps(k); AsyncStorage.setItem(SET_STORE, JSON.stringify({ quality: q, kbps: k })).catch(() => {}); };
@@ -121,16 +202,19 @@ export default function LiveScreen({ C, onClose, userAgent }) {
   const pill = { borderRadius: 14, paddingHorizontal: 10, paddingVertical: 5, overflow: 'hidden' };
   const btn = (bg) => ({ paddingHorizontal: 14, height: 46, borderRadius: 23, justifyContent: 'center', alignItems: 'center', backgroundColor: bg });
   const txt = { color: '#fff', fontWeight: '700', fontSize: 15 };
+  const sbtn = (bg) => ({ paddingHorizontal: 12, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', backgroundColor: bg });
+  const stxt = { color: '#fff', fontWeight: '700', fontSize: 14 };
   const platforms = ['twitch', 'kick'].filter((p) => (p === 'twitch' ? keys.useTwitch && keys.twitch : keys.useKick && keys.kick && keys.kickUrl));
   const anyLive = platforms.some((p) => status[p] === 'live');
 
   return (
     <Modal animationType="slide" onRequestClose={close} supportedOrientations={['portrait', 'landscape', 'landscape-left', 'landscape-right']}>
-      <View style={{ flex: 1, backgroundColor: '#000' }}>
+      <View style={{ flex: 1, backgroundColor: '#000' }} onLayout={(e) => setBox({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}>
         {PenguLiveView ? (
           <PenguLiveView
             ref={ref}
             style={{ flex: 1 }}
+            overlays={ovJson}
             quality={quality}
             bitrateKbps={kbps}
             onStatus={(e) => {
@@ -144,7 +228,13 @@ export default function LiveScreen({ C, onClose, userAgent }) {
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff' }}>Yayın sadece Android'de.</Text></View>
         )}
 
+        {/* 🖼️ Düzenleme: her öğenin kutusu; sürükleyerek taşı */}
+        {layoutMode && box.w > 0 && overlays.filter((o) => o.on).map((o) => (
+          <DragBox key={o.id} o={o} rect={rect} hp={hPct(o)} selected={sel === o.id} onSelect={setSel} onMove={updOv} />
+        ))}
+
         {/* Üst: süre + her platformun durumu ve bitrate'i */}
+        {!layoutMode && (
         <View style={{ position: 'absolute', top: 12, left: 12, right: 12, gap: 6 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Text style={[pill, { color: '#fff', fontWeight: '700', backgroundColor: running && anyLive ? '#dc2626' : 'rgba(0,0,0,.6)' }]}>
@@ -174,8 +264,49 @@ export default function LiveScreen({ C, onClose, userAgent }) {
             </Pressable>
           )}
         </View>
+        )}
+
+        {/* 🖼️ Ekran öğeleri paneli: seçili öğe alttaysa panel üste geçer (öğeyi kapatmasın) */}
+        {layoutMode && (
+          <View style={[{ position: 'absolute', left: 8, right: 8, backgroundColor: 'rgba(0,0,0,.8)', borderRadius: 12, padding: 6, gap: 6 }, panelTop ? { top: 8 } : { bottom: 8 }]}>
+            {!!error && (
+              <Pressable onPress={() => setError('')} style={{ backgroundColor: 'rgba(220,38,38,.92)', borderRadius: 8, padding: 8 }}>
+                <Text style={{ color: '#fff' }}>{error}</Text>
+              </Pressable>
+            )}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }} keyboardShouldPersistTaps="handled">
+              {overlays.map((o) => (
+                <Pressable key={o.id} onPress={() => setSel(o.id)} style={{ paddingHorizontal: 10, height: 32, borderRadius: 16, justifyContent: 'center', borderWidth: 1, borderColor: sel === o.id ? '#fbbf24' : 'rgba(255,255,255,.3)', backgroundColor: sel === o.id ? 'rgba(251,191,36,.2)' : 'transparent', opacity: o.on ? 1 : 0.55 }}>
+                  <Text style={{ color: '#fff', fontWeight: '600' }}>{o.name}{o.on ? '' : ' (kapalı)'}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={{ gap: 6, alignItems: 'center' }}>
+                {selOv && (
+                  <>
+                    <Pressable style={sbtn(selOv.on ? 'rgba(255,255,255,.15)' : '#16a34a')} onPress={() => updOv(selOv.id, { on: !selOv.on })}>
+                      <Text style={stxt}>{selOv.on ? '🙈 Gizle' : '👁️ Göster'}</Text>
+                    </Pressable>
+                    <Pressable style={sbtn('rgba(255,255,255,.15)')} onPress={() => resize(selOv.id, -2)} disabled={!selOv.on}><Text style={stxt}>➖ Küçült</Text></Pressable>
+                    <Pressable style={sbtn('rgba(255,255,255,.15)')} onPress={() => resize(selOv.id, 2)} disabled={!selOv.on}><Text style={stxt}>➕ Büyüt</Text></Pressable>
+                    {selOv.type !== 'logo' && (
+                      <Pressable style={sbtn('rgba(220,38,38,.85)')} onPress={() => removeOv(selOv)}><Text style={stxt}>🗑️</Text></Pressable>
+                    )}
+                    <View style={{ width: 1, height: 24, backgroundColor: 'rgba(255,255,255,.3)' }} />
+                  </>
+                )}
+                <Pressable style={sbtn('#f59e0b')} onPress={() => setAddWeb({ url: '', shape: 'bar' })}><Text style={stxt}>＋ Donate bar</Text></Pressable>
+                <Pressable style={sbtn('#0e8f8a')} onPress={pickImage}><Text style={stxt}>＋ Resim / logo</Text></Pressable>
+              </ScrollView>
+              <Pressable style={sbtn('#9146ff')} onPress={() => { setLayoutMode(false); setError(''); }}><Text style={stxt}>Bitti</Text></Pressable>
+            </View>
+            {portrait && <Text style={{ color: 'rgba(255,255,255,.7)', fontSize: 11 }}>Kutuyu parmağınla sürükleyerek taşı. Burada gördüğün gibi yayına gider{running ? ' (şu an yayındasın)' : ''}.</Text>}
+          </View>
+        )}
 
         {/* Alt tuşlar */}
+        {!layoutMode && (
         <View style={{ position: 'absolute', bottom: 24, left: 12, right: 12, flexDirection: 'row', alignItems: 'center', gap: 10, justifyContent: 'center' }}>
           <Pressable style={btn('rgba(0,0,0,.6)')} onPress={() => ref.current?.switchCamera()}>
             <Text style={txt}>🔄</Text>
@@ -191,10 +322,44 @@ export default function LiveScreen({ C, onClose, userAgent }) {
           <Pressable style={btn('rgba(0,0,0,.6)')} onPress={() => setEdit(keys.useTwitch || !keys.useKick ? 'twitch' : 'kick')}>
             <Text style={txt}>✏️</Text>
           </Pressable>
+          <Pressable style={btn('rgba(0,0,0,.6)')} onPress={() => { setError(''); setLayoutMode(true); }}>
+            <Text style={txt}>🖼️</Text>
+          </Pressable>
           <Pressable style={btn('rgba(0,0,0,.6)')} onPress={() => setSetup(true)}>
             <Text style={txt}>⚙️</Text>
           </Pressable>
         </View>
+        )}
+
+        {/* ＋ Donate bar: linki gir */}
+        {addWeb && (
+          <View style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,.7)', justifyContent: 'center', padding: 14 }}>
+            <ScrollView contentContainerStyle={{ backgroundColor: C.panel, borderRadius: 12, borderWidth: 1, borderColor: C.border, padding: 14, gap: 8 }} keyboardShouldPersistTaps="handled">
+              <Text style={{ color: C.text, fontSize: 16, fontWeight: '700' }}>💰 Donate bar ekle</Text>
+              <Text style={{ color: C.muted, fontSize: 12 }}>Bağış sitendeki (Bagış Al, Jetonbank, Streamlabs, StreamElements…) bağış hedefi / uyarı için verilen "OBS" ya da "tarayıcı kaynağı" linkini yapıştır. Twitch ve Kick yayınının ikisinde de görünür.</Text>
+              <Field C={C} value={addWeb.url} onChange={(v) => setAddWeb({ ...addWeb, url: v.trim() })} placeholder="https://…" secure />
+              <Text style={{ color: C.muted, fontSize: 11 }}>Bu link gizli anahtar gibidir: sadece bu telefonda saklanır, kimseyle paylaşma.</Text>
+              <Text style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>Şekil</Text>
+              <View style={{ flexDirection: 'row', gap: 6 }}>
+                {Object.entries(SHAPE).map(([k, v]) => (
+                  <Pressable key={k} onPress={() => setAddWeb({ ...addWeb, shape: k })} style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: addWeb.shape === k ? '#9146ff' : C.border, backgroundColor: addWeb.shape === k ? '#9146ff' : C.input }}>
+                    <Text style={{ color: addWeb.shape === k ? '#fff' : C.text, fontWeight: '600' }}>{v.label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+              <Text style={{ color: C.muted, fontSize: 11 }}>Not: Uyarıların sesi yayına gitmez, sadece görüntüsü gider.</Text>
+              <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'flex-end', marginTop: 6 }}>
+                <Pressable onPress={() => setAddWeb(null)} style={{ paddingHorizontal: 18, height: 40, borderRadius: 8, borderWidth: 1, borderColor: C.border, justifyContent: 'center' }}>
+                  <Text style={{ color: C.text, fontWeight: '700' }}>Vazgeç</Text>
+                </Pressable>
+                <Pressable onPress={saveWeb} style={{ paddingHorizontal: 18, height: 40, borderRadius: 8, backgroundColor: '#9146ff', justifyContent: 'center' }}>
+                  <Text style={{ color: '#fff', fontWeight: '700' }}>Ekle</Text>
+                </Pressable>
+              </View>
+              {!!error && <Text style={{ color: '#dc2626' }}>{error}</Text>}
+            </ScrollView>
+          </View>
+        )}
 
         {/* ✏️ Başlık / kategori: platformun kendi sayfası */}
         {edit && (
@@ -282,6 +447,48 @@ export default function LiveScreen({ C, onClose, userAgent }) {
         )}
       </View>
     </Modal>
+  );
+}
+
+// 🖼️ Sürüklenebilir kutu (bir ekran öğesinin yayındaki yeri)
+function DragBox({ o, rect, hp, selected, onSelect, onMove }) {
+  const cb = useRef(null);
+  cb.current = { o, rect, hp, onSelect, onMove };
+  const start = useRef({ x: 0, y: 0 });
+  const pr = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        const c = cb.current;
+        start.current = { x: c.o.x, y: c.o.y };
+        c.onSelect(c.o.id);
+      },
+      onPanResponderMove: (_, g) => {
+        const c = cb.current;
+        if (!c.rect.w || !c.rect.h) return;
+        c.onMove(c.o.id, {
+          x: clamp(start.current.x + (g.dx / c.rect.w) * 100, 0, 100 - c.o.w),
+          y: clamp(start.current.y + (g.dy / c.rect.h) * 100, 0, 100 - c.hp),
+        });
+      },
+    })
+  ).current;
+  return (
+    <View
+      {...pr.panHandlers}
+      style={{
+        position: 'absolute',
+        left: rect.x + (o.x / 100) * rect.w,
+        top: rect.y + (o.y / 100) * rect.h,
+        width: (o.w / 100) * rect.w,
+        height: (hp / 100) * rect.h,
+        borderWidth: 2,
+        borderStyle: 'dashed',
+        borderColor: selected ? '#fbbf24' : 'rgba(255,255,255,.85)',
+        backgroundColor: selected ? 'rgba(251,191,36,.12)' : 'rgba(255,255,255,.05)',
+      }}
+    />
   );
 }
 
