@@ -66,7 +66,7 @@ function createWindow() {
     minWidth: 480,
     minHeight: 360,
     backgroundColor: '#f0f0f0',
-    title: 'PenguLive — Twitch + Kick',
+    title: 'PenguLive',
     icon: path.join(__dirname, 'icon.png'),
     autoHideMenuBar: true,
     webPreferences: {
