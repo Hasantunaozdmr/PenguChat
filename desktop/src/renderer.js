@@ -245,7 +245,7 @@
     const action = e.target.closest('button')?.dataset.action;
     if (action === 'reload-all') { openChat('twitch'); openChat('kick'); }
     if (action === 'check-update') { manualCheck = true; window.dualChat.checkUpdates(); }
-    if (action === 'privacy') window.dualChat.openExternal('https://hasantunaozdmr.github.io/PenguChat/gizlilik/');
+    if (action === 'privacy') openPrivacy();
     if (action === 'logout' && confirm('Twitch ve Kick hesaplarından çıkış yapılsın mı?')) {
       await window.dualChat.logoutAll();
       openChat('twitch'); openChat('kick');
@@ -253,6 +253,23 @@
   };
   menu.addEventListener('click', onMenuAction);
   // 🔧 Ayarlar: Renk, Güncelleme, Çıkış tek pencerede
+  // 🔒 Gizlilik: uygulamanın içinde bir pencerede gösterilir
+  const privacyDlg = $('#privacyDlg');
+  function openPrivacy() {
+    const body = $('#privacyBody');
+    if (!body.childElementCount && window.PenguPrivacy) {
+      const P = window.PenguPrivacy;
+      const add = (tag, text, parent = body) => { const el = document.createElement(tag); el.textContent = text; parent.appendChild(el); return el; };
+      add('p', 'Son güncelleme: ' + P.UPDATED).className = 'dlg-note';
+      for (const s of P.SECTIONS) {
+        if (s.h) add('h3', s.h);
+        for (const t of s.p || []) add('p', t);
+        if (s.list) { const ul = add('ul', ''); for (const t of s.list) add('li', t, ul); }
+      }
+    }
+    privacyDlg.classList.remove('hidden');
+    body.scrollTop = 0;
+  }
   const settingsDlg = $('#settingsDlg');
   $('#settingsBtn').addEventListener('click', () => settingsDlg.classList.remove('hidden'));
   settingsDlg.addEventListener('click', (e) => {
@@ -364,13 +381,13 @@
   });
   $('#themeBtn').addEventListener('click', () => themeDlg.classList.remove('hidden'));
   applyTheme();
-  for (const d of [reportDlg, inboxDlg, themeDlg, $('#settingsDlg')]) {
+  for (const d of [reportDlg, inboxDlg, themeDlg, $('#settingsDlg'), $('#privacyDlg')]) {
     d.addEventListener('click', (e) => {
       if (e.target === d || e.target.closest('[data-close]')) d.classList.add('hidden');
     });
   }
   window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') { reportDlg.classList.add('hidden'); inboxDlg.classList.add('hidden'); themeDlg.classList.add('hidden'); $('#settingsDlg').classList.add('hidden'); }
+    if (e.key === 'Escape') { reportDlg.classList.add('hidden'); inboxDlg.classList.add('hidden'); themeDlg.classList.add('hidden'); $('#settingsDlg').classList.add('hidden'); $('#privacyDlg').classList.add('hidden'); }
   });
 
   function reportHint(text, cls) {

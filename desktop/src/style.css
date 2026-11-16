@@ -418,3 +418,11 @@ body.top-collapsed .toolbar, body.top-collapsed .actionbar, body.top-collapsed .
 .set-item small { color: var(--muted); font-size: 12px; }
 .set-item .badge { position: static; transform: none; }
 .set-item.hidden { display: none; }
+
+/* 🔒 Gizlilik penceresi */
+.privacy-dlg { width: min(640px, 92vw); max-height: 86vh; display: flex; flex-direction: column; }
+.privacy-body { overflow-y: auto; padding-right: 6px; font-size: 13px; line-height: 1.55; }
+.privacy-body h3 { font-size: 14px; margin: 14px 0 4px; }
+.privacy-body p { margin: 6px 0; }
+.privacy-body ul { margin: 4px 0; padding-left: 18px; }
+.privacy-body li { margin: 3px 0; }

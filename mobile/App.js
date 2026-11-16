@@ -113,6 +113,7 @@ function PenguChat() {
     themeApplied.current = s.themeColor;
   }
   const [themeOpen, setThemeOpen] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [liveOpen, setLiveOpen] = useState(false); // 📡 telefondan yayın // ⚙️ Ayarlar: Yönetim, Renk, Güncelleme
   const [ready, setReady] = useState(false);
@@ -705,11 +706,12 @@ function PenguChat() {
           onClose={() => setSettingsOpen(false)}
           items={[
             { label: '🎨 Renk', sub: 'Uygulamanın rengini değiştir', onPress: () => setThemeOpen(true) },
-            { label: '🔒 Gizlilik', sub: 'Hangi verilerin neden toplandığı', onPress: () => Linking.openURL('https://hasantunaozdmr.github.io/PenguChat/gizlilik/') },
+            { label: '🔒 Gizlilik', sub: 'Hangi verilerin neden toplandığı', onPress: () => setPrivacyOpen(true) },
             Platform.OS === 'android' && { label: checking ? '⬆ Bakılıyor…' : '⬆ Güncelleme', sub: newVersion ? 'Yeni sürüm var!' : 'Yeni sürüm var mı bak', dot: !!newVersion, onPress: checkUpdateNow },
           ].filter(Boolean)}
         />
       )}
+      {privacyOpen && <PrivacySheet onClose={() => setPrivacyOpen(false)} />}
       {themeOpen && <ThemePicker current={s.themeColor} onPick={(c) => update({ themeColor: c })} onClose={() => setThemeOpen(false)} />}
       {reportMode && <ReportModal accounts={accounts} roles={roles} onUndo={undoAction} annNow={ann} mode={reportMode} onClose={() => setReportMode(null)} appVersion={APP_VERSION} admin={admin} onAdminChange={changeAdmin} startTab={mineNews ? 'mine' : 'new'} onMineSeen={() => setMineNews(false)} />}
       {!!ann.text && ann.seen !== ann.at && (
@@ -896,6 +898,38 @@ function SettingsSheet({ items, onClose }) {
           ))}
         </Pressable>
       </Pressable>
+    </Modal>
+  );
+}
+
+// 🔒 Gizlilik metni: uygulamanın içinde gösterilir (src/privacy.js, PC ile aynı içerik)
+function PrivacySheet({ onClose }) {
+  const P = require('./src/privacy');
+  return (
+    <Modal transparent animationType="fade" onRequestClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,.55)', justifyContent: 'center', padding: 12 }}>
+        <View style={{ flex: 1, maxHeight: '94%', backgroundColor: C.panel, borderRadius: 12, borderWidth: 1, borderColor: C.border, padding: 14 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+            <Text style={{ color: C.text, fontSize: 16, fontWeight: '700', flex: 1 }}>🔒 Gizlilik</Text>
+            <Pressable onPress={onClose} hitSlop={10}><Text style={{ color: C.text, fontSize: 18 }}>✕</Text></Pressable>
+          </View>
+          <ScrollView contentContainerStyle={{ paddingBottom: 8 }}>
+            <Text style={{ color: C.muted, fontSize: 12, marginBottom: 4 }}>Son güncelleme: {P.UPDATED}</Text>
+            {P.SECTIONS.map((sec, i) => (
+              <View key={i} style={{ marginTop: sec.h ? 12 : 4 }}>
+                {!!sec.h && <Text style={{ color: C.text, fontSize: 15, fontWeight: '700', marginBottom: 4 }}>{sec.h}</Text>}
+                {(sec.p || []).map((t, j) => <Text key={j} style={{ color: C.text, fontSize: 13, lineHeight: 19, marginBottom: 4 }}>{t}</Text>)}
+                {(sec.list || []).map((t, j) => (
+                  <View key={j} style={{ flexDirection: 'row', gap: 6, marginBottom: 4 }}>
+                    <Text style={{ color: C.text, fontSize: 13, lineHeight: 19 }}>•</Text>
+                    <Text style={{ color: C.text, fontSize: 13, lineHeight: 19, flex: 1 }}>{t}</Text>
+                  </View>
+                ))}
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      </View>
     </Modal>
   );
 }
