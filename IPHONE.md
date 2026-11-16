@@ -4,7 +4,7 @@ Merhaba! Bu not, PenguLive'in iPhone sürümünü hazırlayacak kişi (ve onun C
 
 ## Kısaca durum
 
-- PenguLive; Twitch ve Kick chat'ini tek ekranda gösteren, modlara hızlı timeout/ban, gecikme, izleyici sayısı, sorun bildirme, yetki ve bakım modu sunan bir uygulama.
+- PenguLive; Twitch ve Kick chat'ini tek ekranda gösteren, modlara hızlı timeout/ban, mod log, izleyici sayısı, sorun bildirme, yetki ve bakım modu sunan bir uygulama.
 - **Windows** (`desktop/`, Electron) ve **Android** (`mobile/`, Expo / React Native) sürümleri hazır ve kullanılıyor.
 - **iPhone sürümü yok.** Ama telefon uygulaması Expo ile yazıldığı için kodun büyük kısmı iPhone'da da çalışır; asıl iş derleyip dağıtmak.
 

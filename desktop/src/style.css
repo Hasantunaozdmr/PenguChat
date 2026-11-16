@@ -223,7 +223,7 @@ kbd { color: var(--muted); font: inherit; font-size: 11px; }
 .btn.mod.danger:hover { background: #cc3128; }
 .btn.mod:disabled { opacity: .45; cursor: default; }
 
-/* ---------- Gecikme yazısı ---------- */
+/* ---------- Mod düğmesi ---------- */
 #modToggle.active { background: var(--border); }
 .btn.chip:disabled { opacity: .25; cursor: not-allowed; }
 

@@ -201,6 +201,7 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
       stream.startStream(MultiType.RTMP, i, url)
     }
     if (!glWasRunning) syncFilters()
+    if (wanted[0] || wanted[1]) PenguLiveService.start(context)
   }
 
   fun stop() {
@@ -214,6 +215,7 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
     // Kodlayıcıyı da durdur (bir sonraki yayın temiz başlasın)
     if (stream.isStreaming) runCatching { stream.stopStream() }
     if (lowMode) backToCamera()
+    PenguLiveService.stop(context)
   }
 
   fun switchCamera() {
@@ -448,6 +450,7 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
 
   fun release() {
     main.removeCallbacksAndMessages(null)
+    PenguLiveService.stop(context)
     overlays.values.forEach { l -> l.web?.let { root.removeView(it); it.destroy() } }
     overlays.clear()
     for (i in 0..1) wanted[i] = false

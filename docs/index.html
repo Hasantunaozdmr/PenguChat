@@ -4,10 +4,10 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>PenguLive — Twitch + Kick chat ve yayın tek uygulamada</title>
-  <meta name="description" content="Twitch ve Kick chat'ini yan yana gösteren, modlar için tek tıkla timeout/ban, gecikme ve izleyici sayısı sunan ücretsiz uygulama. Windows ve Android." />
+  <meta name="description" content="Twitch ve Kick chat'ini yan yana gösteren, modlar için tek tıkla timeout/ban, izleyici sayısı ve telefondan Twitch + Kick'e aynı anda yayın sunan ücretsiz uygulama. Windows ve Android." />
   <meta property="og:title" content="PenguLive — Twitch + Kick chat ve yayın tek uygulamada" />
   <meta property="og:description" content="Modların yeni en iyi arkadaşı. Windows ve Android için ücretsiz." />
-  <meta property="og:image" content="media/tanitim.jpg" />
+  <meta property="og:image" content="media/icon.png" />
   <link rel="icon" href="media/icon.png" />
   <style>
     :root {
@@ -37,10 +37,6 @@
     .note { color: var(--muted); font-size: 13px; margin-top: 12px; }
     section { padding: 36px 0; }
     h2 { font-size: 28px; margin: 0 0 18px; text-align: center; }
-    .video { display: grid; grid-template-columns: 2.2fr 1fr; gap: 16px; align-items: start; }
-    .video figure { margin: 0; background: rgba(0,0,0,.25); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
-    .video video { display: block; width: 100%; height: auto; background: #000; }
-    .video figcaption { padding: 8px 12px; font-size: 13px; color: var(--muted); }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
     .card { background: rgba(0,0,0,.2); border: 1px solid var(--border); border-radius: 14px; padding: 16px; }
     .card .i { font-size: 26px; }
@@ -53,7 +49,6 @@
     summary { cursor: pointer; font-weight: 700; }
     details p { color: var(--muted); margin: 8px 0 2px; }
     footer { text-align: center; padding: 30px 0 40px; color: var(--muted); font-size: 13px; }
-    @media (max-width: 760px) { .video { grid-template-columns: 1fr; } .video figure.phone { max-width: 360px; margin: 0 auto; } }
   </style>
 </head>
 <body>
@@ -61,7 +56,7 @@
     <header class="hero">
       <img class="logo" src="media/icon.png" alt="PenguLive penguen simgesi" />
       <h1>Pengu<span>Live</span></h1>
-      <p class="tag">Twitch + Kick chat'i tek ekranda — modların yeni en iyi arkadaşı</p>
+      <p class="tag">Twitch + Kick chat'i tek ekranda, telefondan iki platforma birden yayın</p>
       <div class="badge">🧪 Beta · Ücretsiz</div>
       <div class="dl">
         <a class="btn win" href="https://github.com/Hasantunaozdmr/PenguChat/releases/latest/download/PenguChat-Setup.exe">🪟 <span>Windows için indir<small>PenguChat-Setup.exe</small></span></a>
@@ -72,27 +67,16 @@
     </header>
 
     <section>
-      <h2>🎬 İş başında</h2>
-      <div class="video">
-        <figure>
-          <video src="media/tanitim.mp4" poster="media/tanitim.jpg" controls muted playsinline preload="metadata"></video>
-          <figcaption>Windows sürümü — 1 dakikada tüm özellikler</figcaption>
-        </figure>
-        <figure class="phone">
-          <video src="media/telefon.mp4" poster="media/telefon.jpg" controls muted playsinline preload="metadata"></video>
-          <figcaption>Android sürümü</figcaption>
-        </figure>
-      </div>
-    </section>
-
-    <section>
       <h2>✨ Neler yapabiliyor?</h2>
       <div class="grid">
         <div class="card"><div class="i">💬</div><h3>İki chat yan yana</h3><p>Twitch ve Kick'in resmi chat'leri tek pencerede. Linki yapıştır, ikisi birden açılsın.</p></div>
         <div class="card"><div class="i">⏱</div><h3>Tek tıkla ceza</h3><p>Kullanıcı adına tıkla, timeout ya da ban'ı Twitch ve Kick'e aynı anda gönder. Twitch'e saniye, Kick'e dakika otomatik.</p></div>
         <div class="card"><div class="i">📋</div><h3>Kişinin sicili</h3><p>Tıkladığın kişinin daha önce kaç timeout / ban yediğini anında gör.</p></div>
         <div class="card"><div class="i">↩</div><h3>Cezayı geri al</h3><p>Yanlış kişiye mi gitti? Mod log'dan tek tıkla kaldır.</p></div>
-        <div class="card"><div class="i">📡</div><h3>Gecikme ve izleyici</h3><p>Yayının gecikmesini ve iki platformdaki canlı izleyici sayısını gösterir.</p></div>
+        <div class="card"><div class="i">👀</div><h3>İzleyici ve kategori</h3><p>İki platformdaki canlı izleyici sayısını ve yayının kategorisini gösterir.</p></div>
+        <div class="card"><div class="i">📡</div><h3>Telefondan çift yayın</h3><p>Android'den Twitch ve Kick'e aynı anda (ya da sadece birine) yayın. Bağlantı koparsa kendiliğinden tekrar bağlanır.</p></div>
+        <div class="card"><div class="i">🖼️</div><h3>Logo ve donate bar</h3><p>Yayına kendi logonu, resimlerini ve Streamlabs gibi sitelerin bağış / abone uyarılarını (sesiyle) ekle; sürükle, büyüt, küçült.</p></div>
+        <div class="card"><div class="i">🎨</div><h3>İstediğin renk</h3><p>Hazır renkler, tüm renkler ya da kendi renk kodun. Varsayılan beyaz.</p></div>
         <div class="card"><div class="i">🛡️</div><h3>Sadece modlara</h3><p>Mod araçları sadece mod hesaplarında çıkar; normal izleyici sade bir chat görür.</p></div>
         <div class="card"><div class="i">🐞</div><h3>Sorun bildir</h3><p>Uygulamanın içinden sorun gönder, durumunu takip et: Gönderildi → Sırada → Çözüldü.</p></div>
         <div class="card"><div class="i">🔄</div><h3>Kendi kendine güncellenir</h3><p>Windows'ta otomatik; Android'de tek dokunuş.</p></div>
@@ -107,6 +91,7 @@
         <li>Üstteki kutuya yayıncının Twitch ya da Kick linkini (veya sadece kanal adını) yaz.</li>
         <li>Chat'lerin içindeki <b>Giriş yap</b> ile hesabına bir kez gir. Twitch'te Google ile giriş çalışmaz; kullanıcı adı ve şifre kullan.</li>
         <li>Mod hesabınla girdiysen 👤 düğmesiyle hızlı ceza çubuğu açılır. Hepsi bu!</li>
+        <li><b>Telefondan yayın</b> (Android): 📡 Yayın tuşu sadece yetki verilen hesaplarda görünür. ⚙️ ile Twitch / Kick yayın anahtarını gir, <b>● Yayına başla</b>'ya bas.</li>
       </ol>
     </section>
 

@@ -1,0 +1,12 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <!-- Yayın sürerken uygulamadan çıkılsa da kamera + mikrofon çalışmaya devam etsin -->
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+  <application>
+    <service
+      android:name="expo.modules.pengulive.PenguLiveService"
+      android:exported="false"
+      android:foregroundServiceType="camera|microphone" />
+  </application>
+</manifest>

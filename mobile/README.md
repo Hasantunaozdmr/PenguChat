@@ -11,7 +11,8 @@ Masaüstü PenguLive'in telefon sürümü. Twitch ve Kick'in resmi chat sayfalar
 - Panel başına yazı boyutu (A− / A+).
 - **Hızlı ceza çubuğu (👤):** Chat'te bir ada dokun, üstte çubuk açılır. **⏱ Timeout** (varsayılan 919824 sn) ya da **⛔ Ban** komutu seçtiğin platform(lar)a gönderilir. Restream mesajlarında gerçek Twitch kullanıcısı seçilir. Sadece moderatör olduğun kanallarda görünür; normal izleyicide gizlidir.
 - Chat'teki dış linkler telefonun tarayıcısında açılır.
-- **Güncelleme (Android):** Yeni sürüm çıkınca üstte yeşil **⬆ Yeni sürüm var** çubuğu görünür, dokununca yeni APK iner, açıp **Güncelle** dersin. Girişler silinmez.
+- **Güncelleme (Android):** ⚙️ Ayarlar → **⬆ Güncelleme** ile yeni sürüme bakılır; varsa tarayıcıda yeni APK iner, açıp **Güncelle** dersin. Girişler silinmez.
+- **📡 Yayın (Android):** Yetki verilen hesaplarda görünür. Twitch ve Kick'e aynı anda (ya da sadece birine) yayın; bağlantı koparsa kendiliğinden tekrar bağlanır, bitrate çok düşerse yayına "Bitrate düşük, lütfen bekleyiniz" yazısı gider. 🖼️ ile logo, resim ve donate bar (uyarı sesleriyle) eklenir. Yayın anahtarları ve donate linkleri sadece telefonda saklanır.
 
 ## İlk kullanım
 1. Üstteki çubuğa yayın linkini yapıştır.
