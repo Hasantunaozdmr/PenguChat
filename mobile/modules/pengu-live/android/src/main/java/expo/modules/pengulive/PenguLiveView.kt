@@ -281,7 +281,28 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
 
   // ---- Ekran öğeleri (logo, resim, donate bar) ----
   private class Ov(val id: String, val type: String, val x: Float, val y: Float, val w: Float, val src: String, val shape: String, val sound: Boolean)
-  private class Live(var ov: Ov, val filter: ImageObjectFilterRender, var aspect: Float, var bmp: Bitmap?, val web: WebView?)
+  private class Live(var ov: Ov, val filter: OvFilter, var aspect: Float, var bmp: Bitmap?, val web: WebView?) {
+    // Donate sayfası için iki resim sırayla kullanılır (her yarım saniyede yeni resim oluşturmamak için)
+    val frames = arrayOfNulls<Bitmap>(2)
+    var frameIdx = 0
+  }
+
+  /**
+   * Görüntü motoru bir öğeyi bırakınca (uygulama arka plana gidip gelince vb.) kütüphane yerini ve boyutunu
+   * tam ekrana sıfırlıyor. Bu sınıf yeri / boyutu hatırlar ve resmi yeniden yükletir: logo hiçbir zaman ekranı kaplamaz.
+   */
+  private class OvFilter : ImageObjectFilterRender() {
+    private var sx = 0f; private var sy = 0f; private var px = 0f; private var py = 0f
+    fun place(w: Float, h: Float, x: Float, y: Float) {
+      sx = w; sy = h; px = x; py = y
+      setScale(w, h); setPosition(x, y)
+    }
+    override fun release() {
+      super.release()
+      if (sx > 0f) { setScale(sx, sy); setPosition(px, py) }
+      shouldLoad = true
+    }
+  }
 
   private val overlays = LinkedHashMap<String, Live>()
   private var lastPortrait = false
@@ -314,7 +335,7 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
   }
 
   private fun createOverlay(o: Ov): Live? {
-    val filter = ImageObjectFilterRender()
+    val filter = OvFilter()
     return when (o.type) {
       "logo" -> {
         val bmp = BitmapFactory.decodeResource(resources, R.drawable.pengulive_logo) ?: return null
@@ -343,7 +364,6 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
     BitmapFactory.decodeFile(path, BitmapFactory.Options().apply { inSampleSize = sample })
   }.getOrNull()
 
-  @SuppressLint("SetJavaScriptEnabled")
   // Sayfa bir ses çalınca (abone / bağış uyarısı) bize haber verir; sesi yayına biz ekleriz
   inner class AudioBridge(private val id: String) {
     private fun on() = overlays[id]?.ov?.sound ?: false
@@ -354,6 +374,7 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
 
   private fun hookAudio(wv: WebView) = wv.evaluateJavascript(AUDIO_HOOK, null)
 
+  @SuppressLint("SetJavaScriptEnabled")
   private fun makeWeb(id: String, url: String, pw: Int, ph: Int): WebView {
     AlertAudio.tmpDir = context.cacheDir
     val wv = WebView(context)
@@ -384,7 +405,13 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
         val wv = l.web ?: continue
         if (wv.width <= 0 || wv.height <= 0) continue
         runCatching {
-          val bmp = Bitmap.createBitmap(wv.width, wv.height, Bitmap.Config.ARGB_8888)
+          l.frameIdx = 1 - l.frameIdx
+          var bmp = l.frames[l.frameIdx]
+          if (bmp == null || bmp.width != wv.width || bmp.height != wv.height) {
+            bmp = Bitmap.createBitmap(wv.width, wv.height, Bitmap.Config.ARGB_8888)
+            l.frames[l.frameIdx] = bmp
+          }
+          bmp!!.eraseColor(Color.TRANSPARENT)
           wv.draw(Canvas(bmp))
           l.bmp = bmp
           l.filter.setImage(bmp)
@@ -399,8 +426,7 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
     val frame = if (isPortrait()) height.toFloat() / width else width.toFloat() / height
     val w = l.ov.w.coerceIn(2f, 100f)
     val h = (w * l.aspect * frame).coerceIn(1f, 100f)
-    l.filter.setScale(w, h)
-    l.filter.setPosition(l.ov.x.coerceIn(0f, 100f - w), l.ov.y.coerceIn(0f, 100f - h))
+    l.filter.place(w, h, l.ov.x.coerceIn(0f, 100f - w), l.ov.y.coerceIn(0f, 100f - h))
   }
 
   private fun removeOverlay(id: String) {
