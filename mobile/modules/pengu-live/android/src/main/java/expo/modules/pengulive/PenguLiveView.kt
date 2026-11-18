@@ -133,7 +133,9 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
         "current" to (if (stream.isStreaming) curBitrate else videoBitrate).toDouble(),
         "lowMode" to lowMode,
         "camAspect" to (overlays["cam"]?.let { camAspect() } ?: 0f).toDouble(),
+        "power" to power,
       ))
+      if (++powerTick % 5 == 1) checkPower()
       adaptBitrate()
       // Telefon döndüyse ekran öğelerinin oranını düzelt
       val p = isPortrait()
@@ -204,8 +206,43 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
    * Bunu yapmazsak kareler yığılıp atılıyor: görüntü takılıyor, ses kayıyor, izleyicide 144p'ye düşüyor.
    * İki platformdan hangisi yetişemiyorsa ona göre ayarlanır (tek kodlayıcı ikisine birden gönderir).
    */
+  // ---- 🔋 Şarj / ısı koruması ----
+  // Şarj azalınca, pil tasarrufu açılınca ya da telefon ısınınca telefon kendini yavaşlatır; kare hızı 15–30 arasında
+  // zıplar. Bunun yerine sabit ve daha düşük bir kare hızına geçeriz: görüntü düzenli akar, ses ile görüntü ayrılmaz.
+  private var powerTick = 0
+  private var ecoLevel = -1 // 0 normal, 1 tasarruf, 2 çok sıcak
+  private var power: Map<String, Any> = emptyMap()
+
+  private fun checkPower() {
+    runCatching {
+      val bm = context.getSystemService(android.os.BatteryManager::class.java)
+      val pm = context.getSystemService(android.os.PowerManager::class.java)
+      val pct = bm.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY)
+      val charging = bm.isCharging
+      val save = pm.isPowerSaveMode
+      val thermal = if (android.os.Build.VERSION.SDK_INT >= 29) pm.currentThermalStatus else 0
+      val level = when {
+        thermal >= 3 -> 2 // THERMAL_STATUS_SEVERE ve üstü
+        thermal >= 2 || save || (pct in 0..15 && !charging) -> 1 // MODERATE, pil tasarrufu ya da düşük şarj
+        else -> 0
+      }
+      if (level != ecoLevel) {
+        ecoLevel = level
+        runCatching { stream.getGlInterface().forceFpsLimit(when (level) { 2 -> 20; 1 -> 24; else -> 30 }) }
+        if (level == 2 && overlays["cam"] != null) {
+          removeOverlay("cam")
+          onNotice(mapOf("message" to "Telefon çok ısındı: ikinci kamera kapatıldı (yayın takılmasın diye)"))
+        }
+      }
+      power = mapOf("battery" to pct.toDouble(), "charging" to charging, "save" to save, "thermal" to thermal.toDouble(), "eco" to level.toDouble())
+    }
+  }
+
   private fun adaptBitrate() {
     if (!stream.isStreaming || lowMode) return
+    // Tasarruf modunda kodlayıcıyı daha az yor
+    val cap = if (ecoLevel >= 1) minOf(videoBitrate, 2_500_000) else videoBitrate
+    if (curBitrate > cap) { curBitrate = cap; runCatching { stream.setVideoBitrateOnFly(cap) } }
     val active = (0..1).filter { wanted[it] && live[it] }
     if (active.isEmpty()) return
     val congested = active.any { runCatching { stream.getStreamClient(MultiType.RTMP, it).hasCongestion(20f) }.getOrDefault(false) }
@@ -214,9 +251,9 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
       okTicks = 0
       val nb = maxOf(floor, (curBitrate * 0.75).toInt())
       if (nb < curBitrate) { curBitrate = nb; runCatching { stream.setVideoBitrateOnFly(nb) } }
-    } else if (curBitrate < videoBitrate && ++okTicks >= 5) {
+    } else if (curBitrate < cap && ++okTicks >= 5) {
       okTicks = 0
-      curBitrate = minOf(videoBitrate, (curBitrate * 1.1).toInt() + 100_000)
+      curBitrate = minOf(cap, (curBitrate * 1.1).toInt() + 100_000)
       runCatching { stream.setVideoBitrateOnFly(curBitrate) }
     }
   }

@@ -268,6 +268,16 @@ export default function LiveScreen({ C, onClose, userAgent }) {
               ))}
             </View>
           )}
+          {(() => {
+            // 🔋 Şarj / ısı uyarısı (uygulama bu durumda kare hızını kendiliğinden sabitler)
+            const pw = stats.power || {};
+            const msgs = [];
+            if (pw.battery > 0 && pw.battery <= 20 && !pw.charging) msgs.push(`🔋 Şarj %${Math.round(pw.battery)}: telefon yavaşlar, şarja tak`);
+            if (pw.save) msgs.push('🔋 Pil tasarrufu açık: kapatırsan görüntü daha akıcı olur');
+            if (pw.thermal >= 2) msgs.push(pw.thermal >= 3 ? '🌡️ Telefon çok ısındı: kare hızı 20\'ye düşürüldü' : '🌡️ Telefon ısındı: kare hızı 24\'e sabitlendi');
+            if (!msgs.length) return null;
+            return <Text style={[pill, { color: '#111', backgroundColor: '#fdba74' }]}>{msgs.join('  ·  ')}</Text>;
+          })()}
           {running && !stats.lowMode && stats.current > 0 && stats.target > 0 && stats.current < stats.target * 0.9 && (
             <Text style={[pill, { color: '#111', backgroundColor: '#fde68a' }]}>📉 İnternet yetişmiyor: görüntü kalitesi {mbps(stats.current)}'e düşürüldü (takılmasın diye). Bağlantı rahatlayınca kendiliğinden geri çıkar.</Text>
           )}
