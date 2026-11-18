@@ -309,7 +309,10 @@
   function addEvent(ev) {
     if (!evStore.add(ev)) return;
     if (feedEl.classList.contains('hidden')) feedUnseen++;
-    renderFeed(1);
+    // Sadece yeni satırı en üste ekle (bütün listeyi baştan çizmek yoğun anlarda takılma yapıyordu)
+    if (!feedList.querySelector('.ev')) feedList.textContent = '';
+    feedList.prepend(evRow(evStore.list[0], true));
+    while (feedList.children.length > evStore.list.length) feedList.lastChild.remove();
     syncFeedBadge();
     clearTimeout(evSaveT);
     evSaveT = setTimeout(() => { try { localStorage.setItem(EV_KEY, JSON.stringify(evStore.list)); } catch {} }, 1000);

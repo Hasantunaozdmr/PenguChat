@@ -23,7 +23,7 @@ import com.pedro.common.StreamingStatsReport
 import com.pedro.encoder.input.gl.render.filters.`object`.BaseObjectFilterRender
 import com.pedro.encoder.input.gl.render.filters.`object`.ImageObjectFilterRender
 import com.pedro.encoder.input.gl.render.filters.`object`.SurfaceFilterRender
-import com.pedro.encoder.utils.CameraHelper
+import com.pedro.encoder.input.video.CameraHelper
 import android.view.WindowManager
 import com.pedro.encoder.input.sources.audio.MicrophoneSource
 import com.pedro.encoder.input.sources.video.BitmapSource
