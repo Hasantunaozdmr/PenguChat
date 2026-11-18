@@ -268,6 +268,9 @@ export default function LiveScreen({ C, onClose, userAgent }) {
               ))}
             </View>
           )}
+          {running && !stats.lowMode && stats.current > 0 && stats.target > 0 && stats.current < stats.target * 0.9 && (
+            <Text style={[pill, { color: '#111', backgroundColor: '#fde68a' }]}>📉 İnternet yetişmiyor: görüntü kalitesi {mbps(stats.current)}'e düşürüldü (takılmasın diye). Bağlantı rahatlayınca kendiliğinden geri çıkar.</Text>
+          )}
           {running && stats.lowMode && (
             <Text style={[pill, { color: '#111', backgroundColor: '#fbbf24', fontWeight: '700' }]}>⚠️ Bitrate düşük — izleyiciler "Bitrate düşük, lütfen bekleyiniz" yazısını görüyor (bağlantı düzelince kameraya döner)</Text>
           )}
@@ -465,7 +468,8 @@ export default function LiveScreen({ C, onClose, userAgent }) {
                 />
                 <Text style={{ color: C.text, fontWeight: '600' }}>kbps</Text>
               </View>
-              <Text style={{ color: C.muted, fontSize: 11 }}>İki platforma birden gittiği için internetin yükleme hızı bunun en az 2,5 katı olmalı. Yayın sırasında da değiştirilebilir.</Text>
+              <Text style={{ color: C.muted, fontSize: 11 }}>İki platforma birden gittiği için internetin yükleme hızı bunun en az 2,5 katı olmalı (ör. 3000 kbps için 7,5 Mbps). İnternet yetmezse uygulama bitrate'i kendiliğinden düşürür. Yayın sırasında da değiştirilebilir.</Text>
+              <Text style={{ color: C.muted, fontSize: 11 }}>Öneri: çift yayında Orta (720p) + 2500–3500 kbps. 1080p telefonu ısıtıp kare hızını düşürebilir.</Text>
               <Pressable onPress={() => { applyKbps(); setSetup(false); }} style={{ alignSelf: 'flex-end', paddingHorizontal: 18, height: 40, borderRadius: 8, backgroundColor: '#9146ff', justifyContent: 'center', marginTop: 6 }}>
                 <Text style={{ color: '#fff', fontWeight: '700' }}>Tamam</Text>
               </Pressable>

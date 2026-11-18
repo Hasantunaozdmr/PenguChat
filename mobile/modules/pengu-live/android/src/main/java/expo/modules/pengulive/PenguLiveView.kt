@@ -130,9 +130,11 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
         "twitch" to (if (live[0]) bitrate[0] else 0L).toDouble(),
         "kick" to (if (live[1]) bitrate[1] else 0L).toDouble(),
         "target" to videoBitrate.toDouble(),
+        "current" to (if (stream.isStreaming) curBitrate else videoBitrate).toDouble(),
         "lowMode" to lowMode,
         "camAspect" to (overlays["cam"]?.let { camAspect() } ?: 0f).toDouble(),
       ))
+      adaptBitrate()
       // Telefon döndüyse ekran öğelerinin oranını düzelt
       val p = isPortrait()
       val r = displayDeg()
@@ -148,37 +150,74 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
   private var presetBitrate = 3_000_000
   private var customBitrate = 0 // yayıncının elle girdiği (bps), 0 = hazır kalitedeki değer
 
+  private var wantW = 1280
+  private var wantH = 720
+  private var curBitrate = 3_000_000 // yayında şu an kullanılan (internet zayıflayınca kendiliğinden düşer)
+  private var okTicks = 0
+
   fun setQuality(q: String) {
     val (w, h, b) = when (q) {
       "low" -> Triple(854, 480, 1_500_000)
       "high" -> Triple(1920, 1080, 6_000_000)
       else -> Triple(1280, 720, 3_000_000)
     }
-    presetBitrate = b
-    applyConfig(w, h)
+    wantW = w; wantH = h; presetBitrate = b
+    scheduleConfig()
   }
 
   // Elle bitrate (kbps). Yayın sürerken de hemen uygulanır.
   fun setBitrateKbps(kbps: Int) {
     customBitrate = if (kbps in 300..20000) kbps * 1000 else 0
-    applyConfig(width, height)
+    scheduleConfig()
   }
 
-  private fun applyConfig(w: Int, h: Int) {
+  // Kalite ve bitrate art arda değişince kamera iki kez kapanıp açılmasın: kısa bir süre bekleyip tek seferde uygula
+  private val configRunnable = Runnable { applyConfig() }
+  private fun scheduleConfig() {
+    main.removeCallbacks(configRunnable)
+    if (!prepared) applyConfig() else main.postDelayed(configRunnable, 700)
+  }
+
+  private fun applyConfig() {
     val b = if (customBitrate > 0) customBitrate else presetBitrate
-    if (w == width && h == height && b == videoBitrate) return
     if (stream.isStreaming) {
-      // Çözünürlük yayın sırasında değişmez; bitrate değişir
-      if (w == width && h == height) { videoBitrate = b; runCatching { stream.setVideoBitrateOnFly(b) } }
+      // Çözünürlük yayın sırasında değişmez; bitrate hemen değişir
+      if (b != videoBitrate) { videoBitrate = b; curBitrate = b; okTicks = 0; runCatching { stream.setVideoBitrateOnFly(b) } }
       return
     }
-    width = w; height = h; videoBitrate = b
-    if (prepared) {
-      // Önizleme sürerken ayar değişmez: önizlemeyi durdurup yeniden hazırla
-      val wasOnPreview = stream.isOnPreview
-      if (wasOnPreview) stream.stopPreview()
-      prepared = false
-      if (prepare() && wasOnPreview && surfaceView.holder.surface.isValid) startPreview()
+    val resChanged = wantW != width || wantH != height
+    width = wantW; height = wantH; videoBitrate = b
+    // Sadece bitrate değiştiyse kamerayı yeniden başlatmaya gerek yok: yayın başlarken uygulanır
+    if (resChanged) reprepare()
+  }
+
+  private fun reprepare() {
+    if (!prepared) return
+    val wasOnPreview = stream.isOnPreview
+    if (wasOnPreview) stream.stopPreview()
+    prepared = false
+    if (prepare() && wasOnPreview && surfaceView.holder.surface.isValid) startPreview()
+  }
+
+  /**
+   * İnternet yetişmeyince bitrate'i kendiliğinden düşürür, rahatlayınca yavaşça geri çıkarır.
+   * Bunu yapmazsak kareler yığılıp atılıyor: görüntü takılıyor, ses kayıyor, izleyicide 144p'ye düşüyor.
+   * İki platformdan hangisi yetişemiyorsa ona göre ayarlanır (tek kodlayıcı ikisine birden gönderir).
+   */
+  private fun adaptBitrate() {
+    if (!stream.isStreaming || lowMode) return
+    val active = (0..1).filter { wanted[it] && live[it] }
+    if (active.isEmpty()) return
+    val congested = active.any { runCatching { stream.getStreamClient(MultiType.RTMP, it).hasCongestion(20f) }.getOrDefault(false) }
+    val floor = maxOf(400_000, videoBitrate / 5)
+    if (congested) {
+      okTicks = 0
+      val nb = maxOf(floor, (curBitrate * 0.75).toInt())
+      if (nb < curBitrate) { curBitrate = nb; runCatching { stream.setVideoBitrateOnFly(nb) } }
+    } else if (curBitrate < videoBitrate && ++okTicks >= 5) {
+      okTicks = 0
+      curBitrate = minOf(videoBitrate, (curBitrate * 1.1).toInt() + 100_000)
+      runCatching { stream.setVideoBitrateOnFly(curBitrate) }
     }
   }
 
@@ -208,6 +247,9 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
       stream.startStream(MultiType.RTMP, i, url)
     }
     if (!glWasRunning) syncFilters()
+    curBitrate = videoBitrate
+    okTicks = 0
+    runCatching { stream.setVideoBitrateOnFly(videoBitrate) } // kalite seçiminden sonra elle girilen bitrate
     if (wanted[0] || wanted[1]) PenguLiveService.start(context)
   }
 
@@ -244,9 +286,11 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
     val worst = active.minOf { bitrate[it] }
     val now = System.currentTimeMillis()
     if (!lowMode) {
-      if (worst in 1 until (videoBitrate * 0.25).toLong()) {
+      // Bitrate zaten en alta indirildiği halde gönderilen onun yarısına bile yetişmiyorsa
+      val atFloor = curBitrate <= maxOf(400_000, videoBitrate / 5)
+      if (atFloor && worst in 1 until (curBitrate * 0.5).toLong()) {
         if (lowSince == 0L) lowSince = now
-        if (now - lowSince > 5000) switchToWaiting()
+        if (now - lowSince > 8000) switchToWaiting()
       } else lowSince = 0L
     } else {
       // Bekleme görüntüsü az veri kullanır: bağlantı rahatladıysa kameraya dön
