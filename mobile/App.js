@@ -124,7 +124,6 @@ function PenguChat() {
   const evStore = useRef(EV.makeStore(150)).current;
   const [events, setEvents] = useState([]);
   const [evOpen, setEvOpen] = useState(false);
-  const [evUnseen, setEvUnseen] = useState(0);
   const [evToast, setEvToast] = useState(null);
   const [slToken, setSlToken] = useState('');
   const [slState, setSlState] = useState('off');
@@ -141,10 +140,10 @@ function PenguChat() {
   const addEvent = useCallback((ev) => {
     if (!evStore.add(ev)) return;
     setEvents(evStore.list);
-    if (!evOpenRef.current) setEvUnseen((n) => n + 1);
+    // Yeni gelen etkinlik birkaç saniye vurgulu görünür
     setEvToast(evStore.list[0]);
     clearTimeout(evToastT.current);
-    evToastT.current = setTimeout(() => setEvToast(null), 12000);
+    evToastT.current = setTimeout(() => setEvToast(null), 8000);
     clearTimeout(evSaveT.current);
     evSaveT.current = setTimeout(() => AsyncStorage.setItem(EV_KEY, JSON.stringify(evStore.list)).catch(() => {}), 1000);
   }, []);
@@ -712,7 +711,6 @@ function PenguChat() {
           }}
           onLongPress={() => setReportMode('inbox')}
         />
-        <Act label="🔔 Etkinlikler" count={evUnseen} on={evOpen} onPress={() => { setEvUnseen(0); setEvOpen(true); }} />
         <Act label={tabs ? '▤ Alt alta' : '⇆ Sekmeli'} onPress={() => update({ layout: tabs ? 'split' : 'tabs' })} />
         {canInbox && (
           <Act
@@ -729,12 +727,14 @@ function PenguChat() {
         <Act label="🔧 Ayarlar" dot={!!newVersion} onPress={() => setSettingsOpen(true)} />
         <Act label="▲ Gizle" onPress={() => update({ topCollapsed: true })} />
       </View>
-      {/* 🔔 Son etkinlik: birkaç saniye görünür, dokununca liste açılır */}
-      {!!evToast && !evOpen && (
-        <Pressable style={styles.evToast} onPress={() => { setEvToast(null); setEvUnseen(0); setEvOpen(true); }}>
-          <EvLine e={evToast} compact />
-        </Pressable>
-      )}
+      {/* 🔔 Etkinlikler: üstte hep açık (son 2 etkinlik), dokununca büyür */}
+      <Pressable style={[styles.evStrip, !!evToast && styles.evStripNew]} onPress={() => { setEvToast(null); setEvOpen(true); }} accessibilityLabel="Etkinlikler">
+        {events.length ? (
+          events.slice(0, 2).map((e, i) => <EvLine key={(e.id || '') + i} e={e} compact />)
+        ) : (
+          <Text style={{ color: C.muted, fontSize: 12 }}>🔔 Etkinlikler: abone, hediye abone, bit, Kicks, bağış ve takipler burada görünür</Text>
+        )}
+      </Pressable>
       {/* Üst kısım gizliyken: ince şerit, dokununca geri açılır */}
       {collapsed && (
         <Pressable style={styles.expandBar} onPress={() => update({ topCollapsed: false })} accessibilityLabel="Menüyü aç">
@@ -769,7 +769,7 @@ function PenguChat() {
           slState={slState}
           onSaveToken={saveSlToken}
           onClear={clearEvents}
-          onClose={() => { setEvOpen(false); setEvUnseen(0); }}
+          onClose={() => setEvOpen(false)}
         />
       )}
       {privacyOpen && <PrivacySheet onClose={() => setPrivacyOpen(false)} />}
@@ -974,7 +974,7 @@ function EvLine({ e, compact }) {
         <Text style={{ color: C.text, fontSize: 14 }} numberOfLines={compact ? 1 : undefined}>
           {EV.ICON[e.type] || '•'} <Text style={{ fontWeight: '700' }}>{e.user}</Text> {EV.describe(e)}
         </Text>
-        {!!e.msg && <Text style={{ color: C.muted, fontSize: 12, marginTop: 2 }} numberOfLines={compact ? 1 : 4}>“{String(e.msg).slice(0, 300)}”</Text>}
+        {!!e.msg && !compact && <Text style={{ color: C.muted, fontSize: 12, marginTop: 2 }} numberOfLines={4}>“{String(e.msg).slice(0, 300)}”</Text>}
       </View>
       <Text style={{ color: C.muted, fontSize: 11 }}>{time}</Text>
     </View>
@@ -1341,7 +1341,8 @@ function makeStyles() {
   expandBar: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: C.panel2, borderBottomWidth: 1, borderBottomColor: C.border },
   expandText: { color: C.text, fontSize: 13, fontWeight: '700', flexShrink: 1 },
   expandBadge: { color: '#fff', backgroundColor: '#e5484d', borderRadius: 9, minWidth: 18, textAlign: 'center', fontSize: 11, fontWeight: '700', paddingHorizontal: 5, overflow: 'hidden' },
-  evToast: { marginHorizontal: 8, marginTop: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, borderWidth: 1, borderColor: '#fbbf24', backgroundColor: C.panel2 },
+  evStrip: { paddingHorizontal: 10, paddingVertical: 4, gap: 1, minHeight: 30, justifyContent: 'center', backgroundColor: C.panel2, borderBottomWidth: 1, borderBottomColor: C.border },
+  evStripNew: { backgroundColor: 'rgba(251,191,36,.18)' },
   actBar: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 8, paddingVertical: 6, backgroundColor: C.panel2, borderBottomWidth: 1, borderBottomColor: C.border },
   act: { height: 32, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1, borderColor: C.border, backgroundColor: C.panel, justifyContent: 'center' },
   actText: { color: C.text, fontSize: 13, fontWeight: '600' },
