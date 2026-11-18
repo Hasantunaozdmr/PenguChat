@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  Image,
   Linking,
   Modal,
   Platform,
@@ -23,6 +24,10 @@ import { FIT_POPUPS_JS, PICK_USER_JS } from './src/injected';
 import LiveScreen from './src/LiveScreen';
 import ReportModal, { applyModalTheme, countNew, hasMineNews, loadAdmin, storeAdmin } from './src/ReportModal';
 const { themeFrom, PRESETS: THEME_PRESETS, DEFAULT: THEME_DEFAULT } = require('./src/theme');
+const EV = require('./src/events');
+const EV_KEY = 'penguchat:events';
+const SL_KEY = 'penguchat:slToken';
+const PLAT_IMG = { twitch: require('./assets/ev-twitch.png'), kick: require('./assets/ev-kick.png'), streamlabs: require('./assets/ev-streamlabs.png') };
 import { OWNER_ACCOUNTS, logError, logModAction, reportRpc, sendPing } from './src/report';
 
 // Cihaz: işletim sistemi + model (giriş yapmayan kullanıcıyı istatistikte tanımak için). Örn: "android 14 · SM-A546B"
@@ -115,6 +120,41 @@ function PenguChat() {
   const [themeOpen, setThemeOpen] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // 🔔 Etkinlikler (abone, hediye abone, bit, Kicks, bağış, takip, baskın)
+  const evStore = useRef(EV.makeStore(150)).current;
+  const [events, setEvents] = useState([]);
+  const [evOpen, setEvOpen] = useState(false);
+  const [evUnseen, setEvUnseen] = useState(0);
+  const [evToast, setEvToast] = useState(null);
+  const [slToken, setSlToken] = useState('');
+  const [slState, setSlState] = useState('off');
+  const evOpenRef = useRef(false);
+  evOpenRef.current = evOpen;
+  const evSaveT = useRef(null);
+  const evToastT = useRef(null);
+  useEffect(() => {
+    AsyncStorage.multiGet([EV_KEY, SL_KEY]).then((r) => {
+      try { evStore.load(JSON.parse(r[0][1] || '[]')); setEvents(evStore.list); } catch {}
+      setSlToken(r[1][1] || '');
+    }).catch(() => {});
+  }, []);
+  const addEvent = useCallback((ev) => {
+    if (!evStore.add(ev)) return;
+    setEvents(evStore.list);
+    if (!evOpenRef.current) setEvUnseen((n) => n + 1);
+    setEvToast(evStore.list[0]);
+    clearTimeout(evToastT.current);
+    evToastT.current = setTimeout(() => setEvToast(null), 12000);
+    clearTimeout(evSaveT.current);
+    evSaveT.current = setTimeout(() => AsyncStorage.setItem(EV_KEY, JSON.stringify(evStore.list)).catch(() => {}), 1000);
+  }, []);
+  // Streamlabs: bağışlar + Twitch takipleri (token sadece bu telefonda)
+  useEffect(() => {
+    if (!slToken) { setSlState('off'); return; }
+    return EV.connectStreamlabs(slToken, addEvent, setSlState);
+  }, [slToken, addEvent]);
+  const saveSlToken = (t) => { setSlToken(t); (t ? AsyncStorage.setItem(SL_KEY, t) : AsyncStorage.removeItem(SL_KEY)).catch(() => {}); };
+  const clearEvents = () => { evStore.clear(); setEvents([]); setEvToast(null); AsyncStorage.removeItem(EV_KEY).catch(() => {}); };
   const [liveOpen, setLiveOpen] = useState(false); // 📡 telefondan yayın // ⚙️ Ayarlar: Yönetim, Renk, Güncelleme
   const [ready, setReady] = useState(false);
   // Android: chat'ler, telefonun gerçek Chrome sürümü öğrenildikten sonra açılır (en fazla 2,5 sn beklenir)
@@ -451,6 +491,10 @@ function PenguChat() {
       } catch {}
       return;
     }
+    if (data.startsWith('__PENGU_EVENT__')) {
+      try { const ev = JSON.parse(data.slice(15)); if (ev.p === k) addEvent(ev); } catch {}
+      return;
+    }
     if (data.startsWith('__PENGU_MOD__')) {
       try {
         const { status, me } = JSON.parse(data.slice(13));
@@ -668,6 +712,7 @@ function PenguChat() {
           }}
           onLongPress={() => setReportMode('inbox')}
         />
+        <Act label="🔔 Etkinlikler" count={evUnseen} on={evOpen} onPress={() => { setEvUnseen(0); setEvOpen(true); }} />
         <Act label={tabs ? '▤ Alt alta' : '⇆ Sekmeli'} onPress={() => update({ layout: tabs ? 'split' : 'tabs' })} />
         {canInbox && (
           <Act
@@ -684,6 +729,12 @@ function PenguChat() {
         <Act label="🔧 Ayarlar" dot={!!newVersion} onPress={() => setSettingsOpen(true)} />
         <Act label="▲ Gizle" onPress={() => update({ topCollapsed: true })} />
       </View>
+      {/* 🔔 Son etkinlik: birkaç saniye görünür, dokununca liste açılır */}
+      {!!evToast && !evOpen && (
+        <Pressable style={styles.evToast} onPress={() => { setEvToast(null); setEvUnseen(0); setEvOpen(true); }}>
+          <EvLine e={evToast} compact />
+        </Pressable>
+      )}
       {/* Üst kısım gizliyken: ince şerit, dokununca geri açılır */}
       {collapsed && (
         <Pressable style={styles.expandBar} onPress={() => update({ topCollapsed: false })} accessibilityLabel="Menüyü aç">
@@ -709,6 +760,16 @@ function PenguChat() {
             { label: '🔒 Gizlilik', sub: 'Hangi verilerin neden toplandığı', onPress: () => setPrivacyOpen(true) },
             Platform.OS === 'android' && { label: checking ? '⬆ Bakılıyor…' : '⬆ Güncelleme', sub: newVersion ? 'Yeni sürüm var!' : 'Yeni sürüm var mı bak', dot: !!newVersion, onPress: checkUpdateNow },
           ].filter(Boolean)}
+        />
+      )}
+      {evOpen && (
+        <EventsSheet
+          events={events}
+          slToken={slToken}
+          slState={slState}
+          onSaveToken={saveSlToken}
+          onClear={clearEvents}
+          onClose={() => { setEvOpen(false); setEvUnseen(0); }}
         />
       )}
       {privacyOpen && <PrivacySheet onClose={() => setPrivacyOpen(false)} />}
@@ -898,6 +959,70 @@ function SettingsSheet({ items, onClose }) {
           ))}
         </Pressable>
       </Pressable>
+    </Modal>
+  );
+}
+
+// 🔔 Tek etkinlik satırı: platform logosu + simge + kim + ne yaptı (+ mesajı)
+function EvLine({ e, compact }) {
+  const big = ['giftbomb', 'raid', 'donation'].includes(e.type) || (e.type === 'bits' && e.amount >= 500);
+  const time = new Date(e.at || Date.now()).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+  return (
+    <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start', paddingVertical: compact ? 2 : 7, paddingHorizontal: compact ? 0 : 6, backgroundColor: !compact && big ? 'rgba(251,191,36,.12)' : 'transparent', borderRadius: 6 }}>
+      <Image source={PLAT_IMG[e.p]} style={{ width: 18, height: 18, borderRadius: 4, marginTop: 1 }} />
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: C.text, fontSize: 14 }} numberOfLines={compact ? 1 : undefined}>
+          {EV.ICON[e.type] || '•'} <Text style={{ fontWeight: '700' }}>{e.user}</Text> {EV.describe(e)}
+        </Text>
+        {!!e.msg && <Text style={{ color: C.muted, fontSize: 12, marginTop: 2 }} numberOfLines={compact ? 1 : 4}>“{String(e.msg).slice(0, 300)}”</Text>}
+      </View>
+      <Text style={{ color: C.muted, fontSize: 11 }}>{time}</Text>
+    </View>
+  );
+}
+
+const SL_TEXT = { connecting: 'Streamlabs bağlanıyor…', ok: '● Streamlabs bağlı', retry: 'Streamlabs tekrar bağlanıyor…', bad: 'Streamlabs token hatalı', off: '' };
+function EventsSheet({ events, slToken, slState, onSaveToken, onClear, onClose }) {
+  const [setOpen, setSetOpen] = useState(false);
+  const [tok, setTok] = useState(slToken);
+  return (
+    <Modal transparent animationType="fade" onRequestClose={onClose} supportedOrientations={['portrait', 'landscape']}>
+      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,.55)', justifyContent: 'center', padding: 12 }}>
+        <View style={{ flex: 1, maxHeight: '94%', backgroundColor: C.panel, borderRadius: 12, borderWidth: 1, borderColor: C.border, padding: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <Text style={{ color: C.text, fontSize: 16, fontWeight: '700' }}>🔔 Etkinlikler</Text>
+            {!!SL_TEXT[slState] && <Text style={{ color: slState === 'ok' ? '#16a34a' : slState === 'bad' ? '#dc2626' : C.muted, fontSize: 11 }}>{SL_TEXT[slState]}</Text>}
+            <View style={{ flex: 1 }} />
+            <Pressable onPress={() => { setTok(slToken); setSetOpen(!setOpen); }} hitSlop={8}><Text style={{ color: C.text, fontSize: 17 }}>⚙</Text></Pressable>
+            <Pressable onPress={() => events.length && Alert.alert('Temizle', 'Etkinlik listesi temizlensin mi?', [{ text: 'Vazgeç', style: 'cancel' }, { text: 'Temizle', style: 'destructive', onPress: onClear }])} hitSlop={8}><Text style={{ color: C.text, fontSize: 17 }}>🗑</Text></Pressable>
+            <Pressable onPress={onClose} hitSlop={10}><Text style={{ color: C.text, fontSize: 18 }}>✕</Text></Pressable>
+          </View>
+          {setOpen && (
+            <View style={{ borderWidth: 1, borderColor: C.border, borderRadius: 8, padding: 10, gap: 6, marginBottom: 8 }}>
+              <Text style={{ color: C.text, fontWeight: '700' }}>💰 Bağışlar ve Twitch takipleri (Streamlabs)</Text>
+              <Text style={{ color: C.muted, fontSize: 12 }}>Abone, hediye abone, bit, Kicks ve Kick takipleri chat'ten kendiliğinden gelir. Bağışlar ve Twitch takipleri chat'te görünmediği için Streamlabs'ten alınır.</Text>
+              <Text style={{ color: C.muted, fontSize: 12 }}>streamlabs.com → Settings → API Settings → API Tokens → "Your Socket API Token"ı kopyalayıp yapıştır. Sadece bu telefonda saklanır, kimseyle paylaşma.</Text>
+              <TextInput value={tok} onChangeText={setTok} placeholder="Socket API Token" placeholderTextColor={C.ph} secureTextEntry autoCapitalize="none" autoCorrect={false}
+                style={{ height: 40, borderRadius: 8, borderWidth: 1, borderColor: C.border, backgroundColor: C.input, color: C.text, paddingHorizontal: 10 }} />
+              <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'flex-end' }}>
+                {!!slToken && (
+                  <Pressable onPress={() => { onSaveToken(''); setTok(''); setSetOpen(false); }} style={{ paddingHorizontal: 12, height: 36, borderRadius: 8, borderWidth: 1, borderColor: C.border, justifyContent: 'center' }}>
+                    <Text style={{ color: C.text, fontWeight: '600' }}>Bağlantıyı kaldır</Text>
+                  </Pressable>
+                )}
+                <Pressable onPress={() => { onSaveToken(tok.trim()); setSetOpen(false); }} style={{ paddingHorizontal: 16, height: 36, borderRadius: 8, backgroundColor: '#9146ff', justifyContent: 'center' }}>
+                  <Text style={{ color: '#fff', fontWeight: '700' }}>Kaydet</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
+          <ScrollView contentContainerStyle={{ gap: 2, paddingBottom: 8 }}>
+            {events.length ? events.map((e, i) => <EvLine key={(e.id || '') + i} e={e} />) : (
+              <Text style={{ color: C.muted, textAlign: 'center', marginTop: 20 }}>Henüz etkinlik yok. Abone, hediye abone, bit, Kicks, bağış ve takipler burada görünür.</Text>
+            )}
+          </ScrollView>
+        </View>
+      </View>
     </Modal>
   );
 }
@@ -1216,6 +1341,7 @@ function makeStyles() {
   expandBar: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: C.panel2, borderBottomWidth: 1, borderBottomColor: C.border },
   expandText: { color: C.text, fontSize: 13, fontWeight: '700', flexShrink: 1 },
   expandBadge: { color: '#fff', backgroundColor: '#e5484d', borderRadius: 9, minWidth: 18, textAlign: 'center', fontSize: 11, fontWeight: '700', paddingHorizontal: 5, overflow: 'hidden' },
+  evToast: { marginHorizontal: 8, marginTop: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, borderWidth: 1, borderColor: '#fbbf24', backgroundColor: C.panel2 },
   actBar: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 8, paddingVertical: 6, backgroundColor: C.panel2, borderBottomWidth: 1, borderBottomColor: C.border },
   act: { height: 32, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1, borderColor: C.border, backgroundColor: C.panel, justifyContent: 'center' },
   actText: { color: C.text, fontSize: 13, fontWeight: '600' },

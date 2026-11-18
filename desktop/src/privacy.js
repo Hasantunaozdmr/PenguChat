@@ -19,6 +19,7 @@
       'Donate linklerin ve yayına eklediğin resimler: sadece telefonunda saklanır; donate linki sadece ilgili bağış sitesine bağlanmak için kullanılır, bize gönderilmez.',
       "Kamera ve mikrofon görüntün: telefonundan doğrudan Twitch'e / Kick'e gider; bizim sunucumuzdan geçmez, kaydedilmez.",
       "Chat mesajları: chat'te yazılanları kaydetmeyiz (sadece yukarıdaki mod işlemleri kaydedilir).",
+      'Etkinlikler (abone, bağış, bit, Kicks, takip) ve Streamlabs anahtarın: sadece cihazında saklanır. Streamlabs bağlantısı doğrudan Streamlabs\'e yapılır; bize gönderilmez.',
       'Konum, rehber, fotoğraflar, reklam kimliği gibi veriler toplanmaz; uygulamada reklam ve takip aracı yoktur.',
     ] },
     { h: '4. Veriler nerede saklanıyor, kimlerle paylaşılıyor?', list: [

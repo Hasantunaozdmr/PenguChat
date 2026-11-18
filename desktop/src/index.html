@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
   <meta charset="utf-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' wss://sockets.streamlabs.com" />
   <title>PenguLive</title>
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -31,6 +31,7 @@
   <nav class="actionbar" id="menu">
     <button id="modToggle" class="btn act hidden" title="Hızlı timeout / ban çubuğunu aç / kapat">👤 Mod araçları</button>
     <button id="reportBtn" class="btn act" title="Bir sorun bildir">🐞 Sorun bildir<span id="reportDot" class="dot-new hidden"></span></button>
+    <button id="feedBtn" class="btn act" title="Abone, hediye abone, bit, Kicks, bağış, takip">🔔 Etkinlikler<span id="feedBadge" class="badge hidden"></span></button>
     <button id="inboxBtn" class="btn act hidden" title="Sorunlar, mod log, istatistik…">⚙️ Yönetim<span id="inboxBadge" class="badge hidden"></span></button>
     <span class="mb-sep"></span>
     <button id="layoutBtn" class="btn act" title="Yan yana / Alt alta">⇆ Yan yana</button>
@@ -65,6 +66,7 @@
     <span id="modHint" class="hint"></span>
   </div>
 
+  <div class="work">
   <main id="panes" class="panes horizontal">
     <section class="pane" id="pane-twitch" data-platform="twitch">
       <div class="pane-head">
@@ -104,6 +106,27 @@
       </div>
     </section>
   </main>
+
+  <!-- 🔔 Etkinlikler: Twitch + Kick karışık, en yenisi üstte -->
+  <aside id="feed" class="feed hidden">
+    <div class="feed-head">
+      <strong>🔔 Etkinlikler</strong>
+      <span id="slState" class="sl-state" title="Streamlabs bağlantısı"></span>
+      <div class="spacer"></div>
+      <button class="btn mini" id="feedSetBtn" title="Bağışlar ve Twitch takipleri için Streamlabs bağla">⚙</button>
+      <button class="btn mini" id="feedClear" title="Listeyi temizle">🗑</button>
+      <button class="btn mini" id="feedClose" title="Kapat">✕</button>
+    </div>
+    <div id="feedSet" class="feed-set hidden">
+      <b>💰 Bağışlar ve Twitch takipleri (Streamlabs)</b>
+      <p>Abone, hediye abone, bit, Kicks ve Kick takipleri chat'ten kendiliğinden gelir. Bağışlar ve Twitch takipleri chat'te görünmediği için Streamlabs'ten alınır.</p>
+      <p>streamlabs.com → <b>Settings</b> → <b>API Settings</b> → <b>API Tokens</b> → <b>Your Socket API Token</b>'ı kopyalayıp buraya yapıştır. Sadece bu bilgisayarda saklanır, kimseyle paylaşma.</p>
+      <input id="slToken" type="password" placeholder="Socket API Token" spellcheck="false" autocomplete="off" />
+      <div class="feed-set-foot"><button class="btn" id="slOff">Bağlantıyı kaldır</button><div class="spacer"></div><button class="btn primary" id="slSave">Kaydet</button></div>
+    </div>
+    <div id="feedList" class="feed-list"><div class="feed-empty">Henüz etkinlik yok. Abone, hediye abone, bit, Kicks, bağış ve takipler burada görünür.</div></div>
+  </aside>
+  </div>
 
   <div id="settingsDlg" class="dlg-wrap hidden">
     <div class="dlg settings-dlg">
@@ -187,6 +210,7 @@
 
   <script src="theme.js"></script>
   <script src="privacy.js"></script>
+  <script src="events.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>

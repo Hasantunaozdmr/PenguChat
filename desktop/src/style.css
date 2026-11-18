@@ -426,3 +426,38 @@ body.top-collapsed .toolbar, body.top-collapsed .actionbar, body.top-collapsed .
 .privacy-body p { margin: 6px 0; }
 .privacy-body ul { margin: 4px 0; padding-left: 18px; }
 .privacy-body li { margin: 3px 0; }
+
+/* 🔔 Etkinlikler paneli */
+.work { flex: 1; display: flex; min-height: 0; min-width: 0; }
+.feed { width: 300px; flex: 0 0 300px; display: flex; flex-direction: column; background: var(--panel); border-left: 1px solid var(--border); min-height: 0; }
+.feed.hidden { display: none; }
+.feed-head { display: flex; align-items: center; gap: 6px; padding: 4px 8px; height: 32px; background: var(--panel-2); border-bottom: 2px solid var(--border); }
+.sl-state { font-size: 11px; color: var(--muted); }
+.sl-state.ok { color: #16a34a; }
+.sl-state.bad { color: #dc2626; }
+.feed-set { padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 12px; display: flex; flex-direction: column; gap: 6px; }
+.feed-set.hidden { display: none; }
+.feed-set p { margin: 0; color: var(--muted); }
+.feed-set input { height: 30px; border-radius: 6px; border: 1px solid var(--border); background: var(--input); color: var(--text); padding: 0 8px; }
+.feed-set-foot { display: flex; gap: 6px; }
+.feed-list { flex: 1; overflow-y: auto; padding: 4px; }
+.feed-empty { color: var(--muted); font-size: 12px; padding: 12px 8px; text-align: center; }
+.ev { display: flex; gap: 7px; align-items: flex-start; padding: 6px 6px; border-radius: 6px; border-bottom: 1px solid var(--border); font-size: 13px; }
+.ev.new { animation: evNew 2.5s ease-out; }
+@keyframes evNew { from { background: rgba(251,191,36,.35); } to { background: transparent; } }
+.ev .plat { flex: 0 0 18px; width: 18px; height: 18px; border-radius: 4px; display: grid; place-items: center; margin-top: 1px; }
+.ev .plat svg { width: 12px; height: 12px; fill: #fff; }
+.ev .plat.twitch { background: #9146ff; }
+.ev .plat.kick { background: #53fc18; }
+.ev .plat.kick b { color: #000; font: 900 12px/1 Arial, sans-serif; }
+.ev .plat.streamlabs { background: #80f5d2; }
+.ev .plat.streamlabs b { color: #09161d; font: 900 10px/1 Arial, sans-serif; }
+.ev .body { flex: 1; min-width: 0; }
+.ev .line { word-break: break-word; }
+.ev .ico { margin-right: 3px; }
+.ev .user { font-weight: 700; }
+.ev .msg { color: var(--muted); font-size: 12px; margin-top: 2px; word-break: break-word; }
+.ev .time { color: var(--muted); font-size: 11px; flex: 0 0 auto; }
+.ev.big { background: rgba(251,191,36,.08); }
+#feedBtn { position: relative; }
+#feedBtn .badge { top: -6px; right: -6px; }

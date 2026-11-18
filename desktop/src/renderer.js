@@ -92,6 +92,10 @@
       if (typeof e.message === 'string' && e.message.startsWith('__PENGU_PICK__')) {
         try { onPick(p, JSON.parse(e.message.slice(14))); } catch {}
       }
+      // 🔔 Abone, hediye abone, bit, Kicks, takip, baskın
+      if (typeof e.message === 'string' && e.message.startsWith('__PENGU_EVENT__')) {
+        try { const ev = JSON.parse(e.message.slice(15)); if (ev.p === p) addEvent(ev); } catch {}
+      }
       // Twitch / Kick'in kendi mod tuşlarıyla yapılan işlem (çöp kutusu, ban, timeout): mod log'a yaz
       if (typeof e.message === 'string' && e.message.startsWith('__PENGU_MODACT__')) {
         try {
@@ -253,6 +257,117 @@
   };
   menu.addEventListener('click', onMenuAction);
   // 🔧 Ayarlar: Renk, Güncelleme, Çıkış tek pencerede
+  // ---------- 🔔 Etkinlikler ----------
+  const EV = window.PenguEvents;
+  const evStore = EV.makeStore(150);
+  const EV_KEY = 'penguchat:events';
+  try { evStore.load(JSON.parse(localStorage.getItem(EV_KEY) || '[]')); } catch {}
+  const feedEl = $('#feed'), feedList = $('#feedList'), feedBadge = $('#feedBadge');
+  let feedUnseen = 0;
+  const PLAT_HTML = {
+    twitch: '<svg viewBox="0 0 24 24"><path d="M4.3 1 2 5.6v15.2h5.3V24h3l3.1-3.2h4.6l6-6V1H4.3Zm17 12.6-3.5 3.5h-5.3l-3 3v-3H5.2V3.1h16.1v10.5ZM17.4 6.5h-2.1v6.1h2.1V6.5Zm-5.6 0H9.7v6.1h2.1V6.5Z"/></svg>',
+    kick: '<b>K</b>',
+    streamlabs: '<b>SL</b>',
+  };
+  const PLAT_NAME = { twitch: 'Twitch', kick: 'Kick', streamlabs: 'Streamlabs' };
+  const hhmm = (t) => new Date(t).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+  function evRow(e, fresh) {
+    const row = document.createElement('div');
+    row.className = 'ev' + (fresh ? ' new' : '') + (['giftbomb', 'raid', 'donation'].includes(e.type) || (e.type === 'bits' && e.amount >= 500) ? ' big' : '');
+    const plat = document.createElement('span');
+    plat.className = 'plat ' + e.p;
+    plat.title = PLAT_NAME[e.p] || '';
+    plat.innerHTML = PLAT_HTML[e.p] || ''; // sabit simge (kullanıcıdan gelen yazı değil)
+    const body = document.createElement('div');
+    body.className = 'body';
+    const line = document.createElement('div');
+    line.className = 'line';
+    const ico = document.createElement('span'); ico.className = 'ico'; ico.textContent = EV.ICON[e.type] || '•';
+    const user = document.createElement('span'); user.className = 'user'; user.textContent = e.user;
+    line.append(ico, user, ' ' + EV.describe(e));
+    body.appendChild(line);
+    if (e.msg) { const m = document.createElement('div'); m.className = 'msg'; m.textContent = '“' + String(e.msg).slice(0, 300) + '”'; body.appendChild(m); }
+    const time = document.createElement('span'); time.className = 'time'; time.textContent = hhmm(e.at);
+    row.append(plat, body, time);
+    return row;
+  }
+  function renderFeed(freshCount = 0) {
+    feedList.textContent = '';
+    if (!evStore.list.length) {
+      const d = document.createElement('div'); d.className = 'feed-empty';
+      d.textContent = 'Henüz etkinlik yok. Abone, hediye abone, bit, Kicks, bağış ve takipler burada görünür.';
+      feedList.appendChild(d);
+      return;
+    }
+    evStore.list.forEach((e, i) => feedList.appendChild(evRow(e, i < freshCount)));
+  }
+  function syncFeedBadge() {
+    feedBadge.textContent = feedUnseen > 99 ? '99+' : String(feedUnseen);
+    feedBadge.classList.toggle('hidden', !feedUnseen || !feedEl.classList.contains('hidden'));
+  }
+  let evSaveT = null;
+  function addEvent(ev) {
+    if (!evStore.add(ev)) return;
+    if (feedEl.classList.contains('hidden')) feedUnseen++;
+    renderFeed(1);
+    syncFeedBadge();
+    clearTimeout(evSaveT);
+    evSaveT = setTimeout(() => { try { localStorage.setItem(EV_KEY, JSON.stringify(evStore.list)); } catch {} }, 1000);
+  }
+  window.__penguAddEvent = addEvent; // test için
+  function setFeedOpen(open) {
+    feedEl.classList.toggle('hidden', !open);
+    $('#feedBtn').classList.toggle('active', open);
+    if (open) feedUnseen = 0;
+    syncFeedBadge();
+    state.feedOpen = open;
+    save();
+  }
+  $('#feedBtn').addEventListener('click', () => setFeedOpen(feedEl.classList.contains('hidden')));
+  $('#feedClose').addEventListener('click', () => setFeedOpen(false));
+  $('#feedClear').addEventListener('click', () => {
+    if (!evStore.list.length || !confirm('Etkinlik listesi temizlensin mi?')) return;
+    evStore.clear();
+    try { localStorage.removeItem(EV_KEY); } catch {}
+    renderFeed();
+  });
+  renderFeed();
+  setFeedOpen(!!state.feedOpen);
+
+  // Streamlabs: bağışlar + Twitch takipleri (token sadece bu bilgisayarda)
+  const SL_KEY = 'penguchat:slToken';
+  const slState = $('#slState');
+  const SL_TEXT = { connecting: 'Streamlabs bağlanıyor…', ok: '● Streamlabs', retry: 'Streamlabs tekrar bağlanıyor…', bad: 'Streamlabs token hatalı', off: '' };
+  let slClose = null;
+  function startStreamlabs() {
+    if (slClose) { slClose(); slClose = null; }
+    let tok = '';
+    try { tok = localStorage.getItem(SL_KEY) || ''; } catch {}
+    if (!tok) { slState.textContent = ''; return; }
+    slClose = EV.connectStreamlabs(tok, addEvent, (st) => {
+      slState.textContent = SL_TEXT[st] || '';
+      slState.className = 'sl-state ' + st;
+    });
+  }
+  $('#feedSetBtn').addEventListener('click', () => {
+    const box = $('#feedSet');
+    box.classList.toggle('hidden');
+    try { $('#slToken').value = localStorage.getItem(SL_KEY) || ''; } catch {}
+  });
+  $('#slSave').addEventListener('click', () => {
+    const v = $('#slToken').value.trim();
+    try { v ? localStorage.setItem(SL_KEY, v) : localStorage.removeItem(SL_KEY); } catch {}
+    $('#feedSet').classList.add('hidden');
+    startStreamlabs();
+  });
+  $('#slOff').addEventListener('click', () => {
+    try { localStorage.removeItem(SL_KEY); } catch {}
+    $('#slToken').value = '';
+    $('#feedSet').classList.add('hidden');
+    startStreamlabs();
+  });
+  startStreamlabs();
+
   // 🔒 Gizlilik: uygulamanın içinde bir pencerede gösterilir
   const privacyDlg = $('#privacyDlg');
   function openPrivacy() {

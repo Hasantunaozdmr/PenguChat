@@ -495,6 +495,104 @@
     };
   }
 
+  // ---------- 🔔 Etkinlikler: abone, hediye abone, bit, Kicks, takip, baskın ----------
+  // Chat sayfasının kendi canlı bağlantısından (Twitch: IRC, Kick: Pusher) okunur. Sayfaya sonradan
+  // eklendiğimiz için bağlantının kendisine değil, sayfa gelen mesajı okurken araya gireriz.
+  function evPost(ev) { post('__PENGU_EVENT__' + JSON.stringify(ev)); }
+  function ircTags(raw) {
+    const t = {};
+    for (const kv of raw.split(';')) {
+      const i = kv.indexOf('=');
+      const k = i < 0 ? kv : kv.slice(0, i);
+      const v = i < 0 ? '' : kv.slice(i + 1);
+      t[k] = v.replace(/\\(.)/g, (_, c) => ({ s: ' ', ':': ';', '\\': '\\', r: '\r', n: '\n' }[c] ?? c));
+    }
+    return t;
+  }
+  const mystery = {}; // toplu hediye abonelikten sonra gelen tek tek "X'e hediye" satırlarını gösterme
+  function twitchLine(line) {
+    if (line[0] !== '@') return;
+    const sp = line.indexOf(' ');
+    const tags = ircTags(line.slice(1, sp));
+    const rest = line.slice(sp + 1);
+    const m = rest.match(/^:\S+ (USERNOTICE|PRIVMSG) #\S+(?: :([\s\S]*))?$/);
+    if (!m) return;
+    const user = tags['display-name'] || tags.login || '';
+    const text = (m[2] || '').trim();
+    const id = 'tw:' + (tags.id || Math.random());
+    if (m[1] === 'PRIVMSG') {
+      const bits = Number(tags.bits);
+      if (bits > 0) evPost({ p: 'twitch', id, type: 'bits', user, amount: bits, msg: text.replace(/\b[A-Za-z]+\d+\b\s*/g, '').trim() });
+      return;
+    }
+    const kind = tags['msg-id'];
+    const plan = tags['msg-param-sub-plan'];
+    const tier = plan === 'Prime' ? 'Prime' : plan ? String(Math.round(Number(plan) / 1000) || 1) : '';
+    const login = (tags.login || '').toLowerCase();
+    if (kind === 'sub' || kind === 'resub') {
+      evPost({ p: 'twitch', id, type: 'sub', user, tier, months: Number(tags['msg-param-cumulative-months']) || 1, msg: text });
+    } else if (kind === 'submysterygift') {
+      const n = Number(tags['msg-param-mass-gift-count']) || 1;
+      mystery[login] = { left: n, until: Date.now() + 30000 };
+      evPost({ p: 'twitch', id, type: 'giftbomb', user, tier, count: n });
+    } else if (kind === 'subgift' || kind === 'anonsubgift') {
+      const mg = mystery[login];
+      if (mg && mg.left > 0 && Date.now() < mg.until) { mg.left--; return; }
+      evPost({ p: 'twitch', id, type: 'gift', user: user || 'Anonim', tier, to: tags['msg-param-recipient-display-name'] || tags['msg-param-recipient-user-name'] || '' });
+    } else if (kind === 'giftpaidupgrade' || kind === 'primepaidupgrade' || kind === 'anongiftpaidupgrade') {
+      evPost({ p: 'twitch', id, type: 'sub', user, tier: kind === 'primepaidupgrade' ? '1' : tier, months: 0, upgrade: true, msg: text });
+    } else if (kind === 'raid') {
+      evPost({ p: 'twitch', id, type: 'raid', user: tags['msg-param-displayName'] || user, count: Number(tags['msg-param-viewerCount']) || 0 });
+    }
+  }
+  function kickFrame(raw) {
+    let f; try { f = JSON.parse(raw); } catch { return; }
+    const name = String((f && f.event) || '');
+    if (!name || name.startsWith('pusher')) return;
+    let d = f.data;
+    if (typeof d === 'string') { try { d = JSON.parse(d); } catch { return; } }
+    if (!d || typeof d !== 'object') return;
+    const id = 'kk:' + name + ':' + (d.id || d.gift_transaction_id || d.created_at || '') + ':' + (d.username || d.gifter_username || (d.sender && d.sender.username) || '');
+    if (/GiftedSubscriptions/i.test(name)) {
+      const to = Array.isArray(d.gifted_usernames) ? d.gifted_usernames : [];
+      evPost({ p: 'kick', id, type: to.length > 1 ? 'giftbomb' : 'gift', user: d.gifter_username || 'Anonim', count: to.length || 1, to: to.length === 1 ? to[0] : '' });
+    } else if (/Subscription/i.test(name) && !/LuckyUsers/i.test(name)) {
+      if (d.username) evPost({ p: 'kick', id, type: 'sub', user: d.username, months: Number(d.months) || 1 });
+    } else if (/Kicks|Gift/i.test(name) && d.gift && (d.sender || d.user)) {
+      const u = d.sender || d.user;
+      evPost({ p: 'kick', id, type: 'kicks', user: u.username || '', amount: Number(d.gift.amount) || 0, gift: d.gift.name || '', msg: d.message || '' });
+    } else if (/Follow/i.test(name) && d.username && d.followed !== false) {
+      evPost({ p: 'kick', id: 'follow:' + String(d.username).toLowerCase(), type: 'follow', user: d.username });
+    } else if (/Host|Raid/i.test(name) && (d.host_username || d.username)) {
+      evPost({ p: 'kick', id, type: 'raid', user: d.host_username || d.username, count: Number(d.number_viewers) || 0 });
+    }
+  }
+  if (!window.__penguEvHook) {
+    window.__penguEvHook = true;
+    try {
+      const desc = Object.getOwnPropertyDescriptor(MessageEvent.prototype, 'data');
+      const seen = new WeakSet();
+      Object.defineProperty(MessageEvent.prototype, 'data', {
+        configurable: true,
+        enumerable: desc.enumerable,
+        get() {
+          const v = desc.get.call(this);
+          try {
+            const ws = this.target;
+            if (typeof v === 'string' && ws instanceof WebSocket && !seen.has(this)) {
+              seen.add(this);
+              if (isTwitch) { if (/irc-ws\.chat\.twitch\.tv/.test(ws.url) && (v.includes('USERNOTICE') || v.includes('bits='))) v.split('\r\n').forEach(twitchLine); }
+              else if (/pusher/i.test(ws.url) && !v.includes('ChatMessageEvent')) kickFrame(v);
+            }
+          } catch {}
+          return v;
+        },
+      });
+    } catch {}
+  }
+  // Test için: window.__penguEvTest('twitch' | 'kick', ham mesaj)
+  window.__penguEvTest = (kind, raw) => (kind === 'twitch' ? String(raw).split('\r\n').forEach(twitchLine) : kickFrame(raw));
+
   document.addEventListener(
     'click',
     (e) => {
