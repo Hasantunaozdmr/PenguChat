@@ -29,7 +29,7 @@ class PenguLiveModule : Module() {
     }
 
     View(PenguLiveView::class) {
-      Events("onStatus", "onStats")
+      Events("onStatus", "onStats", "onNotice")
 
       // "low" | "mid" | "high" — yayın başlamadan önce ayarlanır
       Prop("quality") { view: PenguLiveView, quality: String ->

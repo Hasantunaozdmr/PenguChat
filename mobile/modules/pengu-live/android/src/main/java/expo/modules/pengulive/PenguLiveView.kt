@@ -20,7 +20,11 @@ import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import com.pedro.common.ConnectChecker
 import com.pedro.common.StreamingStatsReport
+import com.pedro.encoder.input.gl.render.filters.`object`.BaseObjectFilterRender
 import com.pedro.encoder.input.gl.render.filters.`object`.ImageObjectFilterRender
+import com.pedro.encoder.input.gl.render.filters.`object`.SurfaceFilterRender
+import com.pedro.encoder.utils.CameraHelper
+import android.view.WindowManager
 import com.pedro.encoder.input.sources.audio.MicrophoneSource
 import com.pedro.encoder.input.sources.video.BitmapSource
 import com.pedro.encoder.input.sources.video.Camera2Source
@@ -44,6 +48,7 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
 
   private val onStatus by EventDispatcher()
   private val onStats by EventDispatcher()
+  private val onNotice by EventDispatcher()
 
   private val main = Handler(Looper.getMainLooper())
   private val names = arrayOf("twitch", "kick")
@@ -126,10 +131,12 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
         "kick" to (if (live[1]) bitrate[1] else 0L).toDouble(),
         "target" to videoBitrate.toDouble(),
         "lowMode" to lowMode,
+        "camAspect" to (overlays["cam"]?.let { camAspect() } ?: 0f).toDouble(),
       ))
       // Telefon döndüyse ekran öğelerinin oranını düzelt
       val p = isPortrait()
-      if (p != lastPortrait) { lastPortrait = p; overlays.values.forEach { place(it) } }
+      val r = displayDeg()
+      if (p != lastPortrait || r != lastRot) { lastPortrait = p; lastRot = r; overlays.values.forEach { place(it) } }
       main.postDelayed(this, 1000)
     }
   }
@@ -219,7 +226,10 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
   }
 
   fun switchCamera() {
+    val dual = overlays["cam"] != null
+    if (dual) secondCam.close() // ana kamera diğerine geçerken ikinci kamera onu tutmasın
     (stream.videoSource as? Camera2Source)?.let { it.switchCamera(); frontCamera = !frontCamera }
+    if (dual) main.postDelayed({ reopenSecondCam() }, 900)
   }
 
   fun setMuted(muted: Boolean) {
@@ -271,6 +281,9 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
 
   private fun backToCamera() {
     if (!lowMode) return
+    val dual = overlays["cam"] != null
+    if (dual) secondCam.close()
+    if (dual) main.postDelayed({ reopenSecondCam() }, 900)
     runCatching {
       val cam = Camera2Source(context)
       stream.changeVideoSource(cam)
@@ -282,8 +295,8 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
   }
 
   // ---- Ekran öğeleri (logo, resim, donate bar) ----
-  private class Ov(val id: String, val type: String, val x: Float, val y: Float, val w: Float, val src: String, val shape: String, val sound: Boolean)
-  private class Live(var ov: Ov, val filter: OvFilter, var aspect: Float, var bmp: Bitmap?, val web: WebView?) {
+  private class Ov(val id: String, val type: String, val x: Float, val y: Float, val w: Float, val src: String, val shape: String, val sound: Boolean, val rot: Int, val mirror: Boolean)
+  private class Live(var ov: Ov, val filter: BaseObjectFilterRender, var aspect: Float, var bmp: Bitmap?, val web: WebView?) {
     // Donate sayfası için iki resim sırayla kullanılır (her yarım saniyede yeni resim oluşturmamak için)
     val frames = arrayOfNulls<Bitmap>(2)
     var frameIdx = 0
@@ -306,8 +319,68 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
     }
   }
 
+  /** İkinci kameranın kutusu: yeri / boyutu / dönüşü / aynası hatırlanır. */
+  private class CamFilter(cb: SurfaceFilterRender.SurfaceReadyCallback) : SurfaceFilterRender(cb) {
+    private var sx = 0f; private var sy = 0f; private var px = 0f; private var py = 0f; private var rot = 0
+    fun place(w: Float, h: Float, x: Float, y: Float, deg: Int, mirror: Boolean) {
+      // Ayna: genişliği eksi verip yeri bir genişlik kaydırınca görüntü yatayda ters çevrilir
+      sx = if (mirror) -w else w; sy = h; px = if (mirror) x + w else x; py = y; rot = deg
+      apply()
+    }
+    private fun apply() { setScale(sx, sy); setPosition(px, py); rotation = rot }
+    override fun release() {
+      super.release()
+      if (sy > 0f) apply()
+    }
+  }
+
+  private val secondCam = SecondCam(context) { msg ->
+    main.post {
+      onNotice(mapOf("message" to msg))
+      // Açılamadıysa kutuyu kaldır (yayında boş kutu kalmasın)
+      overlays["cam"]?.let { removeOverlay("cam") }
+    }
+  }
+
+  private fun displayDeg(): Int = runCatching {
+    @Suppress("DEPRECATION")
+    when (context.getSystemService(WindowManager::class.java).defaultDisplay.rotation) {
+      android.view.Surface.ROTATION_90 -> 90
+      android.view.Surface.ROTATION_180 -> 180
+      android.view.Surface.ROTATION_270 -> 270
+      else -> 0
+    }
+  }.getOrDefault(0)
+
+  // İkinci kamera görüntüsünün dönüşü: kameranın kendi açısı + telefonun açısı + yayıncının ↻ ayarı
+  private fun camDeg(o: Ov): Int {
+    val d = displayDeg()
+    val auto = if (secondCam.front) (secondCam.sensor + d) % 360 else (secondCam.sensor - d + 360) % 360
+    return (auto + o.rot * 90) % 360
+  }
+
+  private fun camAspect(): Float {
+    val o = overlays["cam"]?.ov ?: return 0f
+    val turned = camDeg(o) % 180 != 0
+    val w = secondCam.bufW.toFloat(); val h = secondCam.bufH.toFloat()
+    return if (turned) w / h else h / w
+  }
+
+  private fun mainCam() = stream.videoSource as? Camera2Source
+
+  private fun reopenSecondCam() {
+    val l = overlays["cam"] ?: return
+    val f = l.filter as? SurfaceFilterRender ?: return
+    val st = f.surfaceTexture ?: return
+    val sf = f.surface ?: return
+    val mainFront = mainCam()?.getCameraFacing() == CameraHelper.Facing.FRONT || (mainCam() == null && frontCamera)
+    secondCam.open(st, sf, !mainFront, mainCam()?.getCurrentCameraId())
+    main.postDelayed({ overlays["cam"]?.let { place(it) } }, 600)
+  }
+
   private val overlays = LinkedHashMap<String, Live>()
   private var lastPortrait = false
+  private var lastRot = -1
 
   private fun isPortrait() = resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT
 
@@ -316,7 +389,8 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
       val a = JSONArray(json)
       (0 until a.length()).map { a.getJSONObject(it) }.filter { it.optBoolean("on", true) }.map {
         Ov(it.optString("id"), it.optString("type"), it.optDouble("x", 0.0).toFloat(), it.optDouble("y", 0.0).toFloat(),
-          it.optDouble("w", 15.0).toFloat(), it.optString("src"), it.optString("shape", "bar"), it.optBoolean("sound", true))
+          it.optDouble("w", 15.0).toFloat(), it.optString("src"), it.optString("shape", "bar"), it.optBoolean("sound", true),
+          it.optInt("rot", 0), it.optBoolean("mirror", false))
       }
     }.getOrDefault(emptyList())
     val ids = list.map { it.id }.toSet()
@@ -337,6 +411,11 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
   }
 
   private fun createOverlay(o: Ov): Live? {
+    if (o.type == "cam") {
+      // Görüntü motoru kutuyu her hazırladığında (ilk açılış, arka plandan dönüş) kamerayı ona bağla
+      val cam = CamFilter { main.post { reopenSecondCam() } }
+      return Live(o, cam, 0.5625f, null, null)
+    }
     val filter = OvFilter()
     return when (o.type) {
       "logo" -> {
@@ -416,7 +495,7 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
           bmp!!.eraseColor(Color.TRANSPARENT)
           wv.draw(Canvas(bmp))
           l.bmp = bmp
-          l.filter.setImage(bmp)
+          (l.filter as? ImageObjectFilterRender)?.setImage(bmp)
         }
       }
       main.postDelayed(this, 500)
@@ -427,12 +506,19 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
     // Görüntünün en / boy oranı (yan: 16:9, dik: 9:16)
     val frame = if (isPortrait()) height.toFloat() / width else width.toFloat() / height
     val w = l.ov.w.coerceIn(2f, 100f)
+    if (l.ov.type == "cam") l.aspect = camAspect().takeIf { it > 0f } ?: l.aspect
     val h = (w * l.aspect * frame).coerceIn(1f, 100f)
-    l.filter.place(w, h, l.ov.x.coerceIn(0f, 100f - w), l.ov.y.coerceIn(0f, 100f - h))
+    val x = l.ov.x.coerceIn(0f, 100f - w)
+    val y = l.ov.y.coerceIn(0f, 100f - h)
+    when (val f = l.filter) {
+      is OvFilter -> f.place(w, h, x, y)
+      is CamFilter -> f.place(w, h, x, y, camDeg(l.ov), l.ov.mirror)
+    }
   }
 
   private fun removeOverlay(id: String) {
     val l = overlays.remove(id) ?: return
+    if (l.ov.type == "cam") secondCam.close()
     runCatching { stream.getGlInterface().removeFilter(l.filter) }
     l.web?.let { root.removeView(it); it.destroy() }
   }
@@ -442,7 +528,7 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
     val gl = stream.getGlInterface()
     runCatching { gl.clearFilters() }
     for (l in overlays.values) {
-      l.bmp?.let { l.filter.setImage(it) }
+      l.bmp?.let { (l.filter as? ImageObjectFilterRender)?.setImage(it) }
       runCatching { gl.addFilter(l.filter) }
       place(l)
     }
@@ -450,6 +536,7 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
 
   fun release() {
     main.removeCallbacksAndMessages(null)
+    secondCam.release()
     PenguLiveService.stop(context)
     overlays.values.forEach { l -> l.web?.let { root.removeView(it); it.destroy() } }
     overlays.clear()

@@ -1,6 +1,7 @@
 // 📡 Telefondan yayın: aynı anda Twitch + Kick. Kamera + mikrofon görüntüsü RTMP / RTMPS ile gönderilir.
 // - Bağlantı koparsa yayın "Bitir"e basılana kadar kendiliğinden tekrar bağlanır.
 // - Bitrate çok düşerse yayına "Bitrate düşük, lütfen bekleyiniz" yazısı gider, düzelince kameraya döner.
+// - 🤳 Dual cam: ön ve arka kamera aynı anda (ikinci kamera sürüklenebilir bir kutuda; telefon desteklemiyorsa uyarı çıkar).
 // - 🖼️ Ekran öğeleri: PenguLive logosu, kendi resimlerin ve donate bar linklerin yayına eklenir; sürükle, büyüt / küçült, aç / kapat.
 //   Donate sayfasının abone / bağış sesleri de yayına karışır (🔊 / 🔇).
 // Yayın anahtarları ve donate linkleri sadece bu telefonda saklanır; sadece Twitch'e / Kick'e / donate sitesine gider.
@@ -18,9 +19,10 @@ const KEY_STORE = 'penguchat:liveKeys';
 const SET_STORE = 'penguchat:liveSettings';
 const OV_STORE = 'penguchat:liveOverlays';
 // Yer ve boyut: görüntünün yüzdesi (x, y = sol üst köşe, w = genişlik)
-const DEFAULT_OV = [{ id: 'logo', type: 'logo', name: '🐧 PenguLive logosu', on: true, x: 84, y: 3, w: 13 }];
+const CAM_OV = { id: 'cam', type: 'cam', name: '🤳 İkinci kamera', on: false, x: 66, y: 60, w: 30, rot: 0, mirror: false };
+const DEFAULT_OV = [{ id: 'logo', type: 'logo', name: '🐧 PenguLive logosu', on: true, x: 84, y: 3, w: 13 }, CAM_OV];
 const SHAPE = { bar: { label: 'Bar (geniş)', aspect: 0.25, w: 40 }, box: { label: 'Kutu (uyarı)', aspect: 0.75, w: 30 } };
-const ovAspect = (o) => (o.type === 'logo' ? 1 : o.type === 'web' ? (SHAPE[o.shape] || SHAPE.bar).aspect : o.aspect || 1);
+const ovAspect = (o, camAspect) => (o.type === 'logo' ? 1 : o.type === 'cam' ? camAspect || 0.5625 : o.type === 'web' ? (SHAPE[o.shape] || SHAPE.bar).aspect : o.aspect || 1);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const TWITCH_INGEST = 'rtmp://live.twitch.tv/app/';
 const QUALITY = { low: 'Düşük (480p)', mid: 'Orta (720p)', high: 'Yüksek (1080p)' };
@@ -61,7 +63,10 @@ export default function LiveScreen({ C, onClose, userAgent }) {
 
   useEffect(() => {
     AsyncStorage.getItem(OV_STORE).then((v) => {
-      try { const list = JSON.parse(v || 'null'); if (Array.isArray(list) && list.length) setOverlays(list); } catch {}
+      try {
+        const list = JSON.parse(v || 'null');
+        if (Array.isArray(list) && list.length) setOverlays(list.some((o) => o.id === 'cam') ? list.map((o) => (o.id === 'cam' ? { ...o, on: false } : o)) : [...list, CAM_OV]);
+      } catch {}
       setOvLoaded(true);
     }).catch(() => setOvLoaded(true));
     AsyncStorage.multiGet([KEY_STORE, SET_STORE]).then((r) => {
@@ -98,7 +103,7 @@ export default function LiveScreen({ C, onClose, userAgent }) {
     const t = setTimeout(() => AsyncStorage.setItem(OV_STORE, JSON.stringify(overlays)).catch(() => {}), 500);
     return () => clearTimeout(t);
   }, [overlays, ovLoaded]);
-  const ovJson = useMemo(() => JSON.stringify(overlays.map(({ id, type, on, x, y, w, src, shape, sound }) => ({ id, type, on, x, y, w, src: src || '', shape: shape || 'bar', sound: sound !== false }))), [overlays]);
+  const ovJson = useMemo(() => JSON.stringify(overlays.map(({ id, type, on, x, y, w, src, shape, sound, rot, mirror }) => ({ id, type, on, x, y, w, src: src || '', shape: shape || 'bar', sound: sound !== false, rot: rot || 0, mirror: !!mirror }))), [overlays]);
 
   // Önizlemede görüntünün kapladığı alan (yan tutunca 16:9, dik tutunca 9:16; kalanı siyah)
   const portrait = box.h > box.w;
@@ -108,7 +113,9 @@ export default function LiveScreen({ C, onClose, userAgent }) {
     if (h > box.h) { h = box.h; w = box.h * A; }
     return { x: (box.w - w) / 2, y: (box.h - h) / 2, w, h };
   })();
-  const hPct = (o) => clamp(o.w * ovAspect(o) * A, 1, 100);
+  const hPct = (o) => clamp(o.w * ovAspect(o, stats.camAspect) * A, 1, 100);
+  const camOv = overlays.find((o) => o.id === 'cam');
+  const toggleCam = () => { if (camOv) { updOv('cam', { on: !camOv.on }); if (!camOv.on) setSel('cam'); } };
   const updOv = (id, patch) => setOverlays((list) => list.map((o) => (o.id === id ? { ...o, ...patch } : o)));
   const resize = (id, d) =>
     setOverlays((list) => list.map((o) => {
@@ -201,7 +208,7 @@ export default function LiveScreen({ C, onClose, userAgent }) {
   };
 
   const pill = { borderRadius: 14, paddingHorizontal: 10, paddingVertical: 5, overflow: 'hidden' };
-  const btn = (bg) => ({ paddingHorizontal: 14, height: 46, borderRadius: 23, justifyContent: 'center', alignItems: 'center', backgroundColor: bg });
+  const btn = (bg) => ({ paddingHorizontal: 12, minWidth: 46, height: 46, borderRadius: 23, justifyContent: 'center', alignItems: 'center', backgroundColor: bg });
   const txt = { color: '#fff', fontWeight: '700', fontSize: 15 };
   const sbtn = (bg) => ({ paddingHorizontal: 12, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', backgroundColor: bg });
   const stxt = { color: '#fff', fontWeight: '700', fontSize: 14 };
@@ -224,6 +231,11 @@ export default function LiveScreen({ C, onClose, userAgent }) {
               if (state === 'error' && message) setError(`${LABEL[platform]}: ${message}`);
             }}
             onStats={(e) => setStats(e.nativeEvent)}
+            onNotice={(e) => {
+              const m = String(e.nativeEvent?.message || '');
+              if (m) setError(m);
+              if (/kamera/i.test(m)) updOv('cam', { on: false }); // ikinci kamera açılamadıysa kapat
+            }}
           />
         ) : (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff' }}>Yayın sadece Android'de.</Text></View>
@@ -291,12 +303,18 @@ export default function LiveScreen({ C, onClose, userAgent }) {
                     </Pressable>
                     <Pressable style={sbtn('rgba(255,255,255,.15)')} onPress={() => resize(selOv.id, -2)} disabled={!selOv.on}><Text style={stxt}>➖ Küçült</Text></Pressable>
                     <Pressable style={sbtn('rgba(255,255,255,.15)')} onPress={() => resize(selOv.id, 2)} disabled={!selOv.on}><Text style={stxt}>➕ Büyüt</Text></Pressable>
+                    {selOv.type === 'cam' && selOv.on && (
+                      <>
+                        <Pressable style={sbtn('rgba(255,255,255,.15)')} onPress={() => updOv('cam', { rot: ((selOv.rot || 0) + 1) % 4 })}><Text style={stxt}>↻ Döndür</Text></Pressable>
+                        <Pressable style={sbtn(selOv.mirror ? '#0e8f8a' : 'rgba(255,255,255,.15)')} onPress={() => updOv('cam', { mirror: !selOv.mirror })}><Text style={stxt}>⇋ Ayna</Text></Pressable>
+                      </>
+                    )}
                     {selOv.type === 'web' && (
                       <Pressable style={sbtn(selOv.sound === false ? 'rgba(220,38,38,.85)' : 'rgba(255,255,255,.15)')} onPress={() => updOv(selOv.id, { sound: selOv.sound === false })}>
                         <Text style={stxt}>{selOv.sound === false ? '🔇 Ses kapalı' : '🔊 Ses açık'}</Text>
                       </Pressable>
                     )}
-                    {selOv.type !== 'logo' && (
+                    {selOv.type !== 'logo' && selOv.type !== 'cam' && (
                       <Pressable style={sbtn('rgba(220,38,38,.85)')} onPress={() => removeOv(selOv)}><Text style={stxt}>🗑️</Text></Pressable>
                     )}
                     <View style={{ width: 1, height: 24, backgroundColor: 'rgba(255,255,255,.3)' }} />
@@ -313,7 +331,7 @@ export default function LiveScreen({ C, onClose, userAgent }) {
 
         {/* Alt tuşlar */}
         {!layoutMode && (
-        <View style={{ position: 'absolute', bottom: 24, left: 12, right: 12, flexDirection: 'row', alignItems: 'center', gap: 10, justifyContent: 'center' }}>
+        <View style={{ position: 'absolute', bottom: 18, left: 8, right: 8, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
           <Pressable style={btn('rgba(0,0,0,.6)')} onPress={() => ref.current?.switchCamera()}>
             <Text style={txt}>🔄</Text>
           </Pressable>
@@ -327,6 +345,9 @@ export default function LiveScreen({ C, onClose, userAgent }) {
           )}
           <Pressable style={btn('rgba(0,0,0,.6)')} onPress={() => setEdit(keys.useTwitch || !keys.useKick ? 'twitch' : 'kick')}>
             <Text style={txt}>✏️</Text>
+          </Pressable>
+          <Pressable style={btn(camOv?.on ? '#0e8f8a' : 'rgba(0,0,0,.6)')} onPress={toggleCam}>
+            <Text style={txt}>🤳</Text>
           </Pressable>
           <Pressable style={btn('rgba(0,0,0,.6)')} onPress={() => { setError(''); setLayoutMode(true); }}>
             <Text style={txt}>🖼️</Text>
