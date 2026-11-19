@@ -25,6 +25,7 @@ import LiveScreen from './src/LiveScreen';
 import ReportModal, { applyModalTheme, countNew, hasMineNews, loadAdmin, storeAdmin } from './src/ReportModal';
 const { themeFrom, PRESETS: THEME_PRESETS, DEFAULT: THEME_DEFAULT } = require('./src/theme');
 const EV = require('./src/events');
+const { PRO_TEXT } = require('./src/LiveScreen');
 const EV_KEY = 'penguchat:events';
 const SL_KEY = 'penguchat:slToken';
 const PLAT_IMG = { twitch: require('./assets/ev-twitch.png'), kick: require('./assets/ev-kick.png'), streamlabs: require('./assets/ev-streamlabs.png') };
@@ -251,6 +252,20 @@ function PenguChat() {
       .then((r) => r && setRoles({ modlog: !!r.modlog, reports: !!r.reports, stats: !!r.stats, stream: !!r.stream }))
       .catch(() => {});
   }, [accounts.twitch, accounts.kick]);
+  // ⭐ Pro: "herkese açık" iken (test dönemi) herkes her şeyi kullanır; kapanınca sadece Pro verilenler
+  const [pro, setPro] = useState({ open: true, pro: false, forever: false, until: null });
+  useEffect(() => {
+    const check = () =>
+      reportRpc('my_pro', { p_twitch: accounts.twitch || '', p_kick: accounts.kick || '' })
+        .then((r) => r && setPro({ open: r.open !== false, pro: !!r.pro, forever: !!r.forever, until: r.until || null }))
+        .catch(() => {}); // sunucuda Pro henüz kurulmadıysa her şey açık kalır
+    check();
+    const t = setInterval(check, 10 * 60 * 1000);
+    return () => clearInterval(t);
+  }, [accounts.twitch, accounts.kick]);
+  const proLabel = pro.pro
+    ? (pro.forever ? '⭐ Pro: süresiz' : `⭐ Pro: ${new Date(pro.until).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' })}'e kadar`)
+    : pro.open ? '⭐ Pro: test döneminde herkese açık' : '⭐ Pro değil';
   const [viewers, setViewers] = useState({ twitch: undefined, kick: undefined }); // yayın izleyici sayısı (null = kapalı)
   const [cats, setCats] = useState({ twitch: '', kick: '' }); // yayının şu anki kategorisi (oyun / Just Chatting)
   useEffect(() => {
@@ -751,13 +766,14 @@ function PenguChat() {
           <Text style={styles.maintSmall}>Her 30 saniyede bir kontrol ediliyor…</Text>
         </View>
       )}
-      {liveOpen && <LiveScreen C={C} userAgent={USER_AGENT} onClose={() => setLiveOpen(false)} />}
+      {liveOpen && <LiveScreen C={C} userAgent={USER_AGENT} unlocked={pro.open || pro.pro} onClose={() => setLiveOpen(false)} />}
       {settingsOpen && (
         <SettingsSheet
           onClose={() => setSettingsOpen(false)}
           items={[
             { label: '🎨 Renk', sub: 'Uygulamanın rengini değiştir', onPress: () => setThemeOpen(true) },
             { label: '🔒 Gizlilik', sub: 'Hangi verilerin neden toplandığı', onPress: () => setPrivacyOpen(true) },
+            { label: proLabel, sub: pro.pro || pro.open ? 'Bütün özellikler açık' : 'Twitch + Kick aynı anda yayın, logo, dual cam… Pro\'da', onPress: () => Alert.alert('⭐ PenguLive Pro', pro.pro ? proLabel.replace('⭐ Pro: ', 'Pro hesabın: ') : pro.open ? 'Test döneminde bütün özellikler herkese ücretsiz açık.' : PRO_TEXT) },
             Platform.OS === 'android' && { label: checking ? '⬆ Bakılıyor…' : '⬆ Güncelleme', sub: newVersion ? 'Yeni sürüm var!' : 'Yeni sürüm var mı bak', dot: !!newVersion, onPress: checkUpdateNow },
           ].filter(Boolean)}
         />

@@ -58,6 +58,20 @@
   label.cb input { width: auto; }
   .hidden { display: none !important; }
   .spin { text-align: center; color: var(--muted); padding: 30px; }
+  .sw { position: relative; width: 50px; height: 28px; border-radius: 14px; border: 0; background: #9ca3af; flex: 0 0 auto; }
+  .sw::after { content: ''; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: left .15s; }
+  .sw.on { background: var(--ok); } .sw.on::after { left: 25px; }
+  .pro-row { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .pro-row:last-child { border-bottom: 0; }
+  .pro-row .who { flex: 1; min-width: 0; }
+  .plat { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 5px; font: 900 11px Arial; margin-right: 4px; vertical-align: -4px; }
+  .plat.tw { background: #9146ff; color: #fff; } .plat.kk { background: #53fc18; color: #000; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+  .t-inf { background: #ede9fe; color: #6d28d9; } .t-ok { background: #dcfce7; color: #166534; } .t-warn { background: #fef3c7; color: #92400e; } .t-end { background: #fee2e2; color: #991b1b; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { border: 1px solid var(--border); background: var(--input); border-radius: 16px; padding: 6px 12px; font: inherit; font-size: 14px; color: var(--text); }
+  .chip.on { background: var(--text); color: #fff; border-color: var(--text); }
+  .pro-menu { display: flex; gap: 6px; flex-wrap: wrap; padding: 0 0 10px 28px; }
 </style>
 </head>
 <body>
@@ -81,6 +95,7 @@
       <button class="tab" data-t="reports">📥 Sorunlar</button>
       <button class="tab" data-t="mod">🛡️ Mod log</button>
       <button class="tab" data-t="stats">📊 İstatistik</button>
+      <button class="tab" data-t="pro">⭐ Pro</button>
       <button class="tab" data-t="log">📜 Log</button>
       <button class="tab" data-t="roles">👥 Yetkiler</button>
       <button class="tab" data-t="ann">📢 Duyuru</button>
@@ -170,7 +185,7 @@
     if (active) active.scrollIntoView({ inline: 'center', block: 'nearest' });
     main.innerHTML = '<div class="spin">Yükleniyor…</div>';
     try {
-      await ({ reports, mod: modLog, stats, log, roles, ann, maint, errors })[tab]();
+      await ({ reports, mod: modLog, stats, pro, log, roles, ann, maint, errors })[tab]();
     } catch (e) {
       if (e.message === 'Şifre yanlış') { pw = ''; try { localStorage.removeItem(PW_KEY); } catch {} return showLogin('Şifre değişmiş, yeniden gir.'); }
       main.innerHTML = `<div class="empty">⚠️ ${esc(e.message)}</div>`;
@@ -278,6 +293,83 @@
     main.innerHTML = list.length ? list.map((x) => `<div class="card"><div class="meta"><b>${LOG_KIND[x.kind] || esc(x.kind)}</b><span style="flex:1"></span><span>${esc(fmtDate(x.at))}</span></div>
       <div class="msg" style="margin:4px 0 0"><b>${esc(x.contact || 'İsimsiz')}</b> · ${esc(x.message || '')}</div>${x.note ? `<div class="hint">Sebep: ${esc(x.note)}</div>` : ''}</div>`).join('') : '<div class="empty">Henüz kayıt yok.</div>';
   }
+
+  // ⭐ Pro
+  let proMonths = 0;
+  async function pro() {
+    let d;
+    try { d = (await rpc('list_pro', A())) || {}; }
+    catch (e) {
+      if (/404/.test(e.message)) { main.innerHTML = '<div class="card"><b>⭐ Pro henüz kurulmadı</b><p class="hint">Supabase → SQL Editor\'da <b>supabase/pro.sql</b> dosyasındaki komutları bir kere çalıştır, sonra bu sayfayı yenile.</p></div>'; return; }
+      throw e;
+    }
+    const users = d.users || [];
+    const now = Date.now(), week = 7 * 86400000;
+    const active = users.filter((u) => !u.until || new Date(u.until) > now);
+    const soon = active.filter((u) => u.until && new Date(u.until) - now < week);
+    const tag = (u) => {
+      if (!u.until) return '<span class="tag t-inf">♾️ Süresiz</span>';
+      const left = new Date(u.until) - now;
+      if (left <= 0) return '<span class="tag t-end">⛔ Bitti</span>';
+      const days = Math.ceil(left / 86400000);
+      const date = new Date(u.until).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: new Date(u.until).getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined });
+      return days <= 3 ? `<span class="tag t-warn">⚠️ ${days} gün kaldı</span>` : `<span class="tag t-ok">${date} · ${days} gün</span>`;
+    };
+    main.innerHTML = `
+      <div class="stats">
+        <div class="stat"><b>${active.length}</b><span>Pro hesap</span></div>
+        <div class="stat"><b>${soon.length}</b><span>bu hafta bitiyor</span></div>
+        <div class="stat"><b>${users.length - active.length}</b><span>süresi bitmiş</span></div>
+      </div>
+      <div class="card"><div class="row"><div style="flex:1"><b>🔓 Herkese açık (test dönemi)</b><div class="hint">Açıkken herkes Pro özelliklerini ücretsiz kullanır. Ücreti başlattığın gün kapat; sadece aşağıdakiler Pro kalır.</div></div><button class="sw ${d.open ? 'on' : ''}" id="proOpen" aria-label="Herkese açık"></button></div></div>
+      <div class="card" style="border-left:4px solid var(--ok)"><b>🤖 Otomatik mod</b><div class="hint">Ödeme sitesi (Shopier / iyzico / PayTR) seçilince bağlanacak: ödeme gelince Pro kendiliğinden açılır, süresi bitince kendiliğinden kapanır. O zamana kadar aşağıdan elle verebilirsin.</div></div>
+      <div class="card" id="proAdd"><b>⭐ Elle Pro ver</b>
+        <div class="row" style="margin:8px 0"><select id="proP" style="width:110px"><option value="twitch">Twitch</option><option value="kick">Kick</option></select>
+        <input id="proU" placeholder="kullanıcı adı" autocapitalize="none" style="flex:1;min-width:140px" /></div>
+        <div class="chips" id="proChips">${[[1, '1 ay'], [3, '3 ay'], [12, '1 yıl'], [0, '♾️ Süresiz (hediye)']].map(([m, l]) => `<button class="chip ${proMonths === m ? 'on' : ''}" data-m="${m}">${l}</button>`).join('')}</div>
+        <input id="proNote" placeholder="not (örn: kendi yayıncım, ödedi)" style="margin:8px 0" maxlength="80" />
+        <div class="row"><button class="b primary" id="proSave" style="flex:1">⭐ Pro ver</button></div><span class="hint" id="proHint"></span></div>
+      <div class="card"><b>Pro olanlar</b>
+        ${users.length ? users.map((u) => `<div class="pro-row" data-p="${esc(u.platform)}" data-u="${esc(u.username)}">
+            <div class="who"><span class="plat ${u.platform === 'twitch' ? 'tw' : 'kk'}">${u.platform === 'twitch' ? 'T' : 'K'}</span><b>${esc(u.username)}</b><div class="hint">${esc(u.note || '')}${u.note ? ' · ' : ''}${esc(u.source || 'elle')}</div></div>
+            ${tag(u)}<button class="b small" data-pro-menu>⋯</button></div>
+            <div class="pro-menu hidden" data-for="${esc(u.platform)}:${esc(u.username)}">
+              <button class="b small" data-pro-act="1">➕ 1 ay</button><button class="b small" data-pro-act="12">➕ 1 yıl</button><button class="b small" data-pro-act="0">♾️ Süresiz yap</button><button class="b small danger" data-pro-act="del">🗑️ Kaldır</button></div>`).join('')
+        : '<div class="empty" style="padding:16px">Henüz Pro verilen kimse yok.</div>'}
+      </div>`;
+  }
+  main.addEventListener('click', async (e) => {
+    if (tab !== 'pro') return;
+    const t = e.target;
+    if (t.id === 'proOpen') {
+      const on = !t.classList.contains('on');
+      if (!on && !confirm('Herkese açık kapatılsın mı? Bundan sonra sadece Pro verdiklerin Pro özellikleri kullanabilir.')) return;
+      try { await rpc('set_pro_open', A({ p_open: on })); load(); } catch (err) { alert('Kaydedilemedi: ' + err.message); }
+      return;
+    }
+    if (t.matches('#proChips .chip')) { proMonths = Number(t.dataset.m); document.querySelectorAll('#proChips .chip').forEach((c) => c.classList.toggle('on', c === t)); return; }
+    if (t.id === 'proSave') {
+      const u = $('#proU').value.trim().replace(/^@/, '').toLowerCase();
+      if (!/^[a-z0-9_]{2,25}$/.test(u)) { $('#proHint').textContent = 'Kullanıcı adını doğru yaz.'; $('#proHint').className = 'hint err'; return; }
+      try { await rpc('set_pro', A({ p_platform: $('#proP').value, p_username: u, p_months: proMonths, p_note: $('#proNote').value.trim() })); load(); }
+      catch (err) { $('#proHint').textContent = 'Kaydedilemedi: ' + err.message; $('#proHint').className = 'hint err'; }
+      return;
+    }
+    if (t.matches('[data-pro-menu]')) {
+      const row = t.closest('.pro-row');
+      document.querySelector(`.pro-menu[data-for="${row.dataset.p}:${row.dataset.u}"]`)?.classList.toggle('hidden');
+      return;
+    }
+    if (t.matches('[data-pro-act]')) {
+      const [p, u] = t.closest('.pro-menu').dataset.for.split(':');
+      const act = t.dataset.proAct;
+      try {
+        if (act === 'del') { if (!confirm(`${u} için Pro kaldırılsın mı?`)) return; await rpc('remove_pro', A({ p_platform: p, p_username: u })); }
+        else await rpc('set_pro', A({ p_platform: p, p_username: u, p_months: Number(act), p_note: '' }));
+        load();
+      } catch (err) { alert('Kaydedilemedi: ' + err.message); }
+    }
+  });
 
   // 👥 Yetkiler
   const ROLE = { modlog: '🛡️ Mod log', reports: '📥 Sorunlar', stats: '📊 İstatistik', stream: '📡 Yayın' };

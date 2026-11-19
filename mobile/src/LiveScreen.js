@@ -25,6 +25,9 @@ const DEFAULT_OV = [{ id: 'logo', type: 'logo', name: '🐧 PenguLive logosu', o
 const SHAPE = { bar: { label: 'Bar (geniş)', aspect: 0.25, w: 40 }, box: { label: 'Kutu (uyarı)', aspect: 0.75, w: 30 } };
 const ovAspect = (o, camAspect) => (o.type === 'logo' ? 1 : o.type === 'cam' ? camAspect || 0.5625 : o.type === 'web' ? (SHAPE[o.shape] || SHAPE.bar).aspect : o.aspect || 1);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+// ⭐ Pro'ya özel: Twitch + Kick aynı anda, logo kaldırma, kendi resim / donate bar, dual cam, 1080p
+export const PRO_TEXT = 'Bu özellik PenguLive Pro\'da: Twitch + Kick aynı anda yayın, logoyu kaldırma, kendi logo / resim, donate bar ve uyarılar, dual cam ve 1080p.\n\nPro için uygulamanın yöneticisiyle iletişime geç.';
+const proAlert = () => Alert.alert('⭐ PenguLive Pro', PRO_TEXT);
 const TWITCH_INGEST = 'rtmp://live.twitch.tv/app/';
 const QUALITY = { low: 'Düşük (480p)', mid: 'Orta (720p)', high: 'Yüksek (1080p)' };
 const LABEL = { twitch: 'Twitch', kick: 'Kick' };
@@ -40,7 +43,7 @@ const mbps = (b) => (b > 0 ? (b / 1e6).toFixed(1) + ' Mbps' : '—');
 // Kick "Stream URL" + "Stream Key" → tek adres
 const joinUrl = (url, key) => (url && key ? url.replace(/\/+$/, '') + '/' + key : '');
 
-export default function LiveScreen({ C, onClose, userAgent }) {
+export default function LiveScreen({ C, onClose, userAgent, unlocked = true }) {
   const ref = useRef(null);
   const [keys, setKeys] = useState({ twitch: '', kickUrl: '', kick: '', useTwitch: true, useKick: true });
   const [quality, setQuality] = useState('mid');
@@ -108,7 +111,9 @@ export default function LiveScreen({ C, onClose, userAgent }) {
     const t = setTimeout(() => AsyncStorage.setItem(OV_STORE, JSON.stringify(overlays)).catch(() => {}), 500);
     return () => clearTimeout(t);
   }, [overlays, ovLoaded]);
-  const ovJson = useMemo(() => JSON.stringify(overlays.map(({ id, type, on, x, y, w, src, shape, sound, rot, mirror }) => ({ id, type, on, x, y, w, src: src || '', shape: shape || 'bar', sound: sound !== false, rot: rot || 0, mirror: !!mirror }))), [overlays]);
+  const ovJson = useMemo(() => JSON.stringify(overlays
+    .map((o) => (unlocked ? o : o.type === 'logo' ? { ...o, on: true } : { ...o, on: false })) // Pro değilse sadece logo
+    .map(({ id, type, on, x, y, w, src, shape, sound, rot, mirror }) => ({ id, type, on, x, y, w, src: src || '', shape: shape || 'bar', sound: sound !== false, rot: rot || 0, mirror: !!mirror }))), [overlays, unlocked]);
 
   // Önizlemede görüntünün kapladığı alan (yan tutunca 16:9, dik tutunca 9:16; kalanı siyah)
   const portrait = box.h > box.w;
@@ -120,7 +125,7 @@ export default function LiveScreen({ C, onClose, userAgent }) {
   })();
   const hPct = (o) => clamp(o.w * ovAspect(o, stats.camAspect) * A, 1, 100);
   const camOv = overlays.find((o) => o.id === 'cam');
-  const toggleCam = () => { if (camOv) { updOv('cam', { on: !camOv.on }); if (!camOv.on) setSel('cam'); } };
+  const toggleCam = () => { if (!unlocked) return proAlert(); if (camOv) { updOv('cam', { on: !camOv.on }); if (!camOv.on) setSel('cam'); } };
   const updOv = (id, patch) => setOverlays((list) => list.map((o) => (o.id === id ? { ...o, ...patch } : o)));
   const resize = (id, d) =>
     setOverlays((list) => list.map((o) => {
@@ -139,6 +144,7 @@ export default function LiveScreen({ C, onClose, userAgent }) {
       } },
     ]);
   const pickImage = async () => {
+    if (!unlocked) return proAlert();
     try {
       const ImagePicker = require('expo-image-picker');
       const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1 });
@@ -181,9 +187,20 @@ export default function LiveScreen({ C, onClose, userAgent }) {
     keys.useTwitch && keys.twitch.trim() ? TWITCH_INGEST + keys.twitch.trim() : '',
     keys.useKick ? joinUrl(keys.kickUrl.trim(), keys.kick.trim()) : '',
   ];
-  const start = async () => {
-    const t = targets();
+  const start = async (only) => {
+    let t = targets();
     if (!t[0] && !t[1]) { setSetup(true); return; }
+    if (only === 'twitch') t = [t[0], ''];
+    if (only === 'kick') t = ['', t[1]];
+    // Pro değilse aynı anda iki platform yok: hangisine başlasın?
+    if (!unlocked && t[0] && t[1]) {
+      Alert.alert('⭐ Twitch + Kick aynı anda Pro\'da', 'Şimdilik tek platforma yayın açabilirsin. Hangisi?', [
+        { text: 'Twitch', onPress: () => start('twitch') },
+        { text: 'Kick', onPress: () => start('kick') },
+        { text: 'Vazgeç', style: 'cancel' },
+      ]);
+      return;
+    }
     setError('');
     try {
       await ref.current?.start(t);
@@ -228,7 +245,7 @@ export default function LiveScreen({ C, onClose, userAgent }) {
             ref={ref}
             style={{ flex: 1 }}
             overlays={ovJson}
-            quality={quality}
+            quality={!unlocked && quality === 'high' ? 'mid' : quality}
             bitrateKbps={kbps}
             onStatus={(e) => {
               const { platform, state, message } = e.nativeEvent;
@@ -317,7 +334,7 @@ export default function LiveScreen({ C, onClose, userAgent }) {
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={{ gap: 6, alignItems: 'center' }}>
                 {selOv && (
                   <>
-                    <Pressable style={sbtn(selOv.on ? 'rgba(255,255,255,.15)' : '#16a34a')} onPress={() => updOv(selOv.id, { on: !selOv.on })}>
+                    <Pressable style={sbtn(selOv.on ? 'rgba(255,255,255,.15)' : '#16a34a')} onPress={() => (!unlocked && selOv.type === 'logo' ? proAlert() : updOv(selOv.id, { on: !selOv.on }))}>
                       <Text style={stxt}>{selOv.on ? '🙈 Gizle' : '👁️ Göster'}</Text>
                     </Pressable>
                     <Pressable style={sbtn('rgba(255,255,255,.15)')} onPress={() => resize(selOv.id, -2)} disabled={!selOv.on}><Text style={stxt}>➖ Küçült</Text></Pressable>
@@ -339,7 +356,7 @@ export default function LiveScreen({ C, onClose, userAgent }) {
                     <View style={{ width: 1, height: 24, backgroundColor: 'rgba(255,255,255,.3)' }} />
                   </>
                 )}
-                <Pressable style={sbtn('#f59e0b')} onPress={() => setAddWeb({ url: '', shape: 'bar' })}><Text style={stxt}>＋ Donate bar</Text></Pressable>
+                <Pressable style={sbtn('#f59e0b')} onPress={() => (unlocked ? setAddWeb({ url: '', shape: 'bar' }) : proAlert())}><Text style={stxt}>＋ Donate bar</Text></Pressable>
                 <Pressable style={sbtn('#0e8f8a')} onPress={pickImage}><Text style={stxt}>＋ Resim / logo</Text></Pressable>
               </ScrollView>
               <Pressable style={sbtn('#9146ff')} onPress={() => { setLayoutMode(false); setError(''); }}><Text style={stxt}>Bitti</Text></Pressable>
@@ -360,7 +377,7 @@ export default function LiveScreen({ C, onClose, userAgent }) {
           {running ? (
             <Pressable style={[btn('#dc2626'), { paddingHorizontal: 22 }]} onPress={askStop}><Text style={txt}>■ Bitir</Text></Pressable>
           ) : (
-            <Pressable style={[btn('#9146ff'), { paddingHorizontal: 22 }]} onPress={start}><Text style={txt}>● Yayına başla</Text></Pressable>
+            <Pressable style={[btn('#9146ff'), { paddingHorizontal: 22 }]} onPress={() => start()}><Text style={txt}>● Yayına başla</Text></Pressable>
           )}
           <Pressable style={btn('rgba(0,0,0,.6)')} onPress={() => setEdit(keys.useTwitch || !keys.useKick ? 'twitch' : 'kick')}>
             <Text style={txt}>✏️</Text>
@@ -465,7 +482,7 @@ export default function LiveScreen({ C, onClose, userAgent }) {
               <Text style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>Kalite (iki platforma birden gider; yayın sırasında değişmez)</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
                 {Object.entries(QUALITY).map(([k, v]) => (
-                  <Pressable key={k} disabled={running} onPress={() => saveQuality(k)} style={{ opacity: running && quality !== k ? 0.4 : 1, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: quality === k ? '#9146ff' : C.border, backgroundColor: quality === k ? '#9146ff' : C.input }}>
+                  <Pressable key={k} disabled={running} onPress={() => (!unlocked && k === 'high' ? proAlert() : saveQuality(k))} style={{ opacity: running && quality !== k ? 0.4 : 1, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: quality === k ? '#9146ff' : C.border, backgroundColor: quality === k ? '#9146ff' : C.input }}>
                     <Text style={{ color: quality === k ? '#fff' : C.text, fontWeight: '600' }}>{v}</Text>
                   </Pressable>
                 ))}
