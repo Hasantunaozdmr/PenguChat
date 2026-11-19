@@ -1002,7 +1002,7 @@
       <div class="role-add" id="proAdd">
         <select id="proP"><option value="twitch">Twitch</option><option value="kick">Kick</option></select>
         <input type="text" id="proU" placeholder="kullanıcı adı" spellcheck="false" />
-        <select id="proM">${[[1, '1 ay'], [3, '3 ay'], [12, '1 yıl'], [0, '♾️ Süresiz (hediye)']].map(([m, l]) => `<option value="${m}" ${proMonths === m ? 'selected' : ''}>${l}</option>`).join('')}</select>
+        <select id="proM">${[[1, '1 ay'], [3, '3 ay'], [6, '6 ay'], [9, '9 ay'], [12, '1 yıl'], [0, '♾️ Süresiz (hediye)']].map(([m, l]) => `<option value="${m}" ${proMonths === m ? 'selected' : ''}>${l}</option>`).join('')}</select>
         <input type="text" id="proNote" placeholder="not" maxlength="80" />
         <button class="btn mini primary" id="proSave">⭐ Pro ver</button>
         <span class="hint" id="proHint"></span>

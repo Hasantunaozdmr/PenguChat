@@ -326,7 +326,7 @@
       <div class="card" id="proAdd"><b>⭐ Elle Pro ver</b>
         <div class="row" style="margin:8px 0"><select id="proP" style="width:110px"><option value="twitch">Twitch</option><option value="kick">Kick</option></select>
         <input id="proU" placeholder="kullanıcı adı" autocapitalize="none" style="flex:1;min-width:140px" /></div>
-        <div class="chips" id="proChips">${[[1, '1 ay'], [3, '3 ay'], [12, '1 yıl'], [0, '♾️ Süresiz (hediye)']].map(([m, l]) => `<button class="chip ${proMonths === m ? 'on' : ''}" data-m="${m}">${l}</button>`).join('')}</div>
+        <div class="chips" id="proChips">${[[1, '1 ay'], [3, '3 ay'], [6, '6 ay'], [9, '9 ay'], [12, '1 yıl'], [0, '♾️ Süresiz (hediye)']].map(([m, l]) => `<button class="chip ${proMonths === m ? 'on' : ''}" data-m="${m}">${l}</button>`).join('')}</div>
         <input id="proNote" placeholder="not (örn: kendi yayıncım, ödedi)" style="margin:8px 0" maxlength="80" />
         <div class="row"><button class="b primary" id="proSave" style="flex:1">⭐ Pro ver</button></div><span class="hint" id="proHint"></span></div>
       <div class="card"><b>Pro olanlar</b>
