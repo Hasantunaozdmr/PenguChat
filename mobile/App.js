@@ -918,8 +918,6 @@ function PenguChat() {
                     onMessage={(data) => onWebMessage(k, data)}
                     onFail={(d) => reportError('chat-acilmadi', `${d} (${s[k]})`)}
                     onLoaded={() => {
-                      // Telefonda chat sadece okunur: mesaj kutusu gizlenir (komutlar yine çalışır)
-                      views.current[k]?.injectJavaScript('window.__penguReadOnly && window.__penguReadOnly(); true;');
                       setTimeout(() => checkModRef.current(k), 2500);
                       setTimeout(() => askViewersRef.current(k), 3000);
                     }}
