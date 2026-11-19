@@ -461,3 +461,16 @@ body.top-collapsed .toolbar, body.top-collapsed .actionbar, body.top-collapsed .
 .ev.big { background: rgba(251,191,36,.08); }
 #feedBtn { position: relative; }
 #feedBtn .badge { top: -6px; right: -6px; }
+
+/* ⭐ Pro (yönetim) */
+.pro-sum { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
+.pro-sum div { border: 1px solid var(--border); border-radius: 8px; padding: 8px; text-align: center; background: var(--panel-2); }
+.pro-sum b { display: block; font-size: 20px; }
+.pro-sum span { font-size: 11px; color: var(--muted); }
+.pro-card { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; }
+.pro-open { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.pro-tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.pro-tag.inf { background: #ede9fe; color: #6d28d9; } .pro-tag.ok { background: #dcfce7; color: #166534; }
+.pro-tag.warn { background: #fef3c7; color: #92400e; } .pro-tag.end { background: #fee2e2; color: #991b1b; }
+.pro-acts { white-space: nowrap; }
+.pro-acts .btn { margin-left: 2px; }

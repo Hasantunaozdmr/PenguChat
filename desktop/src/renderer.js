@@ -731,6 +731,7 @@
     if (inboxTab === 'stats') return loadStats(pw);
     if (inboxTab === 'mod') return loadModLog(pw);
     if (inboxTab === 'roles') return loadRoles(pw);
+    if (inboxTab === 'pro') return loadPro(pw);
     if (inboxTab === 'maint') return loadMaint();
     if (inboxTab === 'ann') return loadAnn();
     if (inboxTab === 'errors') return loadErrors(pw);
@@ -973,6 +974,76 @@
         ${list.map((x) => `<tr data-p="${esc(x.platform)}" data-u="${esc(x.username)}"><td>${x.platform === 'twitch' ? 'Twitch' : 'Kick'}</td><td><b>${esc(x.username)}</b></td><td>${boxes(x)}</td></tr>`).join('')}</table>`
         : '<div class="empty">Henüz kimseye yetki verilmedi.</div>'}`;
   }
+  // ⭐ Pro (sadece yönetici): web paneldeki Pro sekmesinin aynısı
+  let proMonths = 0;
+  async function loadPro(pw) {
+    const r = await window.dualChat.rpc('list_pro', { p_password: pw });
+    if (!r.ok) {
+      if (/404/.test(r.error)) { inboxList.innerHTML = '<div class="empty">⭐ Pro sunucuda henüz kurulmadı (supabase/pro.sql).</div>'; return; }
+      return failed(r);
+    }
+    const users = (r.data && r.data.users) || [];
+    const open = !(r.data && r.data.open === false);
+    const now = Date.now();
+    const active = users.filter((u) => !u.until || new Date(u.until) > now);
+    const soon = active.filter((u) => u.until && new Date(u.until) - now < 7 * 86400000);
+    $('#inboxCount').textContent = `${active.length} Pro`;
+    const tag = (u) => {
+      if (!u.until) return '<span class="pro-tag inf">♾️ Süresiz</span>';
+      const left = new Date(u.until) - now;
+      if (left <= 0) return '<span class="pro-tag end">⛔ Bitti</span>';
+      const days = Math.ceil(left / 86400000);
+      return days <= 3 ? `<span class="pro-tag warn">⚠️ ${days} gün kaldı</span>` : `<span class="pro-tag ok">${new Date(u.until).toLocaleDateString('tr-TR')} · ${days} gün</span>`;
+    };
+    inboxList.innerHTML = `
+      <div class="pro-sum"><div><b>${active.length}</b><span>Pro hesap</span></div><div><b>${soon.length}</b><span>bu hafta bitiyor</span></div><div><b>${users.length - active.length}</b><span>süresi bitmiş</span></div></div>
+      <div class="pro-card"><label class="pro-open"><input type="checkbox" id="proOpen" ${open ? 'checked' : ''}/> <b>🔓 Herkese açık (test dönemi)</b></label>
+        <p class="dlg-note">Açıkken herkes Pro özelliklerini ücretsiz kullanır. Ücreti başlattığın gün kapat; sadece aşağıdakiler Pro kalır.</p></div>
+      <div class="role-add" id="proAdd">
+        <select id="proP"><option value="twitch">Twitch</option><option value="kick">Kick</option></select>
+        <input type="text" id="proU" placeholder="kullanıcı adı" spellcheck="false" />
+        <select id="proM">${[[1, '1 ay'], [3, '3 ay'], [12, '1 yıl'], [0, '♾️ Süresiz (hediye)']].map(([m, l]) => `<option value="${m}" ${proMonths === m ? 'selected' : ''}>${l}</option>`).join('')}</select>
+        <input type="text" id="proNote" placeholder="not" maxlength="80" />
+        <button class="btn mini primary" id="proSave">⭐ Pro ver</button>
+        <span class="hint" id="proHint"></span>
+      </div>
+      ${users.length ? `<table class="roles"><tr><th>Platform</th><th>Kullanıcı</th><th>Bitiş</th><th>Not</th><th></th></tr>
+        ${users.map((u) => `<tr data-p="${esc(u.platform)}" data-u="${esc(u.username)}"><td>${u.platform === 'twitch' ? 'Twitch' : 'Kick'}</td><td><b>${esc(u.username)}</b></td><td>${tag(u)}</td><td>${esc(u.note || '')}</td>
+          <td class="pro-acts"><button class="btn mini" data-pro="1">➕ 1 ay</button><button class="btn mini" data-pro="12">➕ 1 yıl</button><button class="btn mini" data-pro="0">♾️</button><button class="btn mini" data-pro="del" title="Kaldır">🗑️</button></td></tr>`).join('')}</table>`
+        : '<div class="empty">Henüz Pro verilen kimse yok.</div>'}`;
+  }
+  inboxList.addEventListener('change', async (e) => {
+    if (e.target.id === 'proM') { proMonths = Number(e.target.value); return; }
+    if (e.target.id !== 'proOpen') return;
+    const on = e.target.checked;
+    if (!on && !confirm('Herkese açık kapatılsın mı? Bundan sonra sadece Pro verdiklerin Pro özellikleri kullanabilir.')) { e.target.checked = true; return; }
+    const r = await window.dualChat.rpc('set_pro_open', { p_password: getAdmin(), p_open: on });
+    if (!r.ok) { alert('Kaydedilemedi: ' + r.error); e.target.checked = !on; return; }
+    loadInbox();
+  });
+  inboxList.addEventListener('click', async (e) => {
+    if (e.target.id === 'proSave') {
+      const u = $('#proU').value.trim().replace(/^@/, '').toLowerCase();
+      const hint = $('#proHint');
+      if (!/^[a-z0-9_]{2,25}$/.test(u)) { hint.textContent = 'Kullanıcı adını doğru yaz.'; hint.className = 'hint err'; return; }
+      const r = await window.dualChat.rpc('set_pro', { p_password: getAdmin(), p_platform: $('#proP').value, p_username: u, p_months: Number($('#proM').value), p_note: $('#proNote').value.trim() });
+      if (!r.ok) { hint.textContent = 'Kaydedilemedi: ' + r.error; hint.className = 'hint err'; return; }
+      loadInbox();
+      return;
+    }
+    const act = e.target.closest('[data-pro]')?.dataset.pro;
+    if (!act) return;
+    const row = e.target.closest('tr[data-u]');
+    const args = { p_password: getAdmin(), p_platform: row.dataset.p, p_username: row.dataset.u };
+    let r;
+    if (act === 'del') {
+      if (!confirm(`${row.dataset.u} için Pro kaldırılsın mı?`)) return;
+      r = await window.dualChat.rpc('remove_pro', args);
+    } else r = await window.dualChat.rpc('set_pro', { ...args, p_months: Number(act), p_note: '' });
+    if (!r.ok) { alert('Kaydedilemedi: ' + r.error); return; }
+    loadInbox();
+  });
+
   async function saveRole(platform, username, row, hintEl) {
     const get = (k) => !!row.querySelector(`[data-role="${k}"]`).checked;
     const args = {
