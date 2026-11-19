@@ -45,7 +45,16 @@ final class PenguLiveView: ExpoView {
   private let names = ["twitch", "kick"]
   private let multiCam = AVCaptureMultiCamSession.isMultiCamSupported
 
-  private lazy var mixer = MediaMixer(captureSessionMode: multiCam ? .multi : .single)
+  // multiTrackAudioMixingEnabled: mikrofon (kanal 0) + uyarı sesleri (kanal 1) birlikte yayına gider
+  private lazy var mixer = MediaMixer(captureSessionMode: multiCam ? .multi : .single, multiTrackAudioMixingEnabled: true)
+  private lazy var alert: AlertAudio = {
+    let a = AlertAudio(mixer: mixer)
+    a.soundOn = { [weak self] id in
+      // Sayfadan gelen mesaj ana iş parçacığında gelir
+      MainActor.assumeIsolated { self?.overlays[id]?.sound ?? false }
+    }
+    return a
+  }()
   private let preview = MTHKView(frame: .zero)
 
   private var sessions: [(any Session)?] = [nil, nil]
@@ -158,6 +167,7 @@ final class PenguLiveView: ExpoView {
     try? await mixer.attachVideo(nil, track: 0)
     try? await mixer.attachVideo(nil, track: 1)
     for (_, o) in overlays { o.web?.removeFromSuperview() }
+    alert.clear()
   }
 
   private func camera(_ front: Bool) -> AVCaptureDevice? {
@@ -353,6 +363,7 @@ final class PenguLiveView: ExpoView {
       emit(i, "idle")
     }
     if lowMode { await setLowMode(false) }
+    alert.clear()
     UIApplication.shared.isIdleTimerDisabled = false
   }
 
@@ -480,6 +491,7 @@ final class PenguLiveView: ExpoView {
     var x: Double, y: Double, w: Double
     var src: String, shape: String
     var mirror: Bool
+    var sound = true
     var aspect: Double = 1
     var image: ImageScreenObject?
     var cam: VideoTrackScreenObject?
@@ -524,6 +536,7 @@ final class PenguLiveView: ExpoView {
       ov.y = o["y"] as? Double ?? 0
       ov.w = o["w"] as? Double ?? 15
       ov.mirror = mirror
+      ov.sound = o["sound"] as? Bool ?? true
       await place(ov)
     }
     if camChanged { await attachCameras() }
@@ -557,6 +570,9 @@ final class PenguLiveView: ExpoView {
       let cfg = WKWebViewConfiguration()
       cfg.allowsInlineMediaPlayback = true
       cfg.mediaTypesRequiringUserActionForPlayback = []
+      // 🔊 Uyarı sesleri: sayfa ses çalınca bize haber versin (sesi yayına biz ekleriz)
+      cfg.userContentController.add(alert, name: "penguAudio")
+      cfg.userContentController.addUserScript(WKUserScript(source: AlertAudio.hookScript(id: o.id), injectionTime: .atDocumentStart, forMainFrameOnly: false))
       let wv = WKWebView(frame: CGRect(x: 0, y: 0, width: pw, height: ph), configuration: cfg)
       wv.isOpaque = false
       wv.backgroundColor = .clear
@@ -615,6 +631,7 @@ final class PenguLiveView: ExpoView {
   private func removeOverlay(_ id: String) async {
     guard let o = overlays.removeValue(forKey: id) else { return }
     o.web?.stopLoading()
+    o.web?.configuration.userContentController.removeScriptMessageHandler(forName: "penguAudio")
     o.web?.removeFromSuperview()
     await removeObjects(o.image, o.cam)
   }
