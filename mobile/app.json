@@ -8,7 +8,13 @@
     "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.dualchat.mobile"
+      "bundleIdentifier": "com.dualchat.mobile",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Telefondan Twitch ve Kick'e yayın yapmak için kamera gerekiyor.",
+        "NSMicrophoneUsageDescription": "Yayında sesinin duyulması için mikrofon gerekiyor.",
+        "NSPhotoLibraryUsageDescription": "Yayına kendi logonu ya da resmini eklemek için galeriye erişim gerekiyor.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {

@@ -723,7 +723,7 @@ function PenguChat() {
           />
         )}
         {/* 📡 Yayın: sadece Yetkiler'den "Yayın" yetkisi verilenler (ve sahip) görür */}
-        {Platform.OS === 'android' && (roles.stream || !!admin || ownerOn.twitch || ownerOn.kick) && <Act label="📡 Yayın" onPress={() => setLiveOpen(true)} />}
+        {(Platform.OS === 'android' || Platform.OS === 'ios') && (roles.stream || !!admin || ownerOn.twitch || ownerOn.kick) && <Act label="📡 Yayın" onPress={() => setLiveOpen(true)} />}
         <Act label="🔧 Ayarlar" dot={!!newVersion} onPress={() => setSettingsOpen(true)} />
         <Act label="▲ Gizle" onPress={() => update({ topCollapsed: true })} />
       </View>

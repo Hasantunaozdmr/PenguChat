@@ -1,0 +1,52 @@
+name: PenguLive - iPhone derleme kontrolü
+
+# iPhone sürümünün derlenip derlenmediğini kontrol eder (Apple hesabı gerekmez, imzasız simülatör derlemesi).
+# Hiçbir şey yayınlamaz; Apple hesabı açılınca TestFlight'a gönderme buraya eklenecek.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "mobile/**"
+      - ".github/workflows/ios-check.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: penguchat-ios-check
+  cancel-in-progress: true
+
+jobs:
+  ios:
+    runs-on: macos-15
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: npm ci --no-audit --no-fund
+        run: |
+          for i in 1 2 3 4; do npm ci --no-audit --no-fund && exit 0; echo "Deneme $i başarısız, 30 sn sonra tekrar"; sleep 30; done; exit 1
+      - run: npx expo prebuild --platform ios --no-install
+      - name: pod install
+        working-directory: mobile/ios
+        run: |
+          for i in 1 2 3; do pod install && exit 0; echo "Deneme $i başarısız, 30 sn sonra tekrar"; sleep 30; done; exit 1
+      - name: xcodebuild (simülatör, imzasız)
+        working-directory: mobile/ios
+        run: |
+          WS=$(ls -d *.xcworkspace | head -1)
+          SCHEME="${WS%.xcworkspace}"
+          echo "workspace=$WS scheme=$SCHEME"
+          set -o pipefail
+          xcodebuild -workspace "$WS" -scheme "$SCHEME" -configuration Debug -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build 2>&1 \
+            | tee build.log | grep -E "error:|warning: .*PenguLive|BUILD (SUCCEEDED|FAILED)" || true
+          grep -q "BUILD SUCCEEDED" build.log
+      - name: Hata ayrıntısı
+        if: failure()
+        working-directory: mobile/ios
+        run: grep -n -B2 -A6 "error:" build.log | head -200 || true

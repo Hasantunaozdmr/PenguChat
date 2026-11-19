@@ -11,9 +11,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { WebView } from 'react-native-webview';
 import { isInternalUrl } from './links';
 
-const live = Platform.OS === 'android' ? require('../modules/pengu-live/src') : null;
+const HAS_LIVE = Platform.OS === 'android' || Platform.OS === 'ios';
+const live = HAS_LIVE ? require('../modules/pengu-live/src') : null;
 const PenguLiveView = live?.PenguLiveView || null;
-const keepAwake = Platform.OS === 'android' ? require('expo-keep-awake') : null;
+const keepAwake = HAS_LIVE ? require('expo-keep-awake') : null;
 
 const KEY_STORE = 'penguchat:liveKeys';
 const SET_STORE = 'penguchat:liveSettings';
@@ -82,6 +83,10 @@ export default function LiveScreen({ C, onClose, userAgent }) {
       PermissionsAndroid.requestMultiple([PermissionsAndroid.PERMISSIONS.CAMERA, PermissionsAndroid.PERMISSIONS.RECORD_AUDIO]).then((res) => {
         if (Object.values(res).some((v) => v !== PermissionsAndroid.RESULTS.GRANTED)) setError('Kamera ve mikrofon izni gerekli. Telefon Ayarları → Uygulamalar → PenguLive → İzinler.');
       });
+    } else if (Platform.OS === 'ios') {
+      live?.requestPermissions?.().then((ok) => {
+        if (!ok) setError('Kamera ve mikrofon izni gerekli. iPhone Ayarlar → PenguLive → Kamera / Mikrofon.');
+      }).catch(() => {});
     }
   }, []);
   useEffect(() => {
@@ -238,7 +243,7 @@ export default function LiveScreen({ C, onClose, userAgent }) {
             }}
           />
         ) : (
-          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff' }}>Yayın sadece Android'de.</Text></View>
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff' }}>Yayın sadece telefonda.</Text></View>
         )}
 
         {/* 🖼️ Düzenleme: her öğenin kutusu; sürükleyerek taşı */}
@@ -319,7 +324,7 @@ export default function LiveScreen({ C, onClose, userAgent }) {
                     <Pressable style={sbtn('rgba(255,255,255,.15)')} onPress={() => resize(selOv.id, 2)} disabled={!selOv.on}><Text style={stxt}>➕ Büyüt</Text></Pressable>
                     {selOv.type === 'cam' && selOv.on && (
                       <>
-                        <Pressable style={sbtn('rgba(255,255,255,.15)')} onPress={() => updOv('cam', { rot: ((selOv.rot || 0) + 1) % 4 })}><Text style={stxt}>↻ Döndür</Text></Pressable>
+                        {Platform.OS === 'android' && <Pressable style={sbtn('rgba(255,255,255,.15)')} onPress={() => updOv('cam', { rot: ((selOv.rot || 0) + 1) % 4 })}><Text style={stxt}>↻ Döndür</Text></Pressable>}
                         <Pressable style={sbtn(selOv.mirror ? '#0e8f8a' : 'rgba(255,255,255,.15)')} onPress={() => updOv('cam', { mirror: !selOv.mirror })}><Text style={stxt}>⇋ Ayna</Text></Pressable>
                       </>
                     )}

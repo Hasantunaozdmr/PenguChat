@@ -6,3 +6,5 @@ const mod = requireNativeModule('PenguLive');
 // Galeriden seçilen resmi uygulamanın kendi klasörüne kopyalar → dosya yolu
 export const importImage = (uri) => mod.importImage(uri);
 export const deleteImage = (path) => mod.deleteImage(path);
+// iPhone: kamera + mikrofon izni (Android'de PermissionsAndroid kullanılır)
+export const requestPermissions = () => (mod.requestPermissions ? mod.requestPermissions() : Promise.resolve(true));
