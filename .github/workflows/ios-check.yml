@@ -24,15 +24,9 @@ jobs:
         working-directory: mobile
     steps:
       - uses: actions/checkout@v4
-      - name: En yeni Xcode'u seç (HaishinKit Xcode 26 ister)
+      - name: Kurulu Xcode sürümleri
         working-directory: .
-        run: |
-          ls -d /Applications/Xcode*.app
-          X=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
-          [ -z "$X" ] && X=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
-          echo "Seçilen: $X"
-          sudo xcode-select -s "$X/Contents/Developer"
-          xcodebuild -version
+        run: ls -d /Applications/Xcode*.app
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -46,15 +40,26 @@ jobs:
           for i in 1 2 3; do pod install && exit 0; echo "Deneme $i başarısız, 30 sn sonra tekrar"; sleep 30; done; exit 1
       - name: xcodebuild (simülatör, imzasız)
         working-directory: mobile/ios
+        # HaishinKit Xcode 26 ister; Expo'nun kendi kodu da en yeni (beta) derleyicide hata verebiliyor.
+        # Kurulu 26.x sürümlerini yeniden eskiye dener, ilk derleyende durur.
         run: |
           WS=$(ls -d *.xcworkspace | head -1)
           SCHEME="${WS%.xcworkspace}"
-          echo "workspace=$WS scheme=$SCHEME"
-          set -o pipefail
-          xcodebuild -workspace "$WS" -scheme "$SCHEME" -configuration Debug -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build 2>&1 \
-            | tee build.log | grep -E "error:|warning: .*PenguLive|BUILD (SUCCEEDED|FAILED)" || true
-          grep -q "BUILD SUCCEEDED" build.log
+          CANDS=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | grep -vi beta | sort -Vr | head -4)
+          [ -z "$CANDS" ] && CANDS=$(ls -d /Applications/Xcode_*.app | sort -Vr | head -1)
+          for X in $CANDS; do
+            echo "::group::Deneniyor: $X"
+            sudo xcode-select -s "$X/Contents/Developer"
+            xcodebuild -version
+            rm -rf ~/Library/Developer/Xcode/DerivedData
+            xcodebuild -workspace "$WS" -scheme "$SCHEME" -configuration Debug -sdk iphonesimulator \
+              -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build > build.log 2>&1 || true
+            grep -E "error:" build.log | sort -u | head -40 || true
+            echo "::endgroup::"
+            if grep -q "BUILD SUCCEEDED" build.log; then echo "✅ DERLENDİ: $X"; exit 0; fi
+            echo "❌ $X ile derlenmedi"
+          done
+          exit 1
       - name: Hata ayrıntısı
         if: failure()
         working-directory: mobile/ios
