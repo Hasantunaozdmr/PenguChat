@@ -275,12 +275,12 @@ function ReportForm({ accounts, appVersion, onSent }) {
 }
 
 function Inbox({ admin, saveAdmin, onClose, roles, accounts, onUndo, annNow }) {
-  const anyRole = !!(roles && (roles.modlog || roles.reports || roles.stats));
+  const anyRole = !!(roles && (roles.modlog || roles.reports));
   const roleArgs = { p_twitch: accounts?.twitch || '', p_kick: accounts?.kick || '' };
   // Hangi sekmeyi kim görür: yönetici hepsini, yetkili kişi kendine verilenleri
-  const allowed = (t) => !!admin || !!{ reports: roles?.reports, mod: roles?.modlog, stats: roles?.stats }[t];
+  const allowed = (t) => !!admin || !!{ reports: roles?.reports, mod: roles?.modlog }[t];
   // Önce menü (yan menünün telefondaki hali) açılır; bir bölüme dokununca o bölüm gelir
-  const [tab, setTab] = useState(null); // null (menü) | reports | log | mod | stats | roles | ann | maint | errors
+  const [tab, setTab] = useState(null); // null (menü) | reports | log | mod | roles | ann | maint | errors
   const [list, setList] = useState(null);
   const [error, setError] = useState(null);
   const [pw, setPw] = useState('');
@@ -291,10 +291,10 @@ function Inbox({ admin, saveAdmin, onClose, roles, accounts, onUndo, annNow }) {
     setError(null);
     try {
       const fn = password
-        ? { reports: 'get_reports', log: 'get_log', mod: 'get_mod_log', stats: 'get_stats', roles: 'list_roles', maint: 'app_status', ann: 'app_status', errors: 'get_errors' }[which]
-        : { reports: 'role_reports', mod: 'role_mod_log', stats: 'role_stats' }[which];
+        ? { reports: 'get_reports', log: 'get_log', mod: 'get_mod_log', roles: 'list_roles', maint: 'app_status', ann: 'app_status', errors: 'get_errors' }[which]
+        : { reports: 'role_reports', mod: 'role_mod_log' }[which];
       const data = await reportRpc(fn, which === 'maint' || which === 'ann' ? {} : password ? { p_password: password } : roleArgs);
-      setList(which === 'stats' || which === 'maint' || which === 'ann' ? data || {} : data || []);
+      setList(which === 'maint' || which === 'ann' ? data || {} : data || []);
       if (which === 'reports' && password) markSeen(data || []);
     } catch (e) {
       if (e.message === 'Şifre yanlış' && !password) setError('Bu bölüm için yetkin yok.');
@@ -304,13 +304,6 @@ function Inbox({ admin, saveAdmin, onClose, roles, accounts, onUndo, annNow }) {
       } else setError(e.message);
     }
   };
-  // İstatistik açıkken her 1 dakikada bir sessizce yenilensin
-  useEffect(() => {
-    if (tab !== 'stats') return;
-    const t = setInterval(() => load(admin, 'stats', true), 60 * 1000);
-    return () => clearInterval(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, admin]);
   useEffect(() => {
     // Menüden seçilince yüklenir
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -472,7 +465,6 @@ function Inbox({ admin, saveAdmin, onClose, roles, accounts, onUndo, annNow }) {
             ))}
           </>
         )}
-        {tab === 'stats' && list && !Array.isArray(list) && <Stats d={list} />}
         {tab === 'roles' && Array.isArray(list) && <Roles list={list} admin={admin} onChanged={() => load()} />}
         {tab === 'ann' && list && !Array.isArray(list) && <Announce d={list} admin={admin} onChanged={() => load()} />}
         {tab === 'maint' && list && !Array.isArray(list) && <Maint d={list} admin={admin} onChanged={() => load()} />}
@@ -602,7 +594,7 @@ function Maint({ d, admin, onChanged }) {
 }
 
 // 👥 Yetkiler (sadece yönetici): Twitch / Kick adına uygulama içi yetki ver
-const ROLE_LABEL = { modlog: '🛡️ Mod log', reports: '📥 Sorunlar', stats: '📊 İstatistik', stream: '📡 Yayın' };
+const ROLE_LABEL = { modlog: '🛡️ Mod log', reports: '📥 Sorunlar', stream: '📡 Yayın' };
 function Toggle({ on, label, onPress }) {
   return (
     <Pressable style={[s.mini, on && { backgroundColor: C.accent, borderColor: C.accent }]} onPress={onPress}>
@@ -694,7 +686,6 @@ const SECTIONS = [
   ['reports', '📥 Sorunlar', 'Gelen sorunlar: sıraya al, çöz, reddet'],
   ['log', '📜 Log', 'Sorunlarla ilgili her şey saatiyle'],
   ['mod', '🛡️ Mod log', 'Uygulamadan atılan timeout / ban, geri alma'],
-  ['stats', '📊 İstatistik', 'Kaç kişi kullanıyor, kim mod, hangi sürüm'],
   ['roles', '👥 Yetkiler', 'Kime hangi bölümün açık olacağı'],
   ['ann', '📢 Duyuru', 'Herkesin ekranının üstünde duyuru'],
   ['maint', '🛠️ Bakım', 'Uygulamayı senin dışında herkese kapat'],
@@ -757,87 +748,6 @@ function ModRow({ x, undone, onUndo }) {
     </View>
   );
 }
-function ago(iso) {
-  const m = Math.max(0, Math.round((Date.now() - new Date(iso)) / 60000));
-  if (m < 2) return 'şimdi';
-  if (m < 60) return m + ' dk önce';
-  if (m < 1440) return Math.round(m / 60) + ' sa önce';
-  return Math.round(m / 1440) + ' gün önce';
-}
-// Aynı telefon uygulamayı silip yeniden kurunca yeni bir kimlik alıyor ve listede iki kez görünüyor.
-// Aynı model + aynı (ya da hiç) hesap olan telefon satırlarını tek satırda birleştir (en yenisi kalır)
-// ve sayıları buna göre düzelt.
-function mergeStats(d) {
-  const list = [...(d.list || [])].sort((a, b) => new Date(b.last_seen) - new Date(a.last_seen));
-  // Telefon = işletim sistemi + model. Aynı modelde girişsiz (— —) satır, aynı modelin başka bir satırı varsa
-  // (girişli ya da daha yeni) gizlenir: bu genelde aynı telefonun silinip yeniden kurulmuş hâlidir.
-  const phoneKey = (x) => {
-    const pl = String(x.platform || '');
-    return /^(android|ios)\b/.test(pl) && pl.includes(' · ') ? pl.split(' ')[0] + '|' + pl.split(' · ')[1] : null;
-  };
-  const seen = new Set();
-  const withAcc = new Set(list.filter((x) => phoneKey(x) && (x.twitch || x.kick)).map(phoneKey));
-  const out = [];
-  for (const x of list) {
-    const k = phoneKey(x);
-    if (k) {
-      const acc = x.twitch || x.kick;
-      const key = k + '|' + (x.twitch || '') + '|' + (x.kick || '');
-      if (seen.has(key) || (!acc && withAcc.has(k))) continue;
-      seen.add(key);
-    }
-    out.push(x);
-  }
-  const removed = list.length - out.length;
-  if (!removed) return d;
-  const now = Date.now();
-  return {
-    ...d,
-    list: out,
-    total: Math.max(0, (Number(d.total) || 0) - removed),
-    online: out.filter((x) => now - new Date(x.last_seen) < 10 * 60000).length,
-    today: out.filter((x) => now - new Date(x.last_seen) < 24 * 3600000).length,
-  };
-}
-function Stats({ d: raw }) {
-  const d = mergeStats(raw || {});
-  const tile = (n, label) => (
-    <View style={[s.rep, { flexBasis: '31%', flexGrow: 1, alignItems: 'center' }]}>
-      <Text style={{ color: C.text, fontSize: 22, fontWeight: '700' }}>{Number(n) || 0}</Text>
-      <Text style={s.repSmall}>{label}</Text>
-    </View>
-  );
-  return (
-    <>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-        {tile(d.total, 'Toplam kullanıcı')}
-        {tile(d.online, 'Şu an açık')}
-        {tile(d.today, 'Son 24 saat')}
-        {tile(d.mods, 'Mod (7 gün)')}
-        {tile(d.bans, 'Ban')}
-        {tile(d.timeouts, 'Timeout')}
-      </View>
-      {(d.list || []).map((x, i) => {
-        const on = Date.now() - new Date(x.last_seen) < 10 * 60000;
-        return (
-          <View key={i} style={[s.rep, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}>
-            <Text style={{ color: on ? C.ok : C.muted }}>{on ? '●' : '○'}</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={s.repName}>
-                {[x.twitch && 'Twitch: ' + x.twitch, x.kick && 'Kick: ' + x.kick].filter(Boolean).join(' · ') || 'Giriş yapılmamış'}
-                {x.is_mod ? ' 🛡️' : ''}
-              </Text>
-              <Text style={s.repSmall}>
-                {devLabel(x.platform)} · v{x.version || '?'} · {ago(x.last_seen)}
-              </Text>
-            </View>
-          </View>
-        );
-      })}
-    </>
-  );
-}
-
 function AdminItem({ x, admin, roleArgs, onDelete, onSaved }) {
   const [rejecting, setRejecting] = useState(false);
   const [note, setNote] = useState('');

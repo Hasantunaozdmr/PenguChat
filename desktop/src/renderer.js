@@ -902,13 +902,6 @@
     if (err) { alert('Geri alınamadı: ' + err); b.disabled = false; reportError('geri-al', `${name}: ${err}`); return; }
     setTimeout(loadInbox, 600);
   });
-  function ago(iso) {
-    const m = Math.max(0, Math.round((Date.now() - new Date(iso)) / 60000));
-    if (m < 2) return 'şimdi';
-    if (m < 60) return m + ' dk önce';
-    if (m < 1440) return Math.round(m / 60) + ' sa önce';
-    return Math.round(m / 1440) + ' gün önce';
-  }
   // ---- 👥 Yetkiler (sadece yönetici) ----
   const ROLE_LABEL = { modlog: '🛡️ Mod log', reports: '📥 Sorunlar', stream: '📡 Yayın (telefon)' };
   async function loadRoles(pw) {
