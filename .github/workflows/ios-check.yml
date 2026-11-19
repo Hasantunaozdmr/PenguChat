@@ -45,7 +45,7 @@ jobs:
         run: |
           WS=$(ls -d *.xcworkspace | head -1)
           SCHEME="${WS%.xcworkspace}"
-          CANDS=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | grep -vi beta | sort -Vr | head -4)
+          CANDS=$( (ls -d /Applications/Xcode_26.2*.app; ls -d /Applications/Xcode_26*.app | grep -v "26\.2") 2>/dev/null | grep -vi beta | head -4)
           [ -z "$CANDS" ] && CANDS=$(ls -d /Applications/Xcode_*.app | sort -Vr | head -1)
           for X in $CANDS; do
             echo "::group::Deneniyor: $X"
