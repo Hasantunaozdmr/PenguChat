@@ -15,6 +15,9 @@ concurrency:
   group: penguchat-ios-check
   cancel-in-progress: true
 
+permissions:
+  contents: write
+
 jobs:
   ios:
     runs-on: macos-26
@@ -88,6 +91,22 @@ jobs:
           if xcrun simctl spawn "$DEV" launchctl list | grep -q "$BID"; then echo "✅ Uygulama açık, çökmedi" | tee shots/durum.txt; else echo "❌ Uygulama kapanmış (çökmüş olabilir)" | tee shots/durum.txt; fi
           xcrun simctl spawn "$DEV" log show --last 2m --style compact --predicate 'process == "'"$SCHEME"'"' > shots/log.txt 2>&1 || true
           tail -60 shots/log.txt || true
+      # 🌐 Appetize.io (tarayıcıda sanal iPhone) için: simülatör uygulamasını sabit bir linke koy
+      #    https://github.com/<depo>/releases/download/iphone-sim/PenguLive-simulator.zip
+      - name: Simülatör dosyasını yayınla (Appetize için)
+        working-directory: mobile/ios
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd build/Build/Products/Release-iphonesimulator
+          APP=$(ls -d *.app | head -1)
+          zip -qry "$GITHUB_WORKSPACE/PenguLive-simulator.zip" "$APP"
+          cd "$GITHUB_WORKSPACE"
+          gh release view iphone-sim >/dev/null 2>&1 || gh release create iphone-sim --prerelease --latest=false \
+            --title "iPhone simülatör (test)" \
+            --notes "Sadece test için: appetize.io'ya yüklenecek sanal iPhone sürümü. Gerçek iPhone'a kurulmaz."
+          gh release upload iphone-sim PenguLive-simulator.zip --clobber
+          echo "İndir: https://github.com/${GITHUB_REPOSITORY}/releases/download/iphone-sim/PenguLive-simulator.zip"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
