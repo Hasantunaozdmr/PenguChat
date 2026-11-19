@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   ios:
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 60
     defaults:
       run:
@@ -40,12 +40,13 @@ jobs:
           for i in 1 2 3; do pod install && exit 0; echo "Deneme $i başarısız, 30 sn sonra tekrar"; sleep 30; done; exit 1
       - name: xcodebuild (simülatör, imzasız)
         working-directory: mobile/ios
-        # HaishinKit Xcode 26 ister; Expo'nun kendi kodu da en yeni (beta) derleyicide hata verebiliyor.
+        # HaishinKit Xcode 26 ister; Expo'nun kendi kodu (expo-modules-jsi) en yeni derleyiciyi ister.
         # Kurulu 26.x sürümlerini yeniden eskiye dener, ilk derleyende durur.
         run: |
           WS=$(ls -d *.xcworkspace | head -1)
           SCHEME="${WS%.xcworkspace}"
-          CANDS=$( (ls -d /Applications/Xcode_26.2*.app; ls -d /Applications/Xcode_26*.app | grep -v "26\.2") 2>/dev/null | grep -vi beta | head -4)
+          # Expo'nun bu sürümü en yeni Swift derleyicisini istiyor: en yeni Xcode'dan başla
+          CANDS=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -Vr | head -3)
           [ -z "$CANDS" ] && CANDS=$(ls -d /Applications/Xcode_*.app | sort -Vr | head -1)
           for X in $CANDS; do
             echo "::group::Deneniyor: $X"
