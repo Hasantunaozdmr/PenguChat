@@ -34,7 +34,7 @@ export async function reportRpc(fn, args) {
   return text ? JSON.parse(text) : null;
 }
 
-// Kullanım bilgisi ve mod işlemleri (yalnızca yöneticinin ekranında görünür)
+// Mod işlemleri (yalnızca yöneticinin ekranında görünür)
 const CLIENT_KEY = 'penguchat:clientId';
 let cachedId = '';
 export async function clientId() {
@@ -48,11 +48,6 @@ export async function clientId() {
     AsyncStorage.setItem(CLIENT_KEY, cachedId).catch(() => {});
   }
   return cachedId;
-}
-export async function sendPing(info) {
-  try {
-    await reportRpc('ping', { p_id: await clientId(), ...info });
-  } catch {}
 }
 // p_source: tel-app (uygulamanın tuşu) / tel-site (Twitch'in, Kick'in kendi tuşu)
 export async function logModAction(info) {

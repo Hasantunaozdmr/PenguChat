@@ -94,7 +94,6 @@
     <nav class="tabs" id="tabs">
       <button class="tab" data-t="reports">📥 Sorunlar</button>
       <button class="tab" data-t="mod">🛡️ Mod log</button>
-      <button class="tab" data-t="stats">📊 İstatistik</button>
       <button class="tab" data-t="pro">⭐ Pro</button>
       <button class="tab" data-t="log">📜 Log</button>
       <button class="tab" data-t="roles">👥 Yetkiler</button>
@@ -118,6 +117,7 @@
   try { pw = localStorage.getItem(PW_KEY) || ''; } catch {}
   let tab = 'reports';
   try { tab = localStorage.getItem('penguchat:webTab') || 'reports'; } catch {}
+  if (tab === 'stats') tab = 'reports'; // 📊 İstatistik kaldırıldı
 
   async function rpc(fn, args) {
     const res = await fetch(`${API}/rest/v1/rpc/${fn}`, {
@@ -185,7 +185,7 @@
     if (active) active.scrollIntoView({ inline: 'center', block: 'nearest' });
     main.innerHTML = '<div class="spin">Yükleniyor…</div>';
     try {
-      await ({ reports, mod: modLog, stats, pro, log, roles, ann, maint, errors })[tab]();
+      await ({ reports, mod: modLog, pro, log, roles, ann, maint, errors })[tab]();
     } catch (e) {
       if (e.message === 'Şifre yanlış') { pw = ''; try { localStorage.removeItem(PW_KEY); } catch {} return showLogin('Şifre değişmiş, yeniden gir.'); }
       main.innerHTML = `<div class="empty">⚠️ ${esc(e.message)}</div>`;
@@ -251,39 +251,6 @@
       return `<div class="card"><div class="meta"><b>${MOD_KIND[x.action] || '⏱ Timeout ' + esc(fmtDur(x.secs))} · ${esc(x.target)}</b><span style="flex:1"></span><span>${esc(fmtDate(x.at))}</span></div>
         <div class="meta">${x.platform === 'twitch' ? 'Twitch' : 'Kick'} · mod: ${esc(who)}${x.source ? ' · ' + esc(SOURCE[x.source] || x.source) : ''}${x.ok === false ? ' · ✗ gönderilemedi' : ''}</div></div>`;
     }).join('') : '<div class="empty">Henüz mod işlemi yok.</div>';
-  }
-
-  // 📊 İstatistik (aynı telefonun tekrar kurulumla oluşan ikinci satırı gizlenir)
-  function mergeStats(d) {
-    const list = [...(d.list || [])].sort((a, b) => new Date(b.last_seen) - new Date(a.last_seen));
-    const phoneKey = (x) => { const pl = String(x.platform || ''); return /^(android|ios)\b/.test(pl) && pl.includes(' · ') ? pl.split(' ')[0] + '|' + pl.split(' · ')[1] : null; };
-    const seen = new Set();
-    const withAcc = new Set(list.filter((x) => phoneKey(x) && (x.twitch || x.kick)).map(phoneKey));
-    const out = [];
-    for (const x of list) {
-      const k = phoneKey(x);
-      if (k) {
-        const key = k + '|' + (x.twitch || '') + '|' + (x.kick || '');
-        if (seen.has(key) || (!(x.twitch || x.kick) && withAcc.has(k))) continue;
-        seen.add(key);
-      }
-      out.push(x);
-    }
-    const removed = list.length - out.length;
-    if (!removed) return d;
-    const now = Date.now();
-    return { ...d, list: out, total: Math.max(0, (Number(d.total) || 0) - removed),
-      online: out.filter((x) => now - new Date(x.last_seen) < 600000).length,
-      today: out.filter((x) => now - new Date(x.last_seen) < 86400000).length };
-  }
-  async function stats() {
-    const d = mergeStats((await rpc('get_stats', A())) || {});
-    const tile = (n, l) => `<div class="stat"><b>${Number(n) || 0}</b><span>${l}</span></div>`;
-    const on = (x) => Date.now() - new Date(x.last_seen) < 600000;
-    main.innerHTML = `<div class="stats">${tile(d.total, 'Toplam kullanıcı')}${tile(d.online, 'Şu an açık')}${tile(d.today, 'Son 24 saat')}${tile(d.mods, 'Mod (7 gün)')}${tile(d.bans, 'Ban')}${tile(d.timeouts, 'Timeout')}</div>`
-      + (d.list || []).map((x) => `<div class="card"><div class="meta"><span class="${on(x) ? 'on' : 'off'}">${on(x) ? '●' : '○'}</span>
-          <b>${esc([x.twitch && 'Twitch: ' + x.twitch, x.kick && 'Kick: ' + x.kick].filter(Boolean).join(' · ') || 'Giriş yapılmamış')}${x.is_mod ? ' 🛡️' : ''}</b></div>
-          <div class="meta">${esc(devLabel(x.platform))} · v${esc(x.version || '?')} · ${esc(ago(x.last_seen))}</div></div>`).join('');
   }
 
   // 📜 Log
@@ -372,7 +339,7 @@
   });
 
   // 👥 Yetkiler
-  const ROLE = { modlog: '🛡️ Mod log', reports: '📥 Sorunlar', stats: '📊 İstatistik', stream: '📡 Yayın' };
+  const ROLE = { modlog: '🛡️ Mod log', reports: '📥 Sorunlar', stream: '📡 Yayın' };
   const boxes = (x) => Object.keys(ROLE).map((k) => `<label class="cb"><input type="checkbox" data-role="${k}" ${x && x['can_' + k] ? 'checked' : ''} /> ${ROLE[k]}</label>`).join('');
   async function roles() {
     const list = (await rpc('list_roles', A())) || [];
@@ -457,7 +424,6 @@
   }
 
   // İstatistik açıkken her dakika kendiliğinden yenilensin
-  setInterval(() => { if (pw && tab === 'stats' && !document.hidden) load(); }, 60000);
 
   if (pw) start(); else showLogin();
 })();

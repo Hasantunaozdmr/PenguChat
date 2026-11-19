@@ -279,7 +279,7 @@ function reportHandler(fn) {
   };
 }
 
-// Cihaz: Windows 10 / 11 + sürüm (istatistikte görünür). Windows 11'in iç sürümü de 10.0 başlar; 22000 ve sonrası 11'dir.
+// Cihaz: Windows 10 / 11 + sürüm (hata kaydı ve sorun bildiriminde görünür). Windows 11'in iç sürümü de 10.0 başlar; 22000 ve sonrası 11'dir.
 function deviceName() {
   const v = process.getSystemVersion ? process.getSystemVersion() : '';
   if (process.platform !== 'win32') return `${process.platform} ${v}`.trim().slice(0, 30);
@@ -306,9 +306,8 @@ ipcMain.handle('report-mine', reportHandler((_e, token) => reportRpc('my_reports
 ipcMain.handle('report-set-status', reportHandler((_e, { password, id, status, note }) =>
   reportRpc('set_report_status', { p_password: String(password || ''), p_id: Number(id), p_status: String(status), p_note: String(note || '').slice(0, 1000) })));
 ipcMain.handle('report-log', reportHandler((_e, password) => reportRpc('get_log', { p_password: String(password || '') })));
-ipcMain.handle('report-stats', reportHandler((_e, password) => reportRpc('get_stats', { p_password: String(password || '') })));
 // Yetki sistemi: yalnızca bu fonksiyonlar çağrılabilir
-const ROLE_FNS = ['app_status', 'set_maintenance', 'set_announcement', 'target_record', 'log_error', 'get_errors', 'clear_errors', 'my_roles', 'list_roles', 'set_role', 'role_mod_log', 'role_reports', 'role_set_status', 'role_stats', 'list_pro', 'set_pro', 'remove_pro', 'set_pro_open'];
+const ROLE_FNS = ['app_status', 'set_maintenance', 'set_announcement', 'target_record', 'log_error', 'get_errors', 'clear_errors', 'my_roles', 'list_roles', 'set_role', 'role_mod_log', 'role_reports', 'role_set_status', 'list_pro', 'set_pro', 'remove_pro', 'set_pro_open'];
 ipcMain.handle('rpc', reportHandler((_e, { fn, args }) => {
   if (!ROLE_FNS.includes(fn)) throw new Error('izin yok');
   return reportRpc(fn, args || {});
@@ -333,15 +332,6 @@ ipcMain.handle('mod-action', reportHandler(async (_e, a) => {
     throw e;
   }
 }));
-ipcMain.handle('ping', reportHandler((_e, { id, mod, twitch, kick }) =>
-  reportRpc('ping', {
-    p_id: String(id || ''),
-    p_platform: deviceName(),
-    p_version: app.getVersion(),
-    p_mod: !!mod,
-    p_twitch: String(twitch || '').slice(0, 40),
-    p_kick: String(kick || '').slice(0, 40),
-  })));
 ipcMain.handle('report-is-admin', reportHandler((_e, password) => reportRpc('is_admin', { p_password: String(password || '') })));
 ipcMain.handle('report-list', reportHandler((_e, password) => reportRpc('get_reports', { p_password: String(password || '') })));
 ipcMain.handle('report-delete', reportHandler((_e, { password, id }) =>

@@ -29,9 +29,9 @@ const { PRO_TEXT } = require('./src/LiveScreen');
 const EV_KEY = 'penguchat:events';
 const SL_KEY = 'penguchat:slToken';
 const PLAT_IMG = { twitch: require('./assets/ev-twitch.png'), kick: require('./assets/ev-kick.png'), streamlabs: require('./assets/ev-streamlabs.png') };
-import { OWNER_ACCOUNTS, logError, logModAction, reportRpc, sendPing } from './src/report';
+import { OWNER_ACCOUNTS, logError, logModAction, reportRpc } from './src/report';
 
-// Cihaz: işletim sistemi + model (giriş yapmayan kullanıcıyı istatistikte tanımak için). Örn: "android 14 · SM-A546B"
+// Cihaz: işletim sistemi + model (hata kaydı ve sorun bildiriminde görünür). Örn: "android 14 · SM-A546B"
 const DEVICE = (() => {
   const c = Platform.constants || {};
   const model = Platform.OS === 'android' ? String(c.Model || '').trim() : Platform.OS === 'ios' ? String(c.interfaceIdiom === 'pad' ? 'iPad' : 'iPhone') : '';
@@ -480,31 +480,6 @@ function PenguChat() {
   useEffect(() => {
     setViewers((v) => ({ ...v, kick: undefined }));
   }, [urls.kick]);
-
-  // ---- Kullanım bilgisi (yalnızca yöneticinin istatistik ekranı için) ----
-  const pingRef = useRef(null);
-  pingRef.current = () =>
-    sendPing({
-      p_platform: DEVICE,
-      p_version: APP_VERSION,
-      p_mod: modStatus.twitch === 'mod' || modStatus.kick === 'mod',
-      p_twitch: accounts.twitch,
-      p_kick: accounts.kick,
-    });
-  useEffect(() => {
-    const first = setTimeout(() => pingRef.current(), 15 * 1000);
-    const t = setInterval(() => pingRef.current(), 5 * 60 * 1000);
-    return () => {
-      clearTimeout(first);
-      clearInterval(t);
-    };
-  }, []);
-  // Twitch / Kick'e giriş yapılınca adı istatistiğe hemen gitsin (5 dk beklemesin)
-  useEffect(() => {
-    if (!accounts.twitch && !accounts.kick) return;
-    const t = setTimeout(() => pingRef.current(), 1500);
-    return () => clearTimeout(t);
-  }, [accounts.twitch, accounts.kick]);
 
   const onWebMessage = (k, data) => {
     if (typeof data !== 'string') return;

@@ -723,7 +723,7 @@
   // Hangi sekmeyi kim görür: yönetici hepsini, yetkili kişi kendine verilenleri
   function tabAllowed(t) {
     if (getAdmin()) return true;
-    return { reports: roles.reports, mod: roles.modlog, stats: roles.stats }[t] || false; // log, roles, maint: sadece yönetici
+    return { reports: roles.reports, mod: roles.modlog }[t] || false; // log, roles, maint: sadece yönetici
   }
   function showTabs() {
     $('#inboxTabs').querySelectorAll('.tab').forEach((b) => {
@@ -731,21 +731,16 @@
       b.classList.toggle('active', b.dataset.itab === inboxTab);
     });
   }
-  // İstatistik açıkken her 1 dakikada bir kendiliğinden yenilensin
-  setInterval(() => {
-    if (inboxTab === 'stats' && !inboxDlg.classList.contains('hidden')) loadInbox();
-  }, 60 * 1000);
   async function loadInbox() {
     const pw = getAdmin();
     if (!pw && !anyRole()) return showLogin();
-    if (!tabAllowed(inboxTab)) inboxTab = ['reports', 'mod', 'stats'].find(tabAllowed) || 'reports';
+    if (!tabAllowed(inboxTab)) inboxTab = ['reports', 'mod'].find(tabAllowed) || 'reports';
     showTabs();
     $('#inboxLogout').classList.toggle('hidden', !pw);
     $('#inboxRefresh').classList.remove('hidden');
     $('#inboxTabs').classList.remove('hidden');
     inboxList.innerHTML = '<div class="empty">Yükleniyor…</div>';
     if (inboxTab === 'log') return loadLog(pw);
-    if (inboxTab === 'stats') return loadStats(pw);
     if (inboxTab === 'mod') return loadModLog(pw);
     if (inboxTab === 'roles') return loadRoles(pw);
     if (inboxTab === 'pro') return loadPro(pw);
@@ -840,7 +835,7 @@
       inboxList.innerHTML = '<div class="empty">Bu bölüm için yetkin yok.</div>';
       return true;
     }
-    const missing = /\(404\)/.test(r.error) ? ' — Supabase\'e log/istatistik SQL\'i çalıştırılmamış olabilir.' : '';
+    const missing = /\(404\)/.test(r.error) ? ' — Supabase\'e log SQL\'i çalıştırılmamış olabilir.' : '';
     inboxList.innerHTML = `<div class="empty">Yüklenemedi: ${esc(r.error)}${missing}</div>`;
     return true;
   }
@@ -914,71 +909,14 @@
     if (m < 1440) return Math.round(m / 60) + ' sa önce';
     return Math.round(m / 1440) + ' gün önce';
   }
-  // Aynı telefon uygulamayı silip yeniden kurunca yeni bir kimlik alıyor ve listede iki kez görünüyor.
-  // Aynı model + aynı (ya da hiç) hesap olan telefon satırlarını tek satırda birleştir (en yenisi kalır)
-  // ve sayıları buna göre düzelt.
-  function mergeStats(d) {
-    const list = [...(d.list || [])].sort((a, b) => new Date(b.last_seen) - new Date(a.last_seen));
-    // Telefon = işletim sistemi + model. Aynı modelde girişsiz (— —) satır, aynı modelin başka bir satırı varsa
-    // (girişli ya da daha yeni) gizlenir: bu genelde aynı telefonun silinip yeniden kurulmuş hâlidir.
-    const phoneKey = (x) => {
-      const pl = String(x.platform || '');
-      return /^(android|ios)\b/.test(pl) && pl.includes(' · ') ? pl.split(' ')[0] + '|' + pl.split(' · ')[1] : null;
-    };
-    const seen = new Set();
-    const withAcc = new Set(list.filter((x) => phoneKey(x) && (x.twitch || x.kick)).map(phoneKey));
-    const out = [];
-    for (const x of list) {
-      const k = phoneKey(x);
-      if (k) {
-        const acc = x.twitch || x.kick;
-        const key = k + '|' + (x.twitch || '') + '|' + (x.kick || '');
-        if (seen.has(key) || (!acc && withAcc.has(k))) continue;
-        seen.add(key);
-      }
-      out.push(x);
-    }
-  const removed = list.length - out.length;
-    if (!removed) return d;
-    const now = Date.now();
-    return {
-      ...d,
-      list: out,
-      total: Math.max(0, (Number(d.total) || 0) - removed),
-      online: out.filter((x) => now - new Date(x.last_seen) < 10 * 60000).length,
-      today: out.filter((x) => now - new Date(x.last_seen) < 24 * 3600000).length,
-    };
-  }
-  async function loadStats(pw) {
-    const r = pw ? await window.dualChat.reportStats(pw) : await window.dualChat.rpc('role_stats', roleArgs());
-    if (!r.ok) return failed(r);
-    const d = mergeStats(r.data || {});
-    const list = d.list || [];
-    $('#inboxCount').textContent = '';
-    const online = (x) => Date.now() - new Date(x.last_seen) < 10 * 60000;
-    inboxList.innerHTML = `<div class="stats">
-        <div class="stat"><b>${Number(d.total) || 0}</b><span>Toplam kullanıcı</span></div>
-        <div class="stat"><b>${Number(d.online) || 0}</b><span>Şu an açık</span></div>
-        <div class="stat"><b>${Number(d.today) || 0}</b><span>Son 24 saat</span></div>
-        <div class="stat"><b>${Number(d.mods) || 0}</b><span>Mod (son 7 gün)</span></div>
-        <div class="stat"><b>${Number(d.bans) || 0}</b><span>Ban</span></div>
-        <div class="stat"><b>${Number(d.timeouts) || 0}</b><span>Timeout</span></div>
-        <div class="stat"><b>${Number(d.actions_today) || 0}</b><span>Bugünkü mod işlemi</span></div>
-      </div>
-      <table class="users"><tr><th></th><th>Twitch</th><th>Kick</th><th>Mod</th><th>Cihaz</th><th>Sürüm</th><th>Son görülme</th></tr>
-      ${list.map((x) => `<tr><td class="${online(x) ? 'on' : ''}">${online(x) ? '●' : '○'}</td><td>${esc(x.twitch || '—')}</td><td>${esc(x.kick || '—')}</td>
-        <td>${x.is_mod ? '🛡️' : ''}</td><td>${esc(devLabel(x.platform))}</td><td>v${esc(x.version || '?')}</td><td>${esc(ago(x.last_seen))}</td></tr>`).join('')}
-      </table>`;
-  }
-
   // ---- 👥 Yetkiler (sadece yönetici) ----
-  const ROLE_LABEL = { modlog: '🛡️ Mod log', reports: '📥 Sorunlar', stats: '📊 İstatistik', stream: '📡 Yayın (telefon)' };
+  const ROLE_LABEL = { modlog: '🛡️ Mod log', reports: '📥 Sorunlar', stream: '📡 Yayın (telefon)' };
   async function loadRoles(pw) {
     const r = await window.dualChat.rpc('list_roles', { p_password: pw });
     if (!r.ok) return failed(r);
     const list = r.data || [];
     $('#inboxCount').textContent = list.length ? `${list.length} kişi` : '';
-    const boxes = (x) => ['modlog', 'reports', 'stats', 'stream'].map((k) => `<label><input type="checkbox" data-role="${k}" ${x && x['can_' + k] ? 'checked' : ''}/> ${ROLE_LABEL[k]}</label>`).join(' ');
+    const boxes = (x) => ['modlog', 'reports', 'stream'].map((k) => `<label><input type="checkbox" data-role="${k}" ${x && x['can_' + k] ? 'checked' : ''}/> ${ROLE_LABEL[k]}</label>`).join(' ');
     inboxList.innerHTML = `<div class="role-add" id="roleAdd">
         <select id="roleP"><option value="twitch">Twitch</option><option value="kick">Kick</option></select>
         <input type="text" id="roleU" placeholder="kullanıcı adı" spellcheck="false" />
@@ -1354,7 +1292,7 @@
   }
   setInterval(() => ['twitch', 'kick'].forEach(updateViewers), 30 * 1000);
 
-  // ---------- Kullanım bilgisi (sadece yöneticinin istatistik ekranı için) ----------
+  // ---------- Cihaz kimliği (mod log kaydında kullanılır) ----------
   const CLIENT_KEY = 'penguchat:clientId';
   function clientId() {
     let id = '';
@@ -1365,17 +1303,6 @@
     }
     return id;
   }
-  function ping() {
-    window.dualChat.ping({
-      id: clientId(),
-      mod: modStatus.twitch === 'mod' || modStatus.kick === 'mod',
-      twitch: accounts.twitch,
-      kick: accounts.kick,
-    }).catch(() => {});
-  }
-  setTimeout(ping, 15 * 1000); // chat'ler açılıp hesaplar okunduktan sonra
-  setInterval(ping, 5 * 60 * 1000);
-
   // ---------- Otomatik hata kaydı (yöneticinin ⚠️ Hatalar sekmesine düşer) ----------
   let appVersion = '';
   const reported = new Map();
