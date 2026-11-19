@@ -24,6 +24,15 @@ jobs:
         working-directory: mobile
     steps:
       - uses: actions/checkout@v4
+      - name: En yeni Xcode'u seç (HaishinKit Xcode 26 ister)
+        working-directory: .
+        run: |
+          ls -d /Applications/Xcode*.app
+          X=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          [ -z "$X" ] && X=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          echo "Seçilen: $X"
+          sudo xcode-select -s "$X/Contents/Developer"
+          xcodebuild -version
       - uses: actions/setup-node@v4
         with:
           node-version: 22
