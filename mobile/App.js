@@ -388,9 +388,22 @@ function PenguChat() {
     applyText(text);
   };
 
+  // ---- ✏️ Mesaj kutusu: normalde kapalı, tüm alan mesajlara kalır ----
+  const [compose, setCompose] = useState({ twitch: false, kick: false });
+  const composeRef = useRef(compose);
+  composeRef.current = compose;
+  // Sayfa betiği henüz yüklenmediyse kısa aralıklarla tekrar dener
+  const composerJs = (on) => `(function t(n){ if (window.__penguComposer) window.__penguComposer(${on ? 'true' : 'false'}); else if (n < 20) setTimeout(function(){ t(n + 1); }, 250); })(0); true;`;
+
   // ---- Panel işlemleri ----
   const paneAction = (k, act) => {
     const wv = views.current[k];
+    if (act === 'compose') {
+      const on = !composeRef.current[k];
+      setCompose((p) => ({ ...p, [k]: on }));
+      wv?.injectJavaScript(composerJs(on));
+      return;
+    }
     if (act === 'chat') {
       if (!s[k]) return;
       const url = PLATFORMS[k].chatUrl(s[k]);
@@ -906,9 +919,9 @@ function PenguChat() {
             ) : null,
             <View key={k} style={[styles.pane, !visible && styles.hidden]}>
               {!tabs && (
-                <PaneHeader k={k} channel={s[k]} viewers={viewers[k]} cat={cats[k]} onAction={paneAction} />
+                <PaneHeader k={k} channel={s[k]} viewers={viewers[k]} cat={cats[k]} compose={compose[k]} onAction={paneAction} />
               )}
-              {tabs && <PaneToolbar k={k} cat={s[k] && viewers[k] != null ? cats[k] : ''} onAction={paneAction} />}
+              {tabs && <PaneToolbar k={k} cat={s[k] && viewers[k] != null ? cats[k] : ''} compose={compose[k]} onAction={paneAction} />}
               <View style={styles.paneBody}>
                 {urls[k] ? (
                   <ChatView
@@ -918,6 +931,7 @@ function PenguChat() {
                     onMessage={(data) => onWebMessage(k, data)}
                     onFail={(d) => reportError('chat-acilmadi', `${d} (${s[k]})`)}
                     onLoaded={() => {
+                      views.current[k]?.injectJavaScript(composerJs(composeRef.current[k]));
                       setTimeout(() => checkModRef.current(k), 2500);
                       setTimeout(() => askViewersRef.current(k), 3000);
                     }}
@@ -1166,7 +1180,7 @@ function viewerText(n) {
   return ` · 👁 ${n.toLocaleString('tr-TR')}`;
 }
 
-function PaneHeader({ k, channel, viewers, cat, onAction }) {
+function PaneHeader({ k, channel, viewers, cat, compose, onAction }) {
   return (
     <View style={[styles.paneHead, { borderBottomColor: PLATFORMS[k].color }]}>
       <View style={[styles.dot, { backgroundColor: PLATFORMS[k].color }]} />
@@ -1180,28 +1194,29 @@ function PaneHeader({ k, channel, viewers, cat, onAction }) {
         {!!(channel && cat && viewers != null) && <Text style={styles.paneCat}>🎮 {cat}</Text>}
       </View>
       <View style={{ flex: 1 }} />
-      <PaneButtons k={k} onAction={onAction} />
+      <PaneButtons k={k} compose={compose} onAction={onAction} />
     </View>
   );
 }
 
-function PaneToolbar({ k, cat, onAction }) {
+function PaneToolbar({ k, cat, compose, onAction }) {
   return (
     <View style={[styles.paneHead, { borderBottomColor: PLATFORMS[k].color, justifyContent: 'flex-end' }]}>
       <Text style={[styles.paneCat, { flex: 1 }]}>{cat ? `🎮 ${cat}` : ''}</Text>
-      <PaneButtons k={k} onAction={onAction} />
+      <PaneButtons k={k} compose={compose} onAction={onAction} />
     </View>
   );
 }
 
-function PaneButtons({ k, onAction }) {
-  const btn = (act, label) => (
-    <Pressable key={act} style={styles.mini} onPress={() => onAction(k, act)} hitSlop={4}>
+function PaneButtons({ k, compose, onAction }) {
+  const btn = (act, label, on) => (
+    <Pressable key={act} style={[styles.mini, on && styles.miniOn]} onPress={() => onAction(k, act)} hitSlop={4}>
       <Text style={styles.miniText}>{label}</Text>
     </Pressable>
   );
   return (
     <View style={styles.row}>
+      {btn('compose', '✏️', compose)}
       {btn('chat', '⟳')}
       {btn('zoom-out', 'A−')}
       {btn('zoom-in', 'A+')}
@@ -1461,6 +1476,7 @@ function makeStyles() {
     backgroundColor: C.panel,
   },
   miniText: { color: C.text, fontSize: 12 },
+  miniOn: { backgroundColor: '#ffe9a8', borderColor: '#e0a800' },
   paneBody: { flex: 1 },
   webview: { flex: 1, backgroundColor: C.panel },
   placeholder: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },

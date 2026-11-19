@@ -155,13 +155,24 @@
     return status;
   };
 
-  // ---- Telefon: sadece okuma modu ----
-  // Mesaj yazma kutusunu ekrandan gizler (ekran dışına taşır). Kutu sayfada kaldığı için
-  // hızlı timeout / ban komutları çalışmaya devam eder. Giriş yapılmamışsa dokunmaz,
+  // ---- ✏️ Mesaj kutusu aç / kapat ----
+  // Kapalıyken mesaj yazma kutusu ekran dışına taşınır, tüm alan mesajlara kalır. Kutu sayfada
+  // kaldığı için hızlı timeout / ban komutları çalışmaya devam eder. Giriş yapılmamışsa dokunmaz,
   // böylece chat'teki "Giriş yap" düğmesi görünür kalır.
   const loggedIn = () => !!(isTwitch ? cookie('auth-token') : cookie('session_token'));
-  function hideComposer() {
-    if (!loggedIn()) return;
+  const HIDE = ['position', 'left', 'top', 'width'];
+  let composerShown = true;
+  let hiddenBox = null;
+  function restoreComposer() {
+    if (!hiddenBox) return;
+    HIDE.forEach((k) => hiddenBox.style.removeProperty(k));
+    hiddenBox.__penguHidden = false;
+    hiddenBox = null;
+  }
+  function applyComposer() {
+    if (composerShown || !loggedIn()) return restoreComposer();
+    if (hiddenBox && hiddenBox.isConnected && hiddenBox.__penguHidden) return;
+    hiddenBox = null;
     const input = findInput();
     if (!input) return;
     // Mesaj kutusunu ve gönder düğmesini içeren alt şeridi bul
@@ -171,19 +182,21 @@
       if (r.height > 220) break;
       box = el;
     }
-    if (box.__penguHidden) return;
     box.__penguHidden = true;
+    hiddenBox = box;
     box.style.setProperty('position', 'fixed', 'important');
     box.style.setProperty('left', '-10000px', 'important');
     box.style.setProperty('top', '0', 'important');
     box.style.setProperty('width', '600px', 'important');
   }
-  window.__penguReadOnly = () => {
-    if (window.__penguReadOnlyOn) return;
-    window.__penguReadOnlyOn = true;
-    hideComposer();
-    setInterval(hideComposer, 2000); // sayfa yeniden çizerse tekrar gizle
+  let composerTimer = null;
+  window.__penguComposer = (show) => {
+    composerShown = !!show;
+    applyComposer();
+    if (!composerTimer) composerTimer = setInterval(applyComposer, 2000); // sayfa yeniden çizerse tekrar uygula
+    return composerShown;
   };
+  window.__penguReadOnly = () => window.__penguComposer(false);
 
   // ---- Yayının anlık izleyici sayısı (yayın kapalıysa null) ----
   window.__penguViewers = async (channel) => {

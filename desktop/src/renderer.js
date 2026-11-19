@@ -107,6 +107,7 @@
     });
     wv.addEventListener('dom-ready', () => {
       try { wv.setZoomFactor(state.zoom[p]); } catch {}
+      applyComposer(p);
       // Sayfa (ve giriş çerezleri) hazır olunca mod mu diye bak
       setTimeout(() => checkMod(p), 2500);
       setTimeout(() => updateViewers(p), 3000);
@@ -138,9 +139,25 @@
     else wv.reload();
   }
 
+  // ---- ✏️ Mesaj kutusu: normalde kapalı, tüm alan mesajlara kalır ----
+  const compose = { twitch: false, kick: false };
+  function applyComposer(p) {
+    const wv = panes[p].view;
+    if (!wv) return;
+    const on = compose[p] ? 'true' : 'false';
+    // Sayfa betiği henüz yüklenmediyse kısa aralıklarla tekrar dener
+    wv.executeJavaScript(`(function t(n){ if (window.__penguComposer) window.__penguComposer(${on}); else if (n < 20) setTimeout(function(){ t(n + 1); }, 250); })(0)`).catch(() => {});
+    $('[data-act="compose"]', panes[p].el)?.classList.toggle('on', compose[p]);
+  }
+
   function paneAction(p, act) {
     const pane = panes[p];
     switch (act) {
+      case 'compose':
+        compose[p] = !compose[p];
+        applyComposer(p);
+        $('[data-act="compose"]', pane.el)?.classList.toggle('on', compose[p]);
+        break;
       case 'chat':
         openChat(p);
         break;
