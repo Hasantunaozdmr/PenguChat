@@ -18,7 +18,7 @@ concurrency:
 jobs:
   ios:
     runs-on: macos-26
-    timeout-minutes: 60
+    timeout-minutes: 75
     defaults:
       run:
         working-directory: mobile
@@ -42,19 +42,20 @@ jobs:
         working-directory: mobile/ios
         # HaishinKit Xcode 26 ister; Expo'nun kendi kodu (expo-modules-jsi) en yeni derleyiciyi ister.
         # Kurulu 26.x sürümlerini yeniden eskiye dener, ilk derleyende durur.
+        # Release: JavaScript uygulamanın içine gömülür (simülatörde tek başına açılabilsin)
         run: |
           WS=$(ls -d *.xcworkspace | head -1)
           SCHEME="${WS%.xcworkspace}"
-          # Expo'nun bu sürümü en yeni Swift derleyicisini istiyor: en yeni Xcode'dan başla
+          echo "SCHEME=$SCHEME" >> "$GITHUB_ENV"
           CANDS=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -Vr | head -3)
           [ -z "$CANDS" ] && CANDS=$(ls -d /Applications/Xcode_*.app | sort -Vr | head -1)
           for X in $CANDS; do
             echo "::group::Deneniyor: $X"
             sudo xcode-select -s "$X/Contents/Developer"
             xcodebuild -version
-            rm -rf ~/Library/Developer/Xcode/DerivedData
-            xcodebuild -workspace "$WS" -scheme "$SCHEME" -configuration Debug -sdk iphonesimulator \
-              -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build > build.log 2>&1 || true
+            rm -rf build
+            xcodebuild -workspace "$WS" -scheme "$SCHEME" -configuration Release -sdk iphonesimulator \
+              -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build > build.log 2>&1 || true
             grep -E "error:" build.log | sort -u | head -40 || true
             echo "::endgroup::"
             if grep -q "BUILD SUCCEEDED" build.log; then echo "✅ DERLENDİ: $X"; exit 0; fi
@@ -65,3 +66,31 @@ jobs:
         if: failure()
         working-directory: mobile/ios
         run: grep -n -B2 -A6 "error:" build.log | head -200 || true
+
+      # 📱 Sanal iPhone'da (iOS Simülatörü) aç, ekran görüntüsü al, çöktü mü bak
+      - name: Simülatörde aç
+        working-directory: mobile/ios
+        run: |
+          APP=$(ls -d build/Build/Products/Release-iphonesimulator/*.app | head -1)
+          echo "Uygulama: $APP"
+          DEV=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; c=[x for k,v in d.items() if 'iOS' in k for x in v if x['name'].startswith('iPhone')]; print(sorted(c,key=lambda x:x['name'])[-1]['udid'])")
+          xcrun simctl boot "$DEV" || true
+          xcrun simctl bootstatus "$DEV" -b
+          xcrun simctl install "$DEV" "$APP"
+          BID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")
+          mkdir -p shots
+          xcrun simctl launch "$DEV" "$BID"
+          sleep 25
+          xcrun simctl io "$DEV" screenshot shots/1-acilis.png
+          sleep 20
+          xcrun simctl io "$DEV" screenshot shots/2-45sn.png
+          # Uygulama hâlâ açık mı (çökmediyse süreç yaşıyor)
+          if xcrun simctl spawn "$DEV" launchctl list | grep -q "$BID"; then echo "✅ Uygulama açık, çökmedi" | tee shots/durum.txt; else echo "❌ Uygulama kapanmış (çökmüş olabilir)" | tee shots/durum.txt; fi
+          xcrun simctl spawn "$DEV" log show --last 2m --style compact --predicate 'process == "'"$SCHEME"'"' > shots/log.txt 2>&1 || true
+          tail -60 shots/log.txt || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: iphone-simulator
+          path: mobile/ios/shots/
+          if-no-files-found: ignore
