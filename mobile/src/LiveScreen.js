@@ -9,6 +9,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Linking, Modal, PanResponder, PermissionsAndroid, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { WebView } from 'react-native-webview';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { isInternalUrl } from './links';
 
 const HAS_LIVE = Platform.OS === 'android' || Platform.OS === 'ios';
@@ -45,6 +46,9 @@ const joinUrl = (url, key) => (url && key ? url.replace(/\/+$/, '') + '/' + key 
 
 export default function LiveScreen({ C, onClose, userAgent, unlocked = true }) {
   const ref = useRef(null);
+  // iPhone: yayın ekranı tam ekran açılır; üstteki saat / çentik ve alttaki çizgiyle çakışmasın
+  const safe = useSafeAreaInsets();
+  const ins = Platform.OS === 'ios' ? safe : { top: 0, bottom: 0, left: 0, right: 0 };
   const [keys, setKeys] = useState({ twitch: '', kickUrl: '', kick: '', useTwitch: true, useKick: true });
   const [quality, setQuality] = useState('mid');
   const [kbps, setKbps] = useState(0); // elle bitrate (0 = kaliteye göre)
@@ -270,7 +274,7 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true }) {
 
         {/* Üst: süre + her platformun durumu ve bitrate'i */}
         {!layoutMode && (
-        <View style={{ position: 'absolute', top: 12, left: 12, right: 12, gap: 6 }}>
+        <View style={{ position: 'absolute', top: ins.top + 10, left: ins.left + 12, right: ins.right + 12, gap: 6 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Text style={[pill, { color: '#fff', fontWeight: '700', backgroundColor: running && anyLive ? '#dc2626' : 'rgba(0,0,0,.6)' }]}>
               {running ? (anyLive ? `● CANLI ${fmtTime(Math.floor((Date.now() - startedAt) / 1000))}` : 'Bağlanıyor…') : 'Yayında değil'}
@@ -317,7 +321,7 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true }) {
 
         {/* 🖼️ Ekran öğeleri paneli: seçili öğe alttaysa panel üste geçer (öğeyi kapatmasın) */}
         {layoutMode && (
-          <View style={[{ position: 'absolute', left: 8, right: 8, backgroundColor: 'rgba(0,0,0,.8)', borderRadius: 12, padding: 6, gap: 6 }, panelTop ? { top: 8 } : { bottom: 8 }]}>
+          <View style={[{ position: 'absolute', left: ins.left + 8, right: ins.right + 8, backgroundColor: 'rgba(0,0,0,.8)', borderRadius: 12, padding: 6, gap: 6 }, panelTop ? { top: ins.top + 8 } : { bottom: ins.bottom + 8 }]}>
             {!!error && (
               <Pressable onPress={() => setError('')} style={{ backgroundColor: 'rgba(220,38,38,.92)', borderRadius: 8, padding: 8 }}>
                 <Text style={{ color: '#fff' }}>{error}</Text>
@@ -367,7 +371,7 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true }) {
 
         {/* Alt tuşlar */}
         {!layoutMode && (
-        <View style={{ position: 'absolute', bottom: 18, left: 8, right: 8, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
+        <View style={{ position: 'absolute', bottom: Math.max(18, ins.bottom + 6), left: ins.left + 8, right: ins.right + 8, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
           <Pressable style={btn('rgba(0,0,0,.6)')} onPress={() => ref.current?.switchCamera()}>
             <Text style={txt}>🔄</Text>
           </Pressable>
@@ -426,7 +430,7 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true }) {
 
         {/* ✏️ Başlık / kategori: platformun kendi sayfası */}
         {edit && (
-          <View style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: C.panel }}>
+          <View style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: C.panel, paddingTop: ins.top, paddingBottom: ins.bottom, paddingLeft: ins.left, paddingRight: ins.right }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, padding: 8, borderBottomWidth: 1, borderBottomColor: C.border }}>
               <Text style={{ color: C.text, fontWeight: '700', fontSize: 15, marginRight: 4 }}>✏️ Başlık / Kategori</Text>
               {['twitch', 'kick'].map((p) => (
