@@ -1,7 +1,7 @@
 name: PenguLive - iPhone derleme kontrolü
 
-# iPhone sürümünün derlenip derlenmediğini kontrol eder (Apple hesabı gerekmez, imzasız simülatör derlemesi).
-# Hiçbir şey yayınlamaz; Apple hesabı açılınca TestFlight'a gönderme buraya eklenecek.
+# iPhone sürümünü derler (Apple hesabı gerekmez, imzasız): simülatör (Appetize) + gerçek iPhone (.ipa, Sideloadly).
+# Apple Developer hesabı açılınca TestFlight'a gönderme buraya eklenecek.
 on:
   push:
     branches:
@@ -61,7 +61,7 @@ jobs:
               -destination 'generic/platform=iOS Simulator' -derivedDataPath dd CODE_SIGNING_ALLOWED=NO build > build.log 2>&1 || true
             grep -E "error:" build.log | sort -u | head -40 || true
             echo "::endgroup::"
-            if grep -q "BUILD SUCCEEDED" build.log; then echo "✅ DERLENDİ: $X"; exit 0; fi
+            if grep -q "BUILD SUCCEEDED" build.log; then echo "✅ DERLENDİ: $X"; echo "XCODE_OK=$X" >> "$GITHUB_ENV"; exit 0; fi
             echo "❌ $X ile derlenmedi"
           done
           exit 1
@@ -107,6 +107,31 @@ jobs:
             --notes "Sadece test için: appetize.io'ya yüklenecek sanal iPhone sürümü. Gerçek iPhone'a kurulmaz."
           gh release upload iphone-sim PenguLive-simulator.zip --clobber
           echo "İndir: https://github.com/${GITHUB_REPOSITORY}/releases/download/iphone-sim/PenguLive-simulator.zip"
+      # 📲 Gerçek iPhone'a kurulacak dosya (.ipa, imzasız). Windows'ta Sideloadly kendi Apple ID'nle imzalayıp
+      #    kabloyla telefona kurar. Sabit link:
+      #    https://github.com/<depo>/releases/download/iphone-test/PenguLive.ipa
+      - name: Gerçek iPhone dosyası (.ipa)
+        working-directory: mobile/ios
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sudo xcode-select -s "$XCODE_OK/Contents/Developer"
+          WS=$(ls -d *.xcworkspace | head -1)
+          rm -rf ddev
+          xcodebuild -workspace "$WS" -scheme "$SCHEME" -configuration Release -sdk iphoneos \
+            -destination 'generic/platform=iOS' -derivedDataPath ddev \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build > build-dev.log 2>&1 || true
+          if ! grep -q "BUILD SUCCEEDED" build-dev.log; then grep -n -B2 -A6 "error:" build-dev.log | head -150; exit 1; fi
+          APP=$(ls -d ddev/Build/Products/Release-iphoneos/*.app | head -1)
+          rm -rf Payload && mkdir Payload && cp -R "$APP" Payload/
+          zip -qry "$GITHUB_WORKSPACE/PenguLive.ipa" Payload
+          ls -la "$GITHUB_WORKSPACE/PenguLive.ipa"
+          cd "$GITHUB_WORKSPACE"
+          gh release view iphone-test >/dev/null 2>&1 || gh release create iphone-test --prerelease --latest=false \
+            --title "iPhone test sürümü (Sideloadly)" \
+            --notes "Gerçek iPhone'a test için: Windows'ta Sideloadly ile kendi Apple ID'nle kurulur. Ücretsiz Apple ID ile 7 gün geçerli."
+          gh release upload iphone-test PenguLive.ipa --clobber
+          echo "İndir: https://github.com/${GITHUB_REPOSITORY}/releases/download/iphone-test/PenguLive.ipa"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
