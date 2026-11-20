@@ -60,6 +60,7 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true }) {
   const [error, setError] = useState('');
   const [setup, setSetup] = useState(false);
   const [edit, setEdit] = useState(null); // null | 'twitch' | 'kick'
+  const [editWeb, setEditWeb] = useState(false); // yedek: platformun kendi sayfası
   const [startedAt, setStartedAt] = useState(0);
   const [overlays, setOverlays] = useState(DEFAULT_OV);
   const [ovLoaded, setOvLoaded] = useState(false);
@@ -383,7 +384,7 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true }) {
           ) : (
             <Pressable style={[btn('#9146ff'), { paddingHorizontal: 22 }]} onPress={() => start()}><Text style={txt}>● Yayına başla</Text></Pressable>
           )}
-          <Pressable style={btn('rgba(0,0,0,.6)')} onPress={() => setEdit(keys.useTwitch || !keys.useKick ? 'twitch' : 'kick')}>
+          <Pressable style={btn('rgba(0,0,0,.6)')} onPress={() => { setEditWeb(false); setEdit(keys.useTwitch || !keys.useKick ? 'twitch' : 'kick'); }}>
             <Text style={txt}>✏️</Text>
           </Pressable>
           <Pressable style={btn(camOv?.on ? '#0e8f8a' : 'rgba(0,0,0,.6)')} onPress={toggleCam}>
@@ -428,8 +429,13 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true }) {
           </View>
         )}
 
-        {/* ✏️ Başlık / kategori: platformun kendi sayfası */}
-        {edit && (
+        {/* ✏️ Başlık / kategori: sade pencere (yayın anahtarı ekranı gibi) */}
+        {edit && !editWeb && (
+          <InfoSheet C={C} ins={ins} platform={edit} setPlatform={setEdit} userAgent={userAgent} onClose={() => setEdit(null)} onWeb={() => setEditWeb(true)} />
+        )}
+
+        {/* ✏️ Yedek: platformun kendi sayfası */}
+        {edit && editWeb && (
           <View style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: C.panel, paddingTop: ins.top, paddingBottom: ins.bottom, paddingLeft: ins.left, paddingRight: ins.right }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, padding: 8, borderBottomWidth: 1, borderBottomColor: C.border }}>
               <Text style={{ color: C.text, fontWeight: '700', fontSize: 15, marginRight: 4 }}>✏️ Başlık / Kategori</Text>
@@ -521,6 +527,198 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true }) {
 }
 
 // 🖼️ Sürüklenebilir kutu (bir ekran öğesinin yayındaki yeri)
+// ✏️ Başlık / kategori penceresi. Kaydetme, platformun kendi sitesinin kullandığı yolla, telefondaki
+// girişle yapılır (görünmez bir Twitch / Kick sayfasının içinden). Giriş bilgisi telefondan çıkmaz.
+const INFO_URL = { twitch: 'https://www.twitch.tv/robots.txt', kick: 'https://kick.com/robots.txt' };
+const INFO_JS = `(function(){
+if (window.__penguInfo) return;
+function ck(n){var m=document.cookie.match(new RegExp('(?:^|; )'+n+'=([^;]*)'));return m?decodeURIComponent(m[1]):'';}
+function send(o){window.ReactNativeWebView.postMessage(JSON.stringify(o));}
+var TW=/twitch\.tv$/.test(location.hostname);
+async function gql(q,v){var t=ck('auth-token'); if(!t) throw new Error('login');
+  var r=await fetch('https://gql.twitch.tv/gql',{method:'POST',headers:{'Client-Id':'kimne78kx3ncx6brgo4mv6wki5h1ko',Authorization:'OAuth '+t},body:JSON.stringify({query:q,variables:v||{}})});
+  if(r.status===401) throw new Error('login');
+  var j=await r.json(); if(j.errors&&j.errors.length) throw new Error(j.errors[0].message||'Twitch hatası'); return j.data||{};}
+async function kk(path,method,body){var t=ck('session_token'); if(!t) throw new Error('login');
+  var h={Accept:'application/json',Authorization:'Bearer '+t}; var x=ck('XSRF-TOKEN'); if(x) h['X-XSRF-TOKEN']=x; if(body) h['Content-Type']='application/json';
+  var r=await fetch(path,{method:method||'GET',credentials:'include',headers:h,body:body?JSON.stringify(body):undefined});
+  if(r.status===401) throw new Error('login'); if(!r.ok) throw new Error('Kick kabul etmedi ('+r.status+')');
+  var tx=await r.text(); return tx?JSON.parse(tx):{};}
+var me=null;
+async function twMe(){ if(me) return me; var d=await gql('query{currentUser{id login}}'); if(!d.currentUser) throw new Error('login'); me=d.currentUser; return me; }
+async function kkMe(){ if(me) return me; var u=await kk('/api/v1/user'); if(!u||!u.username) throw new Error('login'); me={slug:String(u.username).toLowerCase().replace(/_/g,'-')}; return me; }
+var ops={
+  get: async function(){
+    if(TW){ var u=await twMe(); var d=await gql('query($id:ID!){user(id:$id){broadcastSettings{title game{id displayName}}}}',{id:u.id}); var b=(d.user&&d.user.broadcastSettings)||{}; return {title:b.title||'',cat:b.game?{id:b.game.id,name:b.game.displayName}:null}; }
+    var s=await kkMe(); var i=await kk('/api/v2/channels/'+s.slug+'/stream-info'); return {title:i.stream_title||'',cat:i.category?{id:i.category.id,name:i.category.name}:null}; },
+  search: async function(a){
+    if(TW){ var d=await gql('query($q:String!){searchCategories(query:$q,first:8){edges{node{id displayName}}}}',{q:a.q}); return ((d.searchCategories&&d.searchCategories.edges)||[]).map(function(e){return {id:e.node.id,name:e.node.displayName};}); }
+    var r=await fetch('https://search.kick.com/collections/subcategory_index/documents/search?q='+encodeURIComponent(a.q)+'&query_by=name',{headers:{Accept:'application/json','X-Typesense-Api-Key':'nXIMW0iEN6sMujFYjFuhdrSwVow3pDQu'}});
+    var j=await r.json(); return (j.hits||[]).slice(0,8).map(function(h){return {id:h.document.id,name:h.document.name};}); },
+  save: async function(a){
+    if(TW){ var u=await twMe(); var inp={userID:u.id,status:a.title}; if(a.cat){inp.categoryID=String(a.cat.id); inp.game=a.cat.name;}
+      var d=await gql('mutation($input:UpdateBroadcastSettingsInput!){updateBroadcastSettings(input:$input){error}}',{input:inp});
+      var e=d.updateBroadcastSettings&&d.updateBroadcastSettings.error; if(e) throw new Error(String(e)); return true; }
+    var s=await kkMe(); var body={stream_title:a.title}; if(a.cat) body.category_id=Number(a.cat.id);
+    await kk('/api/v2/channels/'+s.slug+'/stream-info','PATCH',body); return true; }
+};
+window.__penguInfo=function(id,op,a){ ops[op](a||{}).then(function(r){send({id:id,ok:true,data:r});},function(e){send({id:id,ok:false,err:String((e&&e.message)||e)});}); };
+send({ready:true});
+})(); true;`;
+
+function InfoSheet({ C, ins, platform, setPlatform, userAgent, onClose, onWeb }) {
+  const view = useRef(null);
+  const ready = useRef(false);
+  const queue = useRef([]);
+  const pend = useRef({});
+  const [title, setTitle] = useState('');
+  const [cat, setCat] = useState(null);
+  const [q, setQ] = useState('');
+  const [hits, setHits] = useState([]);
+  const [busy, setBusy] = useState(true);
+  const [msg, setMsg] = useState(null); // { t, ok }
+
+  const call = (op, a) =>
+    new Promise((res, rej) => {
+      const id = String(Date.now()) + Math.random().toString(36).slice(2, 7);
+      pend.current[id] = { res, rej };
+      const run = () => view.current?.injectJavaScript(`window.__penguInfo && window.__penguInfo(${JSON.stringify(id)}, ${JSON.stringify(op)}, ${JSON.stringify(a || {})}); true;`);
+      if (ready.current) run();
+      else queue.current.push(run);
+      setTimeout(() => {
+        if (pend.current[id]) {
+          delete pend.current[id];
+          rej(new Error('Cevap gelmedi, internetini kontrol et'));
+        }
+      }, 15000);
+    });
+  const errText = (e) =>
+    e.message === 'login' ? `${LABEL[platform]}'e giriş yapılmamış. Önce chat ekranında ${LABEL[platform]} hesabına giriş yap.` : e.message;
+
+  // Platform değişince sayfa baştan yüklenir, mevcut başlık / kategori okunur
+  useEffect(() => {
+    ready.current = false;
+    queue.current = [];
+    setTitle('');
+    setCat(null);
+    setQ('');
+    setHits([]);
+    setMsg(null);
+    setBusy(true);
+    call('get')
+      .then((d) => {
+        setTitle(d.title || '');
+        setCat(d.cat || null);
+      })
+      .catch((e) => setMsg({ t: errText(e), ok: false }))
+      .finally(() => setBusy(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [platform]);
+
+  // Kategori arama (yazmayı bırakınca)
+  useEffect(() => {
+    const text = q.trim();
+    if (text.length < 2) return setHits([]);
+    const t = setTimeout(() => {
+      call('search', { q: text }).then(setHits).catch(() => setHits([]));
+    }, 350);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, platform]);
+
+  const save = async () => {
+    if (!title.trim()) return setMsg({ t: 'Başlığı yaz.', ok: false });
+    setBusy(true);
+    setMsg(null);
+    try {
+      await call('save', { title: title.trim(), cat });
+      setMsg({ t: `✓ ${LABEL[platform]}'te kaydedildi`, ok: true });
+    } catch (e) {
+      setMsg({ t: errText(e), ok: false });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const color = platform === 'twitch' ? '#9146ff' : '#16a34a';
+  const input = { backgroundColor: C.input, borderWidth: 1, borderColor: C.border, borderRadius: 8, color: C.text, paddingHorizontal: 10, paddingVertical: 8, fontSize: 15 };
+  return (
+    <View style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,.7)', justifyContent: 'center', padding: 14, paddingTop: ins.top + 14, paddingBottom: ins.bottom + 14, paddingLeft: ins.left + 14, paddingRight: ins.right + 14 }}>
+      <WebView
+        key={platform}
+        ref={view}
+        source={{ uri: INFO_URL[platform] }}
+        style={{ width: 1, height: 1, opacity: 0, position: 'absolute' }}
+        userAgent={userAgent}
+        sharedCookiesEnabled
+        thirdPartyCookiesEnabled
+        domStorageEnabled
+        javaScriptEnabled
+        injectedJavaScript={INFO_JS}
+        onLoadEnd={() => view.current?.injectJavaScript(INFO_JS)} // yedek: düz metin sayfasında betik çalışmadıysa
+        onMessage={(e) => {
+          let m;
+          try { m = JSON.parse(e.nativeEvent.data); } catch { return; }
+          if (m.ready) {
+            ready.current = true;
+            queue.current.splice(0).forEach((f) => f());
+            return;
+          }
+          const p = pend.current[m.id];
+          if (!p) return;
+          delete pend.current[m.id];
+          m.ok ? p.res(m.data) : p.rej(new Error(m.err || 'hata'));
+        }}
+      />
+      <ScrollView contentContainerStyle={{ backgroundColor: C.panel, borderRadius: 12, borderWidth: 1, borderColor: C.border, padding: 14, gap: 8 }} keyboardShouldPersistTaps="handled">
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={{ color: C.text, fontSize: 16, fontWeight: '700', flex: 1 }}>✏️ Başlık / Kategori</Text>
+          {['twitch', 'kick'].map((p) => (
+            <Pressable key={p} onPress={() => setPlatform(p)} style={{ paddingHorizontal: 12, height: 32, borderRadius: 8, justifyContent: 'center', borderWidth: 1, borderColor: platform === p ? (p === 'twitch' ? '#9146ff' : '#16a34a') : C.border, backgroundColor: platform === p ? (p === 'twitch' ? '#9146ff' : '#16a34a') : C.input }}>
+              <Text style={{ color: platform === p ? '#fff' : C.text, fontWeight: '700' }}>{LABEL[p]}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <Text style={{ color: C.muted, fontSize: 13 }}>Başlık</Text>
+        <TextInput style={input} value={title} onChangeText={setTitle} placeholder="Yayın başlığı" placeholderTextColor={C.muted} maxLength={140} editable={!busy} />
+
+        <Text style={{ color: C.muted, fontSize: 13 }}>Kategori</Text>
+        {cat ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Text style={{ color: C.text, fontSize: 15, fontWeight: '700', flex: 1 }}>🎮 {cat.name}</Text>
+            <Pressable onPress={() => setCat(null)} hitSlop={8} style={{ paddingHorizontal: 10, height: 30, borderRadius: 8, justifyContent: 'center', borderWidth: 1, borderColor: C.border }}>
+              <Text style={{ color: C.text }}>Değiştir</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <>
+            <TextInput style={input} value={q} onChangeText={setQ} placeholder="Kategori ara (örn: Just Chatting)" placeholderTextColor={C.muted} autoCorrect={false} />
+            {hits.map((h) => (
+              <Pressable key={String(h.id)} onPress={() => { setCat(h); setQ(''); setHits([]); }} style={{ paddingVertical: 8, paddingHorizontal: 10, borderRadius: 8, backgroundColor: C.input }}>
+                <Text style={{ color: C.text }}>🎮 {h.name}</Text>
+              </Pressable>
+            ))}
+          </>
+        )}
+
+        {!!msg && <Text style={{ color: msg.ok ? '#16a34a' : '#dc2626' }}>{msg.t}</Text>}
+        <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
+          <Pressable onPress={onClose} style={{ flex: 1, height: 42, borderRadius: 10, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: C.border }}>
+            <Text style={{ color: C.text, fontWeight: '700' }}>Kapat</Text>
+          </Pressable>
+          <Pressable onPress={save} disabled={busy} style={{ flex: 2, height: 42, borderRadius: 10, justifyContent: 'center', alignItems: 'center', backgroundColor: color, opacity: busy ? 0.6 : 1 }}>
+            <Text style={{ color: '#fff', fontWeight: '700' }}>{busy ? 'Bekle…' : `${LABEL[platform]}'te kaydet`}</Text>
+          </Pressable>
+        </View>
+        <Pressable onPress={onWeb} hitSlop={8} style={{ alignSelf: 'center', paddingVertical: 6 }}>
+          <Text style={{ color: C.muted, fontSize: 12, textDecorationLine: 'underline' }}>Olmazsa: 🌐 sitenin kendi sayfasından düzenle</Text>
+        </Pressable>
+      </ScrollView>
+    </View>
+  );
+}
+
 function DragBox({ o, rect, hp, selected, onSelect, onMove }) {
   const cb = useRef(null);
   cb.current = { o, rect, hp, onSelect, onMove };
