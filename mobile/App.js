@@ -101,14 +101,17 @@ const zoomJs = (z) =>
   `document.documentElement.style.zoom = '${z}'; true;`;
 
 export default function App() {
+  // Açılış ekranı en dıştaki düz kutunun içinde: bütün ekranı (saat çubuğu dahil) kaplasın
   return (
-    <SafeAreaProvider>
-      <StatusBar style="light" />
-      <SafeAreaView style={styles.root} edges={['top', 'bottom', 'left', 'right']}>
-        <PenguChat />
-      </SafeAreaView>
+    <View style={{ flex: 1, backgroundColor: '#0e1726' }}>
+      <SafeAreaProvider>
+        <StatusBar style="light" />
+        <SafeAreaView style={styles.root} edges={['top', 'bottom', 'left', 'right']}>
+          <PenguChat />
+        </SafeAreaView>
+      </SafeAreaProvider>
       <Splash />
-    </SafeAreaProvider>
+    </View>
   );
 }
 
@@ -133,7 +136,7 @@ function Splash() {
   );
 }
 const SPLASH = StyleSheet.create({
-  wrap: { ...StyleSheet.absoluteFillObject, backgroundColor: '#0e1726', alignItems: 'center', justifyContent: 'center', zIndex: 999, elevation: 999 },
+  wrap: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#0e1726', alignItems: 'center', justifyContent: 'center', zIndex: 999, elevation: 999 },
   logo: { width: 168, height: 168, borderRadius: 38 },
   name: { color: '#fff', fontSize: 30, fontWeight: '800', marginTop: 18, letterSpacing: 0.5 },
 });
