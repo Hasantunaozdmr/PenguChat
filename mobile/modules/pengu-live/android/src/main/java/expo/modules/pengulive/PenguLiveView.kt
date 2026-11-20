@@ -500,7 +500,7 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
     val filter = OvFilter()
     return when (o.type) {
       "logo" -> {
-        val bmp = BitmapFactory.decodeResource(resources, R.drawable.pengulive_logo) ?: return null
+        val bmp = BitmapFactory.decodeResource(resources, R.drawable.pengulive_logo) ?: run { main.post { onNotice(mapOf("message" to "PenguLive logosu yüklenemedi")) }; return null }
         filter.setImage(bmp)
         Live(o, filter, bmp.height.toFloat() / bmp.width, bmp, null)
       }
