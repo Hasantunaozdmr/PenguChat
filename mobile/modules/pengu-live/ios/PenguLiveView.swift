@@ -224,9 +224,11 @@ final class PenguLiveView: ExpoView {
       default: return .portrait
       }
     }()
-    await mixer.setVideoOrientation(vo)
     let (w, h) = dims()
-    await setScreenSize(CGSize(width: w, height: h))
+    let newSize = CGSize(width: w, height: h)
+    if await screenSize() != newSize { await collapseOverlays() }
+    await mixer.setVideoOrientation(vo)
+    await setScreenSize(newSize)
     for i in 0..<2 {
       guard let s = sessions[i] else { continue }
       let st = await s.stream
@@ -234,6 +236,11 @@ final class PenguLiveView: ExpoView {
       v.videoSize = CGSize(width: w, height: h)
       try? await st.setVideoSettings(v)
     }
+  }
+
+  @ScreenActor
+  private func screenSize() async -> CGSize {
+    await mixer.screen.size
   }
 
   @ScreenActor
@@ -493,6 +500,8 @@ final class PenguLiveView: ExpoView {
     var mirror: Bool
     var sound = true
     var aspect: Double = 1
+    var original: CGImage? // logo / resim: asıl görüntü (yayına ekranda kaplayacağı boyuta küçültülüp verilir)
+    var px: CGSize = .zero // yayındaki boyutu (piksel)
     var image: ImageScreenObject?
     var cam: VideoTrackScreenObject?
     var web: WKWebView?
@@ -552,16 +561,19 @@ final class PenguLiveView: ExpoView {
   private func create(_ o: Overlay) async -> Bool {
     switch o.type {
     case "logo":
-      let bundle = Bundle(for: PenguLiveView.self).url(forResource: "PenguLiveAssets", withExtension: "bundle").flatMap { Bundle(url: $0) }
-      guard let path = bundle?.path(forResource: "pengulive_logo", ofType: "png"),
-            let img = UIImage(contentsOfFile: path)?.cgImage else { return false }
+      guard let img = Self.logoImage() else {
+        notice("PenguLive logosu yüklenemedi")
+        return false
+      }
       o.aspect = Double(img.height) / Double(img.width)
-      o.image = await makeImageObject(img)
+      o.original = img
+      o.image = await makeImageObject(nil)
       return o.image != nil
     case "image":
       guard let ui = UIImage(contentsOfFile: o.src), let img = downscale(ui) else { return false }
       o.aspect = Double(img.height) / Double(img.width)
-      o.image = await makeImageObject(img)
+      o.original = img
+      o.image = await makeImageObject(nil)
       return o.image != nil
     case "web":
       guard o.src.hasPrefix("https://"), let u = URL(string: o.src) else { return false }
@@ -606,6 +618,35 @@ final class PenguLiveView: ExpoView {
     let f = UIGraphicsImageRendererFormat(); f.scale = 1
     return UIGraphicsImageRenderer(size: size, format: f).image { _ in ui.draw(in: CGRect(origin: .zero, size: size)) }.cgImage
   }
+
+  // Logo dosyası: uygulama paketinin içindeki PenguLiveAssets.bundle (bulunamazsa diğer paketlere de bakılır)
+  private static func logoImage() -> CGImage? {
+    var bundles = [Bundle(for: PenguLiveView.self), Bundle.main]
+    bundles += Bundle.allBundles + Bundle.allFrameworks
+    for b in bundles {
+      if let u = b.url(forResource: "PenguLiveAssets", withExtension: "bundle"), let ab = Bundle(url: u),
+         let path = ab.path(forResource: "pengulive_logo", ofType: "png"), let img = UIImage(contentsOfFile: path)?.cgImage { return img }
+      if let path = b.path(forResource: "pengulive_logo", ofType: "png"), let img = UIImage(contentsOfFile: path)?.cgImage { return img }
+    }
+    return nil
+  }
+
+  // Yayın birleştirici görüntüleri kendi boyutunda çizer (büyütüp küçültmez): yayında kaplayacağı
+  // piksel boyutuna biz küçültürüz. Aksi halde görüntü ekrandan taşar (görünmez / uygulama çöker).
+  nonisolated static func scaled(_ img: CGImage, _ size: CGSize) -> CGImage? {
+    let w = max(1, Int(size.width)), h = max(1, Int(size.height))
+    guard let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0,
+                              space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+    ctx.interpolationQuality = .high
+    ctx.draw(img, in: CGRect(x: 0, y: 0, width: w, height: h))
+    return ctx.makeImage()
+  }
+
+  private static let blank: CGImage? = {
+    let ctx = CGContext(data: nil, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 0,
+                        space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+    return ctx?.makeImage()
+  }()
 
   @ScreenActor
   private func makeImageObject(_ img: CGImage?) async -> ImageScreenObject? {
@@ -652,12 +693,33 @@ final class PenguLiveView: ExpoView {
     let (sw, sh) = dims()
     if o.type == "cam" { o.aspect = camAspect() }
     let wPct = min(max(o.w, 2), 100)
-    let width = Double(sw) * wPct / 100
-    let height = min(width * o.aspect, Double(sh))
-    let hPct = height / Double(sh) * 100
-    let x = Double(sw) * min(max(o.x, 0), 100 - wPct) / 100
-    let y = Double(sh) * min(max(o.y, 0), 100 - hPct) / 100
-    await layoutObject(o.image, o.cam, CGSize(width: width, height: height), UIEdgeInsets(top: y, left: x, bottom: 0, right: 0))
+    // Tam piksel ve her zaman ekranın içinde (taşan görüntü yayını bozar)
+    let width = max(2, min(sw, Int(Double(sw) * wPct / 100)))
+    let height = max(2, min(sh, Int(Double(width) * o.aspect)))
+    let x = min(max(0, Int(Double(sw) * o.x / 100)), sw - width)
+    let y = min(max(0, Int(Double(sh) * o.y / 100)), sh - height)
+    let size = CGSize(width: width, height: height)
+    if o.px != size {
+      o.px = size
+      if let orig = o.original { await setImage(o.image, Self.scaled(orig, size)) }
+      else if o.web != nil { await setImage(o.image, Self.blank) } // donate bar: bir sonraki görüntüde yeni boyutta gelir
+    }
+    await layoutObject(o.image, o.cam, size, UIEdgeInsets(top: CGFloat(y), left: CGFloat(x), bottom: 0, right: 0))
+  }
+
+  @ScreenActor
+  private func setImage(_ obj: ImageScreenObject?, _ img: CGImage?) async {
+    obj?.cgImage = img
+  }
+
+  // Yön / kalite değişirken: ekran boyutu değişmeden önce tüm öğeleri köşede 1 piksele indir
+  // (eski konumdaki öğe yeni, küçük ekrandan taşıp uygulamayı çökertmesin)
+  private func collapseOverlays() async {
+    for o in overlays.values {
+      o.px = .zero
+      if o.image != nil { await setImage(o.image, Self.blank) }
+      await layoutObject(o.image, o.cam, CGSize(width: 1, height: 1), .zero)
+    }
   }
 
   private func placeCam(_ o: Overlay) async {
@@ -674,6 +736,9 @@ final class PenguLiveView: ExpoView {
   private func layoutObject(_ img: ImageScreenObject?, _ cam: VideoTrackScreenObject?, _ size: CGSize, _ margin: UIEdgeInsets) async {
     for obj in [img as ScreenObject?, cam as ScreenObject?] {
       guard let obj else { continue }
+      // İkinci kamera nesnesi kendini sonradan ortaya hizalıyor: her seferinde sol-üste sabitle
+      obj.horizontalAlignment = .left
+      obj.verticalAlignment = .top
       obj.size = size
       obj.layoutMargin = margin
       obj.invalidateLayout()
@@ -683,12 +748,16 @@ final class PenguLiveView: ExpoView {
   // Donate sayfalarının görüntüsünü saniyede 2 kez yayına aktar
   private func snapWeb() {
     for o in overlays.values {
-      guard let wv = o.web, let obj = o.image else { continue }
+      guard let wv = o.web, let obj = o.image, o.px.width > 1 else { continue }
+      let size = o.px
       let cfg = WKSnapshotConfiguration()
       cfg.afterScreenUpdates = false
       wv.takeSnapshot(with: cfg) { img, _ in
-        guard let cg = img?.cgImage else { return }
-        Task { @ScreenActor in obj.cgImage = cg }
+        guard let cg = img?.cgImage, let small = Self.scaled(cg, size) else { return }
+        Task { @ScreenActor in
+          guard o.px == size else { return } // bu arada boyut değiştiyse eski görüntüyü koyma
+          obj.cgImage = small
+        }
       }
     }
   }

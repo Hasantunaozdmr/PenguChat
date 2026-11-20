@@ -456,6 +456,8 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true }) {
               allowFileAccess={false}
               onShouldStartLoadWithRequest={(req) => {
                 if (req.isTopFrame === false || isInternalUrl(req.url)) return true;
+                // iPhone: sayfanın kendi yönlendirmeleri (giriş, yeniden yükleme) içeride kalsın; sadece dokunulan dış link tarayıcıda açılsın
+                if (Platform.OS === 'ios' && req.navigationType && req.navigationType !== 'click') return true;
                 Linking.openURL(req.url).catch(() => {});
                 return false;
               }}
