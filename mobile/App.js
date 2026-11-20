@@ -129,7 +129,6 @@ function Splash() {
     <Animated.View pointerEvents="none" style={[SPLASH.wrap, { opacity: fade }]}>
       <Animated.Image source={require('./assets/icon.png')} style={[SPLASH.logo, { transform: [{ scale: pop }] }]} />
       <Text style={SPLASH.name}>PenguLive</Text>
-      <Text style={SPLASH.sub}>Twitch + Kick</Text>
     </Animated.View>
   );
 }
@@ -137,7 +136,6 @@ const SPLASH = StyleSheet.create({
   wrap: { ...StyleSheet.absoluteFillObject, backgroundColor: '#0e1726', alignItems: 'center', justifyContent: 'center', zIndex: 999, elevation: 999 },
   logo: { width: 168, height: 168, borderRadius: 38 },
   name: { color: '#fff', fontSize: 30, fontWeight: '800', marginTop: 18, letterSpacing: 0.5 },
-  sub: { color: '#7dd3c8', fontSize: 14, marginTop: 4, fontWeight: '600' },
 });
 
 function PenguChat() {
