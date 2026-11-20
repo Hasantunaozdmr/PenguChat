@@ -234,6 +234,32 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true }) {
     } else onClose();
   };
 
+  // 🔋 Şarj / ısı uyarısı: dakikada bir birkaç saniye görünür, sonra kaybolur (ekranı sürekli kaplamasın)
+  const pw = stats.power || {};
+  const powerMsgs = [];
+  if (pw.battery > 0 && pw.battery <= 20 && !pw.charging) powerMsgs.push(`🔋 Şarj %${Math.round(pw.battery)}: telefon yavaşlar, şarja tak`);
+  if (pw.save) powerMsgs.push('🔋 Pil tasarrufu açık: kapatırsan görüntü daha akıcı olur');
+  if (pw.thermal >= 2) powerMsgs.push(pw.thermal >= 3 ? '🌡️ Telefon çok ısındı: kare hızı 20\'ye düşürüldü' : '🌡️ Telefon ısındı: kare hızı 24\'e sabitlendi');
+  else if (pw.thermal === 1) powerMsgs.push('🌡️ Telefon ısınmaya başladı: kılıfı çıkar, güneşte bırakma');
+  const powerMsg = powerMsgs.join('  ·  ');
+  const powerKey = powerMsg.replace(/%\d+/, '%'); // şarj yüzdesi her düştüğünde yeniden göstermesin
+  const [powerShow, setPowerShow] = useState(false);
+  useEffect(() => {
+    if (!powerKey) return setPowerShow(false);
+    let hide;
+    const show = () => {
+      setPowerShow(true);
+      clearTimeout(hide);
+      hide = setTimeout(() => setPowerShow(false), 6000);
+    };
+    show();
+    const every = setInterval(show, 60 * 1000);
+    return () => {
+      clearInterval(every);
+      clearTimeout(hide);
+    };
+  }, [powerKey]);
+
   const pill = { borderRadius: 14, paddingHorizontal: 10, paddingVertical: 5, overflow: 'hidden' };
   const btn = (bg) => ({ paddingHorizontal: 12, minWidth: 46, height: 46, borderRadius: 23, justifyContent: 'center', alignItems: 'center', backgroundColor: bg });
   const txt = { color: '#fff', fontWeight: '700', fontSize: 15 };
@@ -295,17 +321,12 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true }) {
               ))}
             </View>
           )}
-          {(() => {
-            // 🔋 Şarj / ısı uyarısı (uygulama bu durumda kare hızını kendiliğinden sabitler)
-            const pw = stats.power || {};
-            const msgs = [];
-            if (pw.battery > 0 && pw.battery <= 20 && !pw.charging) msgs.push(`🔋 Şarj %${Math.round(pw.battery)}: telefon yavaşlar, şarja tak`);
-            if (pw.save) msgs.push('🔋 Pil tasarrufu açık: kapatırsan görüntü daha akıcı olur');
-            if (pw.thermal >= 2) msgs.push(pw.thermal >= 3 ? '🌡️ Telefon çok ısındı: kare hızı 20\'ye düşürüldü' : '🌡️ Telefon ısındı: kare hızı 24\'e sabitlendi');
-            else if (pw.thermal === 1) msgs.push('🌡️ Telefon ısınmaya başladı: kılıfı çıkar, güneşte bırakma');
-            if (!msgs.length) return null;
-            return <Text style={[pill, { color: '#111', backgroundColor: '#fdba74' }]}>{msgs.join('  ·  ')}</Text>;
-          })()}
+          {/* 🔋 Şarj / ısı uyarısı (uygulama bu durumda kare hızını kendiliğinden sabitler); dokununca hemen kapanır */}
+          {powerShow && !!powerMsg && (
+            <Pressable onPress={() => setPowerShow(false)}>
+              <Text style={[pill, { color: '#111', backgroundColor: '#fdba74' }]}>{powerMsg}</Text>
+            </Pressable>
+          )}
           {running && !stats.lowMode && stats.current > 0 && stats.target > 0 && stats.current < stats.target * 0.9 && (
             <Text style={[pill, { color: '#111', backgroundColor: '#fde68a' }]}>📉 İnternet yetişmiyor: görüntü kalitesi {mbps(stats.current)}'e düşürüldü (takılmasın diye). Bağlantı rahatlayınca kendiliğinden geri çıkar.</Text>
           )}
