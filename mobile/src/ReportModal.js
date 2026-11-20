@@ -291,10 +291,10 @@ function Inbox({ admin, saveAdmin, onClose, roles, accounts, onUndo, annNow }) {
     setError(null);
     try {
       const fn = password
-        ? { reports: 'get_reports', log: 'get_log', mod: 'get_mod_log', roles: 'list_roles', maint: 'app_status', ann: 'app_status', errors: 'get_errors' }[which]
+        ? { reports: 'get_reports', log: 'get_log', mod: 'get_mod_log', roles: 'list_roles', pro: 'list_pro', maint: 'app_status', ann: 'app_status', errors: 'get_errors' }[which]
         : { reports: 'role_reports', mod: 'role_mod_log' }[which];
       const data = await reportRpc(fn, which === 'maint' || which === 'ann' ? {} : password ? { p_password: password } : roleArgs);
-      setList(which === 'maint' || which === 'ann' ? data || {} : data || []);
+      setList(which === 'maint' || which === 'ann' || which === 'pro' ? data || {} : data || []);
       if (which === 'reports' && password) markSeen(data || []);
     } catch (e) {
       if (e.message === 'Şifre yanlış' && !password) setError('Bu bölüm için yetkin yok.');
@@ -466,6 +466,7 @@ function Inbox({ admin, saveAdmin, onClose, roles, accounts, onUndo, annNow }) {
           </>
         )}
         {tab === 'roles' && Array.isArray(list) && <Roles list={list} admin={admin} onChanged={() => load()} />}
+        {tab === 'pro' && list && !Array.isArray(list) && <Pro d={list} admin={admin} onChanged={() => load(admin, 'pro', true)} />}
         {tab === 'ann' && list && !Array.isArray(list) && <Announce d={list} admin={admin} onChanged={() => load()} />}
         {tab === 'maint' && list && !Array.isArray(list) && <Maint d={list} admin={admin} onChanged={() => load()} />}
       </ScrollView>
@@ -682,10 +683,142 @@ function Roles({ list, admin, onChanged }) {
   );
 }
 
+// ⭐ Pro (sadece yönetici): elle Pro ver / süre ekle / kaldır, test döneminde herkese açık anahtarı
+const PRO_MONTHS = [[1, '1 ay'], [3, '3 ay'], [6, '6 ay'], [9, '9 ay'], [12, '1 yıl'], [0, '♾️ Süresiz']];
+function proTag(u) {
+  if (!u.until) return { t: '♾️ Süresiz', c: C.accent };
+  const left = new Date(u.until) - Date.now();
+  if (left <= 0) return { t: '⛔ Bitti', c: C.err };
+  const days = Math.ceil(left / 86400000);
+  const date = new Date(u.until).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric' });
+  return days <= 3 ? { t: `⚠️ ${days} gün kaldı`, c: '#d97706' } : { t: `${date} · ${days} gün`, c: C.muted };
+}
+function Pro({ d, admin, onChanged }) {
+  const users = d.users || [];
+  const [platform, setPlatform] = useState('twitch');
+  const [name, setName] = useState('');
+  const [months, setMonths] = useState(1);
+  const [note, setNote] = useState('');
+  const [hint, setHint] = useState(null);
+  const [menu, setMenu] = useState(null);
+  const active = users.filter((u) => !u.until || new Date(u.until) > Date.now());
+  const call = async (fn, args) => {
+    try {
+      await reportRpc(fn, { p_password: admin, ...args });
+      setHint(null);
+      onChanged();
+      return true;
+    } catch (e) {
+      setHint(/404/.test(e.message) ? 'Pro sunucuda kurulu değil (supabase/pro.sql).' : 'Kaydedilemedi: ' + e.message);
+      return false;
+    }
+  };
+  const give = async () => {
+    const u = name.trim().replace(/^@/, '').toLowerCase();
+    if (!/^[a-z0-9_]{2,25}$/.test(u)) return setHint('Kullanıcı adını doğru yaz.');
+    if (await call('set_pro', { p_platform: platform, p_username: u, p_months: months, p_note: note.trim() })) {
+      setName('');
+      setNote('');
+    }
+  };
+  const toggleOpen = () => {
+    const next = !d.open;
+    if (next) return call('set_pro_open', { p_open: true });
+    Alert.alert('Herkese açık kapatılsın mı?', 'Bundan sonra sadece Pro verdiklerin Pro özellikleri kullanabilir.', [
+      { text: 'Vazgeç', style: 'cancel' },
+      { text: 'Kapat', style: 'destructive', onPress: () => call('set_pro_open', { p_open: false }) },
+    ]);
+  };
+  return (
+    <>
+      <View style={[s.rep, { gap: 6 }]}>
+        <Text style={s.repName}>
+          ⭐ {active.length} Pro hesap · {users.length - active.length} süresi bitmiş
+        </Text>
+      </View>
+      <View style={[s.rep, { gap: 6 }]}>
+        <View style={s.head}>
+          <Text style={[s.repName, { flex: 1 }]}>🔓 Herkese açık (test dönemi)</Text>
+          <Toggle on={!!d.open} label={d.open ? 'Açık' : 'Kapalı'} onPress={toggleOpen} />
+        </View>
+        <Text style={s.note}>Açıkken herkes Pro özelliklerini ücretsiz kullanır. Ücreti başlattığın gün kapat; sadece aşağıdakiler Pro kalır.</Text>
+      </View>
+      <View style={[s.rep, { gap: 8 }]}>
+        <Text style={s.repName}>⭐ Elle Pro ver</Text>
+        <View style={s.repMeta}>
+          <Toggle on={platform === 'twitch'} label="Twitch" onPress={() => setPlatform('twitch')} />
+          <Toggle on={platform === 'kick'} label="Kick" onPress={() => setPlatform('kick')} />
+          <TextInput
+            style={[s.input, { flex: 1, minWidth: 0, paddingVertical: 4 }]}
+            value={name}
+            onChangeText={setName}
+            placeholder="kullanıcı adı"
+            placeholderTextColor={C.ph}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+        </View>
+        <View style={[s.repMeta, { flexWrap: 'wrap' }]}>
+          {PRO_MONTHS.map(([m, l]) => (
+            <Toggle key={m} on={months === m} label={l} onPress={() => setMonths(m)} />
+          ))}
+        </View>
+        <TextInput style={s.input} value={note} onChangeText={setNote} placeholder="not (örn: kendi yayıncım, ödedi)" placeholderTextColor={C.ph} maxLength={80} />
+        <View style={s.head}>
+          <Text style={[s.hint, { color: C.err }]}>{hint || ''}</Text>
+          <Pressable style={s.primary} onPress={give}>
+            <Text style={s.primaryText}>⭐ Pro ver</Text>
+          </Pressable>
+        </View>
+      </View>
+      <Text style={s.note}>Süre eklenirse mevcut bitiş tarihinin üstüne eklenir.</Text>
+      {users.length === 0 && <Text style={s.empty}>Henüz Pro verilen kimse yok.</Text>}
+      {users.map((u) => {
+        const key = u.platform + ':' + u.username;
+        const tg = proTag(u);
+        return (
+          <View key={key} style={s.rep}>
+            <View style={s.head}>
+              <View style={{ flex: 1 }}>
+                <Text style={s.repName}>
+                  {u.platform === 'twitch' ? 'Twitch' : 'Kick'} · {u.username}
+                </Text>
+                <Text style={{ color: tg.c, fontSize: 13, marginTop: 2 }}>{tg.t}</Text>
+                {!!u.note && <Text style={s.note}>{u.note}</Text>}
+              </View>
+              <Pressable style={s.mini} onPress={() => setMenu(menu === key ? null : key)} hitSlop={6}>
+                <Text style={s.miniText}>⋯</Text>
+              </Pressable>
+            </View>
+            {menu === key && (
+              <View style={[s.repMeta, { flexWrap: 'wrap', marginTop: 8 }]}>
+                <Toggle on={false} label="➕ 1 ay" onPress={() => call('set_pro', { p_platform: u.platform, p_username: u.username, p_months: 1, p_note: u.note || '' })} />
+                <Toggle on={false} label="➕ 1 yıl" onPress={() => call('set_pro', { p_platform: u.platform, p_username: u.username, p_months: 12, p_note: u.note || '' })} />
+                <Toggle on={false} label="♾️ Süresiz yap" onPress={() => call('set_pro', { p_platform: u.platform, p_username: u.username, p_months: 0, p_note: u.note || '' })} />
+                <Toggle
+                  on={false}
+                  label="🗑️ Kaldır"
+                  onPress={() =>
+                    Alert.alert('Pro kaldırılsın mı?', `${u.username} için Pro kaldırılsın mı?`, [
+                      { text: 'Vazgeç', style: 'cancel' },
+                      { text: 'Kaldır', style: 'destructive', onPress: () => call('remove_pro', { p_platform: u.platform, p_username: u.username }) },
+                    ])
+                  }
+                />
+              </View>
+            )}
+          </View>
+        );
+      })}
+    </>
+  );
+}
+
 const SECTIONS = [
   ['reports', '📥 Sorunlar', 'Gelen sorunlar: sıraya al, çöz, reddet'],
   ['log', '📜 Log', 'Sorunlarla ilgili her şey saatiyle'],
   ['mod', '🛡️ Mod log', 'Uygulamadan atılan timeout / ban, geri alma'],
+  ['pro', '⭐ Pro', 'Pro ver, süre ekle, kaldır; herkese açık anahtarı'],
   ['roles', '👥 Yetkiler', 'Kime hangi bölümün açık olacağı'],
   ['ann', '📢 Duyuru', 'Herkesin ekranının üstünde duyuru'],
   ['maint', '🛠️ Bakım', 'Uygulamayı senin dışında herkese kapat'],
