@@ -53,7 +53,7 @@ const mbps = (b) => (b > 0 ? (b / 1e6).toFixed(1) + ' Mbps' : '—');
 // Kick "Stream URL" + "Stream Key" → tek adres
 const joinUrl = (url, key) => (url && key ? url.replace(/\/+$/, '') + '/' + key : '');
 
-export default function LiveScreen({ C, onClose, userAgent, unlocked = true, chatChannels = {} }) {
+export default function LiveScreen({ C, onClose, userAgent, unlocked = true, chatChannels = {}, liveChat }) {
   const ref = useRef(null);
   // iPhone: yayın ekranı tam ekran açılır; üstteki saat / çentik ve alttaki çizgiyle çakışmasın
   const safe = useSafeAreaInsets();
@@ -345,6 +345,7 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true, cha
         </View>
         {split && (
           <ChatPanel
+            liveChat={liveChat}
             plats={chatPlats}
             channels={chatChannels}
             userAgent={userAgent}
@@ -658,7 +659,7 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true, cha
 // 💬 Yayın ekranındaki chat: görünmez Twitch / Kick chat sayfalarından mesajlar ve etkinlikler.
 // Sadece yayıncının ekranında görünür, yayına gitmez.
 const CHAT_MAX = 150;
-function ChatPanel({ plats, channels, userAgent, style }) {
+function ChatPanel({ plats, channels, userAgent, style, liveChat }) {
   const [list, setList] = useState([]);
   const [size, setSize] = useState(15);
   const [evOnly, setEvOnly] = useState(false);
@@ -681,11 +682,24 @@ function ChatPanel({ plats, channels, userAgent, style }) {
       }
     } catch {}
   };
+  // ⚡ Uygulamada aynı kanalın chat'i zaten açıksa onu kullan (ikinci sayfa açma: daha az internet ve pil)
+  const shared = plats.filter((p) => liveChat?.current?.open(p) && liveChat.current.open(p) === String(channels[p]).toLowerCase());
+  const own = plats.filter((p) => !shared.includes(p));
+  const onMsgRef = useRef(onMsg);
+  onMsgRef.current = onMsg;
+  const sharedKey = shared.join(',');
+  useEffect(() => {
+    const lc = liveChat?.current;
+    if (!lc) return;
+    const ks = sharedKey ? sharedKey.split(',') : [];
+    ks.forEach((k) => lc.start(k, (d) => onMsgRef.current(d)));
+    return () => ks.forEach((k) => lc.stop(k));
+  }, [sharedKey, liveChat]);
   const shown = evOnly ? list.filter((m) => m.kind === 'ev') : list;
   const cleanColor = (c) => (/^#[0-9a-f]{6}$/i.test(c || '') ? c : null);
   return (
     <View style={[{ backgroundColor: '#0e0e10' }, style]}>
-      {plats.map((p) => (
+      {own.map((p) => (
         <WebView
           key={p + channels[p]}
           source={{ uri: PLATFORMS[p].chatUrl(String(channels[p]).toLowerCase()) }}

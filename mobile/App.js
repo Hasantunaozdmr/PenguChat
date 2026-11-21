@@ -513,8 +513,30 @@ function PenguChat() {
     setViewers((v) => ({ ...v, kick: undefined }));
   }, [urls.kick]);
 
+  // 💬 Yayın ekranındaki chat: açık chat sayfaları mesajları buraya da verir (aynı sayfayı ikinci kez açmamak için)
+  const liveSink = useRef(null);
+  const liveChatOn = useRef({ twitch: false, kick: false });
+  const chatFlagJs = (on) => `window.__penguChatOn = ${on ? 1 : 0}; true;`;
+  const liveChat = useRef(null);
+  liveChat.current = {
+    // Bu platformun chat'i uygulamada açık mı (açıksa yayın ekranı onu kullanır)
+    open: (k) => (urls[k] && s[k] ? String(s[k]).toLowerCase() : ''),
+    start: (k, sink) => {
+      liveSink.current = sink;
+      liveChatOn.current[k] = true;
+      views.current[k]?.injectJavaScript(chatFlagJs(true));
+    },
+    stop: (k) => {
+      liveChatOn.current[k] = false;
+      views.current[k]?.injectJavaScript(chatFlagJs(false));
+    },
+  };
   const onWebMessage = (k, data) => {
     if (typeof data !== 'string') return;
+    if (data.startsWith('__PENGU_MSG__')) {
+      if (liveChatOn.current[k]) liveSink.current?.(data);
+      return;
+    }
     if (data.startsWith('__PENGU_VIEW__')) {
       try {
         const { n, cat } = JSON.parse(data.slice(14));
@@ -527,6 +549,7 @@ function PenguChat() {
     }
     if (data.startsWith('__PENGU_EVENT__')) {
       try { const ev = JSON.parse(data.slice(15)); if (ev.p === k) addEvent(ev); } catch {}
+      if (liveChatOn.current[k]) liveSink.current?.(data);
       return;
     }
     if (data.startsWith('__PENGU_MOD__')) {
@@ -786,7 +809,7 @@ function PenguChat() {
           <Text style={styles.maintSmall}>Her 30 saniyede bir kontrol ediliyor…</Text>
         </View>
       )}
-      {liveOpen && <LiveScreen C={C} userAgent={USER_AGENT} unlocked={pro.open || pro.pro} chatChannels={{ twitch: accounts.twitch || s.twitch || '', kick: String(accounts.kick || s.kick || '').toLowerCase().replace(/_/g, '-') }} onClose={() => setLiveOpen(false)} />}
+      {liveOpen && <LiveScreen C={C} userAgent={USER_AGENT} unlocked={pro.open || pro.pro} chatChannels={{ twitch: accounts.twitch || s.twitch || '', kick: String(accounts.kick || s.kick || '').toLowerCase().replace(/_/g, '-') }} liveChat={liveChat} onClose={() => setLiveOpen(false)} />}
       {settingsOpen && (
         <SettingsSheet
           onClose={() => setSettingsOpen(false)}
@@ -939,6 +962,8 @@ function PenguChat() {
                     onFail={(d) => reportError('chat-acilmadi', `${d} (${s[k]})`)}
                     onLoaded={() => {
                       views.current[k]?.injectJavaScript(composerJs(composeRef.current[k]));
+                      if (liveChatOn.current[k]) views.current[k]?.injectJavaScript(chatFlagJs(true)); // sayfa yenilendiyse
+
                       setTimeout(() => checkModRef.current(k), 2500);
                       setTimeout(() => askViewersRef.current(k), 3000);
                     }}
