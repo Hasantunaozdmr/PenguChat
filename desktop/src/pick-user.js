@@ -553,6 +553,8 @@
     if (m[1] === 'PRIVMSG') {
       const bits = Number(tags.bits);
       if (bits > 0) evPost({ p: 'twitch', id, type: 'bits', user, amount: bits, msg: text.replace(/\b[A-Za-z]+\d+\b\s*/g, '').trim() });
+      // 💬 Yayın ekranındaki chat (sadece orada açılan görünmez sayfada)
+      else if (window.__penguChatOn) chatPost({ p: 'twitch', id, user, color: tags.color || '', text: text.replace(/^\u0001ACTION (.*)\u0001$/, '$1') });
       return;
     }
     const kind = tags['msg-id'];
@@ -575,6 +577,7 @@
       evPost({ p: 'twitch', id, type: 'raid', user: tags['msg-param-displayName'] || user, count: Number(tags['msg-param-viewerCount']) || 0 });
     }
   }
+  function chatPost(m) { post('__PENGU_MSG__' + JSON.stringify(m)); }
   function kickFrame(raw) {
     let f; try { f = JSON.parse(raw); } catch { return; }
     const name = String((f && f.event) || '');
@@ -582,6 +585,13 @@
     let d = f.data;
     if (typeof d === 'string') { try { d = JSON.parse(d); } catch { return; } }
     if (!d || typeof d !== 'object') return;
+    if (/ChatMessageEvent/i.test(name)) {
+      if (window.__penguChatOn && d.sender) {
+        const text = String(d.content || '').replace(/\[emote:\d+:([^\]]+)\]/g, ':$1:');
+        chatPost({ p: 'kick', id: 'km:' + (d.id || Math.random()), user: d.sender.username || '', color: (d.sender.identity && d.sender.identity.color) || '', text });
+      }
+      return;
+    }
     const id = 'kk:' + name + ':' + (d.id || d.gift_transaction_id || d.created_at || '') + ':' + (d.username || d.gifter_username || (d.sender && d.sender.username) || '');
     if (/GiftedSubscriptions/i.test(name)) {
       const to = Array.isArray(d.gifted_usernames) ? d.gifted_usernames : [];
@@ -611,8 +621,9 @@
             const ws = this.target;
             if (typeof v === 'string' && ws instanceof WebSocket && !seen.has(this)) {
               seen.add(this);
-              if (isTwitch) { if (/irc-ws\.chat\.twitch\.tv/.test(ws.url) && (v.includes('USERNOTICE') || v.includes('bits='))) v.split('\r\n').forEach(twitchLine); }
-              else if (/pusher/i.test(ws.url) && !v.includes('ChatMessageEvent')) kickFrame(v);
+              const chat = !!window.__penguChatOn;
+              if (isTwitch) { if (/irc-ws\.chat\.twitch\.tv/.test(ws.url) && (v.includes('USERNOTICE') || v.includes('bits=') || (chat && v.includes('PRIVMSG')))) v.split('\r\n').forEach(twitchLine); }
+              else if (/pusher/i.test(ws.url) && (chat || !v.includes('ChatMessageEvent'))) kickFrame(v);
             }
           } catch {}
           return v;

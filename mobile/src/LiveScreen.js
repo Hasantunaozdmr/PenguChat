@@ -6,11 +6,13 @@
 //   Donate sayfasının abone / bağış sesleri de yayına karışır (🔊 / 🔇).
 // Yayın anahtarları ve donate linkleri sadece bu telefonda saklanır; sadece Twitch'e / Kick'e / donate sitesine gider.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Image, Linking, Modal, PanResponder, PermissionsAndroid, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Alert, FlatList, Image, Linking, Modal, PanResponder, PermissionsAndroid, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { WebView } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { isInternalUrl } from './links';
+import { PLATFORMS, isInternalUrl } from './links';
+import { PICK_USER_JS } from './injected';
+const { describe: evDescribe, ICON: EV_ICON } = require('./events');
 
 const HAS_LIVE = Platform.OS === 'android' || Platform.OS === 'ios';
 const live = HAS_LIVE ? require('../modules/pengu-live/src') : null;
@@ -18,6 +20,7 @@ const PenguLiveView = live?.PenguLiveView || null;
 const keepAwake = HAS_LIVE ? require('expo-keep-awake') : null;
 
 const KEY_STORE = 'penguchat:liveKeys';
+const CHAT_STORE = 'penguchat:liveChat';
 const SET_STORE = 'penguchat:liveSettings';
 const OV_STORE = 'penguchat:liveOverlays';
 // Yer ve boyut: görüntünün yüzdesi (x, y = sol üst köşe, w = genişlik)
@@ -50,7 +53,7 @@ const mbps = (b) => (b > 0 ? (b / 1e6).toFixed(1) + ' Mbps' : '—');
 // Kick "Stream URL" + "Stream Key" → tek adres
 const joinUrl = (url, key) => (url && key ? url.replace(/\/+$/, '') + '/' + key : '');
 
-export default function LiveScreen({ C, onClose, userAgent, unlocked = true }) {
+export default function LiveScreen({ C, onClose, userAgent, unlocked = true, chatChannels = {} }) {
   const ref = useRef(null);
   // iPhone: yayın ekranı tam ekran açılır; üstteki saat / çentik ve alttaki çizgiyle çakışmasın
   const safe = useSafeAreaInsets();
@@ -74,6 +77,16 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true }) {
   const [sel, setSel] = useState('logo');
   const [addWeb, setAddWeb] = useState(null); // null | { url, shape }
   const [box, setBox] = useState({ w: 0, h: 0 });
+  // 💬 Ekran yarı görüntü yarı chat (sadece yayıncının ekranında; yayına gitmez)
+  const [chatOn, setChatOn] = useState(false);
+  useEffect(() => {
+    AsyncStorage.getItem(CHAT_STORE).then((v) => v === '1' && setChatOn(true)).catch(() => {});
+  }, []);
+  const toggleChat = () => {
+    const v = !chatOn;
+    setChatOn(v);
+    AsyncStorage.setItem(CHAT_STORE, v ? '1' : '0').catch(() => {});
+  };
   const [, tick] = useState(0);
 
   useEffect(() => {
@@ -287,6 +300,16 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true }) {
   // Durum yazısının başındaki logolar
   const outLogos = (p) =>
     keys.via === 'custom' ? [keys.customFor || 'kick'] : keys.via === 'restream' ? ['restream'] : [p];
+  // 💬 Chat'i gösterilecek platformlar: yayının gittiği yerler (kanal: girişli hesap ya da chat ekranındaki kanal)
+  const chatPlats = (() => {
+    const want = keys.via === 'custom' ? [keys.customFor || 'kick'] : keys.via === 'restream' ? ((keys.restreamFor || 'both') === 'both' ? ['twitch', 'kick'] : [keys.restreamFor]) : platforms.length ? platforms : ['twitch', 'kick'];
+    return want.filter((p) => chatChannels[p]);
+  })();
+  const split = chatOn && !layoutMode;
+  const wide = box.w > box.h;
+  // Bölünmüş ekranda üst yazılar ve alt tuşlar sadece görüntü yarısında kalsın (chat'in üstüne binmesin)
+  const chatW = split && wide ? Math.round(box.w * 0.4) : 0;
+  const chatH = split && !wide ? Math.round(box.h / 2) : 0;
   // ✏️ Başlık / Kategori hangi platformla açılsın
   const editFirst = () =>
     keys.via === 'custom' ? keys.customFor || 'kick' : keys.via === 'restream' ? (keys.restreamFor === 'kick' ? 'kick' : 'twitch') : keys.useTwitch || !keys.useKick ? 'twitch' : 'kick';
@@ -295,6 +318,8 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true }) {
   return (
     <Modal animationType="slide" onRequestClose={close} supportedOrientations={['portrait', 'landscape', 'landscape-left', 'landscape-right']}>
       <View style={{ flex: 1, backgroundColor: '#000' }} onLayout={(e) => setBox({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}>
+        <View style={{ flex: 1, flexDirection: wide ? 'row' : 'column' }}>
+        <View style={{ flex: 1 }}>
         {PenguLiveView ? (
           <PenguLiveView
             ref={ref}
@@ -317,6 +342,16 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true }) {
         ) : (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff' }}>Yayın sadece telefonda.</Text></View>
         )}
+        </View>
+        {split && (
+          <ChatPanel
+            plats={chatPlats}
+            channels={chatChannels}
+            userAgent={userAgent}
+            style={wide ? { width: chatW, paddingTop: ins.top, paddingRight: ins.right, paddingBottom: ins.bottom } : { height: chatH, paddingBottom: ins.bottom, paddingLeft: ins.left, paddingRight: ins.right }}
+          />
+        )}
+        </View>
 
         {/* 🖼️ Düzenleme: her öğenin kutusu; sürükleyerek taşı */}
         {layoutMode && box.w > 0 && overlays.filter((o) => o.on).map((o) => (
@@ -325,7 +360,7 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true }) {
 
         {/* Üst: süre + her platformun durumu ve bitrate'i */}
         {!layoutMode && (
-        <View style={{ position: 'absolute', top: ins.top + 10, left: ins.left + 12, right: ins.right + 12, gap: 6 }}>
+        <View style={{ position: 'absolute', top: ins.top + 10, left: ins.left + 12, right: ins.right + 12 + chatW, gap: 6 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Text style={[pill, { color: '#fff', fontWeight: '700', backgroundColor: running && anyLive ? '#dc2626' : 'rgba(0,0,0,.6)' }]}>
               {running ? (anyLive ? `● CANLI ${fmtTime(Math.floor((Date.now() - startedAt) / 1000))}` : 'Bağlanıyor…') : 'Yayında değil'}
@@ -418,12 +453,15 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true }) {
 
         {/* Alt tuşlar */}
         {!layoutMode && (
-        <View style={{ position: 'absolute', bottom: Math.max(18, ins.bottom + 6), left: ins.left + 8, right: ins.right + 8, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
+        <View style={{ position: 'absolute', bottom: Math.max(18, ins.bottom + 6) + chatH, left: ins.left + 8, right: ins.right + 8 + chatW, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
           <Pressable style={btn('rgba(0,0,0,.6)')} onPress={() => ref.current?.switchCamera()}>
             <Text style={txt}>🔄</Text>
           </Pressable>
           <Pressable style={btn(muted ? '#dc2626' : 'rgba(0,0,0,.6)')} onPress={() => { const m = !muted; setMuted(m); ref.current?.setMuted(m); }}>
             <Text style={txt}>{muted ? '🔇' : '🎤'}</Text>
+          </Pressable>
+          <Pressable style={btn(chatOn ? '#9146ff' : 'rgba(0,0,0,.6)')} onPress={toggleChat}>
+            <Text style={txt}>💬</Text>
           </Pressable>
           {running ? (
             <Pressable style={[btn('#dc2626'), { paddingHorizontal: 22 }]} onPress={askStop}><Text style={txt}>■ Bitir</Text></Pressable>
@@ -614,6 +652,101 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true }) {
         )}
       </View>
     </Modal>
+  );
+}
+
+// 💬 Yayın ekranındaki chat: görünmez Twitch / Kick chat sayfalarından mesajlar ve etkinlikler.
+// Sadece yayıncının ekranında görünür, yayına gitmez.
+const CHAT_MAX = 150;
+function ChatPanel({ plats, channels, userAgent, style }) {
+  const [list, setList] = useState([]);
+  const [size, setSize] = useState(15);
+  const [evOnly, setEvOnly] = useState(false);
+  const seen = useRef(new Set());
+  const add = (m) => {
+    if (seen.current.has(m.id)) return;
+    seen.current.add(m.id);
+    if (seen.current.size > 600) seen.current = new Set([...seen.current].slice(-300));
+    setList((l) => [m, ...l].slice(0, CHAT_MAX));
+  };
+  const onMsg = (data) => {
+    if (typeof data !== 'string') return;
+    try {
+      if (data.startsWith('__PENGU_MSG__')) {
+        const m = JSON.parse(data.slice(13));
+        if (m && m.text) add({ ...m, kind: 'msg' });
+      } else if (data.startsWith('__PENGU_EVENT__')) {
+        const e = JSON.parse(data.slice(15));
+        if (e && e.id) add({ id: 'ev:' + e.id, p: e.p, kind: 'ev', user: e.user || '', text: `${EV_ICON[e.type] || '•'} ${evDescribe(e)}` });
+      }
+    } catch {}
+  };
+  const shown = evOnly ? list.filter((m) => m.kind === 'ev') : list;
+  const cleanColor = (c) => (/^#[0-9a-f]{6}$/i.test(c || '') ? c : null);
+  return (
+    <View style={[{ backgroundColor: '#0e0e10' }, style]}>
+      {plats.map((p) => (
+        <WebView
+          key={p + channels[p]}
+          source={{ uri: PLATFORMS[p].chatUrl(String(channels[p]).toLowerCase()) }}
+          style={{ width: 1, height: 1, opacity: 0, position: 'absolute' }}
+          userAgent={userAgent}
+          sharedCookiesEnabled
+          thirdPartyCookiesEnabled
+          domStorageEnabled
+          javaScriptEnabled
+          injectedJavaScriptBeforeContentLoaded={'window.__penguChatOn = 1; true;'}
+          injectedJavaScript={'window.__penguChatOn = 1;\n' + PICK_USER_JS + '\ntrue;'}
+          onMessage={(e) => onMsg(e.nativeEvent.data)}
+          onShouldStartLoadWithRequest={(req) => req.isTopFrame === false || isInternalUrl(req.url)}
+        />
+      ))}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: '#26262c' }}>
+        <Text style={{ color: '#fff', fontWeight: '700' }}>💬</Text>
+        {plats.map((p) => <Logo key={p} k={p} />)}
+        <Text style={{ color: '#aaa', fontSize: 12, flex: 1 }} numberOfLines={1}>
+          {plats.map((p) => channels[p]).join(' · ')}
+        </Text>
+        <Pressable onPress={() => setEvOnly(!evOnly)} hitSlop={6} style={{ paddingHorizontal: 8, height: 26, borderRadius: 6, justifyContent: 'center', backgroundColor: evOnly ? '#f59e0b' : '#26262c' }}>
+          <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Sadece etkinlik</Text>
+        </Pressable>
+        <Pressable onPress={() => setSize((v) => Math.max(11, v - 1))} hitSlop={6} style={{ paddingHorizontal: 8, height: 26, borderRadius: 6, justifyContent: 'center', backgroundColor: '#26262c' }}>
+          <Text style={{ color: '#fff', fontSize: 12 }}>A–</Text>
+        </Pressable>
+        <Pressable onPress={() => setSize((v) => Math.min(22, v + 1))} hitSlop={6} style={{ paddingHorizontal: 8, height: 26, borderRadius: 6, justifyContent: 'center', backgroundColor: '#26262c' }}>
+          <Text style={{ color: '#fff', fontSize: 12 }}>A+</Text>
+        </Pressable>
+      </View>
+      {!plats.length ? (
+        <Text style={{ color: '#aaa', padding: 14 }}>Chat için önce Twitch / Kick hesabına giriş yap ya da chat ekranında kanalını aç.</Text>
+      ) : (
+        <FlatList
+          inverted
+          data={shown}
+          keyExtractor={(m) => m.id}
+          contentContainerStyle={{ paddingHorizontal: 10, paddingVertical: 6 }}
+          ListEmptyComponent={<Text style={{ color: '#777', paddingVertical: 10, transform: [{ scaleY: -1 }] }}>{evOnly ? 'Henüz etkinlik yok' : 'Mesajlar burada görünecek…'}</Text>}
+          renderItem={({ item: m }) => (
+            <View style={[{ flexDirection: 'row', gap: 6, paddingVertical: 3 }, m.kind === 'ev' && { backgroundColor: 'rgba(245,158,11,.22)', borderRadius: 6, paddingHorizontal: 6, marginVertical: 2 }]}>
+              <Logo k={m.p} size={Math.round(size * 1.1)} style={{ marginTop: 2 }} />
+              <Text style={{ color: '#efeff1', fontSize: size, flex: 1, lineHeight: Math.round(size * 1.35) }}>
+                {m.kind === 'msg' ? (
+                  <>
+                    <Text style={{ fontWeight: '700', color: cleanColor(m.color) || (m.p === 'twitch' ? '#bf94ff' : '#53fc18') }}>{m.user}</Text>
+                    {'  '}
+                    {m.text}
+                  </>
+                ) : (
+                  <>
+                    <Text style={{ fontWeight: '700' }}>{m.user}</Text> {m.text}
+                  </>
+                )}
+              </Text>
+            </View>
+          )}
+        />
+      )}
+    </View>
   );
 }
 
