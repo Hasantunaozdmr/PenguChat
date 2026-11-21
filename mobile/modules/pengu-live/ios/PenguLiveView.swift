@@ -141,6 +141,9 @@ final class PenguLiveView: ExpoView {
     try? audio.setCategory(.playAndRecord, mode: .videoRecording, options: [.defaultToSpeaker, .allowBluetooth])
     try? audio.setActive(true)
 
+    // Görüntü birleştirme ekran kartında (GPU): işlemci ile birleştirme, telefon dönerken eski boyuttaki
+    // kareyi yeni ekrana kopyalayıp çöküyordu (TestFlight çökme raporu: ScreenRendererByCPU.draw)
+    await useGPURenderer()
     var vs = await mixer.videoMixerSettings
     vs.mode = .offscreen // logo / resim / ikinci kamera için ekran birleştirme
     await mixer.setVideoMixerSettings(vs)
@@ -239,6 +242,15 @@ final class PenguLiveView: ExpoView {
       v.videoSize = CGSize(width: w, height: h)
       try? await st.setVideoSettings(v)
     }
+  }
+
+  @ScreenActor
+  private func enableGPU() async {
+    await mixer.screen.isGPURendererEnabled = true
+  }
+
+  private func useGPURenderer() async {
+    await enableGPU()
   }
 
   @ScreenActor
