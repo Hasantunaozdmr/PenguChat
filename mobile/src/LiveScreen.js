@@ -659,6 +659,7 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true, cha
 // 💬 Yayın ekranındaki chat: görünmez Twitch / Kick chat sayfalarından mesajlar ve etkinlikler.
 // Sadece yayıncının ekranında görünür, yayına gitmez.
 const CHAT_MAX = 150;
+const HIDDEN_WV = { position: 'absolute', left: 0, top: 0, width: 1, height: 1, opacity: 0, flex: 0 };
 function ChatPanel({ plats, channels, userAgent, style, liveChat }) {
   const [list, setList] = useState([]);
   const [size, setSize] = useState(15);
@@ -703,7 +704,8 @@ function ChatPanel({ plats, channels, userAgent, style, liveChat }) {
         <WebView
           key={p + channels[p]}
           source={{ uri: PLATFORMS[p].chatUrl(String(channels[p]).toLowerCase()) }}
-          style={{ width: 1, height: 1, opacity: 0, position: 'absolute' }}
+          style={HIDDEN_WV}
+          containerStyle={HIDDEN_WV} // görünmez sayfa yer kaplamasın (sarmalayıcısı da)
           userAgent={userAgent}
           sharedCookiesEnabled
           thirdPartyCookiesEnabled
@@ -885,7 +887,8 @@ function InfoSheet({ C, ins, platform, setPlatform, userAgent, onClose, onWeb })
         key={platform}
         ref={view}
         source={{ uri: INFO_URL[platform] }}
-        style={{ width: 1, height: 1, opacity: 0, position: 'absolute' }}
+        style={HIDDEN_WV}
+          containerStyle={HIDDEN_WV} // görünmez sayfa yer kaplamasın (sarmalayıcısı da)
         userAgent={userAgent}
         sharedCookiesEnabled
         thirdPartyCookiesEnabled
