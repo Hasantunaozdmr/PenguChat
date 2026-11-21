@@ -52,7 +52,7 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true }) {
   // iPhone: yayın ekranı tam ekran açılır; üstteki saat / çentik ve alttaki çizgiyle çakışmasın
   const safe = useSafeAreaInsets();
   const ins = Platform.OS === 'ios' ? safe : { top: 0, bottom: 0, left: 0, right: 0 };
-  const [keys, setKeys] = useState({ twitch: '', kickUrl: '', kick: '', useTwitch: true, useKick: true, via: '', restreamUrl: RESTREAM_INGEST, restreamKey: '', customUrl: '', customKey: '' });
+  const [keys, setKeys] = useState({ twitch: '', kickUrl: '', kick: '', useTwitch: true, useKick: true, via: '', restreamUrl: RESTREAM_INGEST, restreamKey: '', customUrl: '', customKey: '', customFor: 'kick' });
   const [quality, setQuality] = useState('mid');
   const [kbps, setKbps] = useState(0); // elle bitrate (0 = kaliteye göre)
   const [kbpsText, setKbpsText] = useState('');
@@ -277,7 +277,7 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true }) {
   const stxt = { color: '#fff', fontWeight: '700', fontSize: 14 };
   // Ekrandaki durum yazıları: Restream / özel RTMP'de tek çıkış (1. yuva) kullanılır
   const platforms = keys.via ? ['twitch'] : ['twitch', 'kick'].filter((p) => (p === 'twitch' ? keys.useTwitch && keys.twitch : keys.useKick && keys.kick && keys.kickUrl));
-  const outLabel = (p) => (keys.via ? VIA[keys.via] : LABEL[p]);
+  const outLabel = (p) => (keys.via === 'custom' ? `${VIA.custom} → ${LABEL[keys.customFor || 'kick']}` : keys.via ? VIA[keys.via] : LABEL[p]);
   const anyLive = platforms.some((p) => status[p] === 'live');
 
   return (
@@ -417,7 +417,7 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true }) {
           ) : (
             <Pressable style={[btn('#9146ff'), { paddingHorizontal: 22 }]} onPress={() => start()}><Text style={txt}>● Yayına başla</Text></Pressable>
           )}
-          <Pressable style={btn('rgba(0,0,0,.6)')} onPress={() => { setEditWeb(false); setEdit(keys.useTwitch || !keys.useKick ? 'twitch' : 'kick'); }}>
+          <Pressable style={btn('rgba(0,0,0,.6)')} onPress={() => { setEditWeb(false); setEdit(keys.via === 'custom' ? keys.customFor || 'kick' : keys.useTwitch || !keys.useKick ? 'twitch' : 'kick'); }}>
             <Text style={txt}>✏️</Text>
           </Pressable>
           <Pressable style={btn(camOv?.on ? '#0e8f8a' : 'rgba(0,0,0,.6)')} onPress={toggleCam}>
@@ -540,9 +540,21 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true }) {
               <Toggle C={C} on={keys.via === 'custom'} label="🖥️ Özel RTMP (PC / OBS / kendi sunucun)" onPress={() => saveKeys({ ...keys, via: keys.via === 'custom' ? '' : 'custom' })} />
               {keys.via === 'custom' && (
                 <>
+                  <Text style={{ color: C.muted, fontSize: 12 }}>Bu yayın hangi platformda açılıyor?</Text>
+                  <View style={{ flexDirection: 'row', gap: 6 }}>
+                    {['kick', 'twitch'].map((p) => {
+                      const on = (keys.customFor || 'kick') === p;
+                      const col = p === 'twitch' ? '#9146ff' : '#16a34a';
+                      return (
+                        <Pressable key={p} onPress={() => saveKeys({ ...keys, customFor: p })} style={{ paddingHorizontal: 16, height: 36, borderRadius: 8, justifyContent: 'center', borderWidth: 1, borderColor: on ? col : C.border, backgroundColor: on ? col : C.input }}>
+                          <Text style={{ color: on ? '#fff' : C.text, fontWeight: '700' }}>{LABEL[p]}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
                   <Field C={C} value={keys.customUrl || ''} onChange={(v) => saveKeys({ ...keys, customUrl: v.trim() })} placeholder="rtmp://… ya da rtmps://… adresi" />
                   <Field C={C} value={keys.customKey || ''} onChange={(v) => saveKeys({ ...keys, customKey: v.trim() })} placeholder="Anahtar (varsa)" secure />
-                  <Text style={{ color: C.muted, fontSize: 11 }}>PC'deki yayın programının (OBS vb.) ya da sunucunun verdiği RTMP adresi. Anahtar adresin içindeyse anahtar kutusunu boş bırak. Açıkken yukarıdaki Twitch / Kick kullanılmaz.</Text>
+                  <Text style={{ color: C.muted, fontSize: 11 }}>PC'deki yayın programının (OBS vb.) ya da sunucunun verdiği RTMP adresi. Anahtar adresin içindeyse anahtar kutusunu boş bırak. Seçtiğin platform ekranda yazar ve ✏️ Başlık / Kategori onu açar. Açıkken yukarıdaki Twitch / Kick kutuları kullanılmaz.</Text>
                 </>
               )}
 
