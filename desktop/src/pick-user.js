@@ -169,19 +169,36 @@
     hiddenBox.__penguHidden = false;
     hiddenBox = null;
   }
+  // Okuma modu (✏️ kapalı): mesajlara daha çok yer kalsın diye Twitch'in sohbet başlığı ve
+  // abone hedefi / öne çıkanlar bandı da gizlenir (✏️ açılınca geri gelir)
+  const RO_CSS = '.pengu-ro .stream-chat-header,.pengu-ro [class*="community-highlight-stack"]{display:none!important}';
+  function readOnlyLook(on) {
+    if (!document.getElementById('pengu-ro-css') && document.head) {
+      const st = document.createElement('style');
+      st.id = 'pengu-ro-css';
+      st.textContent = RO_CSS;
+      document.head.appendChild(st);
+    }
+    document.documentElement.classList.toggle('pengu-ro', on);
+  }
   function applyComposer() {
+    readOnlyLook(!composerShown);
     if (composerShown || !loggedIn()) return restoreComposer();
     if (hiddenBox && hiddenBox.isConnected && hiddenBox.__penguHidden) return;
     hiddenBox = null;
     const input = findInput();
     if (!input) return;
-    // Mesaj kutusunu ve gönder düğmesini içeren alt şeridi bul
+    // Mesaj kutusunu ve gönder düğmesini içeren alt şeridi bul.
+    // Twitch: kutu + altındaki puan / ayar / "Sohbet" satırı birlikte (.chat-input)
     let box = input;
-    for (let el = input.parentElement, i = 0; el && el !== document.body && i < 8; el = el.parentElement, i++) {
-      const r = el.getBoundingClientRect();
-      if (r.height > 220) break;
-      box = el;
-    }
+    const tw = isTwitch && input.closest('.chat-input');
+    if (tw && tw.getBoundingClientRect().height < 320) box = tw;
+    else
+      for (let el = input.parentElement, i = 0; el && el !== document.body && i < 8; el = el.parentElement, i++) {
+        const r = el.getBoundingClientRect();
+        if (r.height > 220) break;
+        box = el;
+      }
     box.__penguHidden = true;
     hiddenBox = box;
     box.style.setProperty('position', 'fixed', 'important');
