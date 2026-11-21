@@ -6,7 +6,7 @@
 //   Donate sayfasının abone / bağış sesleri de yayına karışır (🔊 / 🔇).
 // Yayın anahtarları ve donate linkleri sadece bu telefonda saklanır; sadece Twitch'e / Kick'e / donate sitesine gider.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Linking, Modal, PanResponder, PermissionsAndroid, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Alert, Image, Linking, Modal, PanResponder, PermissionsAndroid, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { WebView } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -32,7 +32,10 @@ const proAlert = () => Alert.alert('⭐ PenguLive Pro', PRO_TEXT);
 const TWITCH_INGEST = 'rtmp://live.twitch.tv/app/';
 const RESTREAM_INGEST = 'rtmp://live.restream.io/live';
 // Tek çıkışlı yollar: Restream (Twitch / Kick'e kendisi dağıtır) ya da özel RTMP (PC'deki OBS, kendi sunucun…)
-const VIA = { restream: '🔁 Restream', custom: '🖥️ Özel RTMP' };
+const VIA = { restream: 'Restream', custom: '🖥️ Özel RTMP' };
+// Gerçek platform logoları
+const LOGO = { twitch: require('../assets/logo-twitch.png'), kick: require('../assets/logo-kick.png'), restream: require('../assets/logo-restream.png') };
+const Logo = ({ k, size = 16, style }) => <Image source={LOGO[k]} style={[{ width: size, height: size, borderRadius: size / 4 }, style]} />;
 const QUALITY = { low: 'Düşük (480p)', mid: 'Orta (720p)', high: 'Yüksek (1080p)' };
 const LABEL = { twitch: 'Twitch', kick: 'Kick' };
 // ✏️ Başlık / kategori: Twitch'in ve Kick'in kendi "yayın bilgisi" sayfaları (uygulamadaki girişle açılır)
@@ -281,6 +284,9 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true }) {
   const RS_FOR = { both: 'Twitch + Kick', twitch: 'Twitch', kick: 'Kick' };
   const outLabel = (p) =>
     keys.via === 'custom' ? `${VIA.custom} → ${LABEL[keys.customFor || 'kick']}` : keys.via === 'restream' ? `${VIA.restream} → ${RS_FOR[keys.restreamFor || 'both']}` : LABEL[p];
+  // Durum yazısının başındaki logolar
+  const outLogos = (p) =>
+    keys.via === 'custom' ? [keys.customFor || 'kick'] : keys.via === 'restream' ? ['restream'] : [p];
   // ✏️ Başlık / Kategori hangi platformla açılsın
   const editFirst = () =>
     keys.via === 'custom' ? keys.customFor || 'kick' : keys.via === 'restream' ? (keys.restreamFor === 'kick' ? 'kick' : 'twitch') : keys.useTwitch || !keys.useKick ? 'twitch' : 'kick';
@@ -333,9 +339,10 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true }) {
           {running && (
             <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
               {platforms.map((p) => (
-                <Text key={p} style={[pill, { color: '#fff', backgroundColor: status[p] === 'live' ? (keys.via ? '#0e7490' : p === 'twitch' ? '#9146ff' : '#16a34a') : 'rgba(0,0,0,.6)' }]}>
-                  {outLabel(p)} · {STATE[status[p]] || status[p]} · 📶 {mbps(stats[p])}
-                </Text>
+                <View key={p} style={[pill, { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: status[p] === 'live' ? (keys.via ? '#0e7490' : p === 'twitch' ? '#9146ff' : '#16a34a') : 'rgba(0,0,0,.6)' }]}>
+                  {outLogos(p).map((l) => <Logo key={l} k={l} />)}
+                  <Text style={{ color: '#fff' }}>{outLabel(p)} · {STATE[status[p]] || status[p]} · 📶 {mbps(stats[p])}</Text>
+                </View>
               ))}
             </View>
           )}
@@ -480,7 +487,7 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true }) {
               <Text style={{ color: C.text, fontWeight: '700', fontSize: 15, marginRight: 4 }}>✏️ Başlık / Kategori</Text>
               {['twitch', 'kick'].map((p) => (
                 <Pressable key={p} onPress={() => setEdit(p)} style={{ paddingHorizontal: 12, height: 34, borderRadius: 8, justifyContent: 'center', borderWidth: 1, borderColor: edit === p ? (p === 'twitch' ? '#9146ff' : '#16a34a') : C.border, backgroundColor: edit === p ? (p === 'twitch' ? '#9146ff' : '#16a34a') : C.input }}>
-                  <Text style={{ color: edit === p ? '#fff' : C.text, fontWeight: '700' }}>{LABEL[p]}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><Logo k={p} /><Text style={{ color: edit === p ? '#fff' : C.text, fontWeight: '700' }}>{LABEL[p]}</Text></View>
                 </Pressable>
               ))}
               <View style={{ flex: 1 }} />
@@ -522,27 +529,27 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true }) {
               <Text style={{ color: C.muted, fontSize: 12 }}>Anahtarlar sadece bu telefonda saklanır. Kimseyle paylaşma.</Text>
 
               <View style={{ opacity: keys.via ? 0.4 : 1, gap: 8 }} pointerEvents={keys.via ? 'none' : 'auto'}>
-              <Toggle C={C} on={!keys.via && keys.useTwitch} label="Twitch'e yayın" onPress={() => saveKeys({ ...keys, useTwitch: !keys.useTwitch })} />
+              <Toggle C={C} on={!keys.via && keys.useTwitch} logo="twitch" label="Twitch'e yayın" onPress={() => saveKeys({ ...keys, useTwitch: !keys.useTwitch })} />
               <Field C={C} value={keys.twitch} onChange={(v) => saveKeys({ ...keys, twitch: v.trim() })} placeholder="Twitch yayın anahtarı (live_…)" secure />
               <Text style={{ color: C.muted, fontSize: 11 }}>Twitch → Creator Dashboard → Ayarlar → Yayın → Birincil yayın anahtarı</Text>
 
-              <Toggle C={C} on={!keys.via && keys.useKick} label="Kick'e yayın" onPress={() => saveKeys({ ...keys, useKick: !keys.useKick })} />
+              <Toggle C={C} on={!keys.via && keys.useKick} logo="kick" label="Kick'e yayın" onPress={() => saveKeys({ ...keys, useKick: !keys.useKick })} />
               <Field C={C} value={keys.kickUrl} onChange={(v) => saveKeys({ ...keys, kickUrl: v.trim() })} placeholder="Kick Stream URL (rtmps://…)" />
               <Field C={C} value={keys.kick} onChange={(v) => saveKeys({ ...keys, kick: v.trim() })} placeholder="Kick Stream Key" secure />
               <Text style={{ color: C.muted, fontSize: 11 }}>Kick → Creator Dashboard → Ayarlar → Yayın anahtarı: "Stream URL" ve "Stream Key"</Text>
               </View>
 
               {/* 🔁 Restream: telefon tek yayın gönderir, Restream Twitch / Kick'e kendisi dağıtır (internet yarıya iner) */}
-              <Toggle C={C} on={keys.via === 'restream'} label={`🔁 Restream üzerinden (tek yayın)${unlocked ? '' : ' ⭐'}`} onPress={() => (!unlocked && keys.via !== 'restream' ? proAlert() : saveKeys({ ...keys, via: keys.via === 'restream' ? '' : 'restream' }))} />
+              <Toggle C={C} on={keys.via === 'restream'} logo="restream" label={`Restream üzerinden (tek yayın)${unlocked ? '' : ' ⭐'}`} onPress={() => (!unlocked && keys.via !== 'restream' ? proAlert() : saveKeys({ ...keys, via: keys.via === 'restream' ? '' : 'restream' }))} />
               {keys.via === 'restream' && (
                 <>
                   <Text style={{ color: C.muted, fontSize: 12 }}>Restream yayını nereye dağıtıyor?</Text>
                   <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
-                    {[['both', 'Twitch + Kick', '#0e7490'], ['kick', 'Kick', '#16a34a'], ['twitch', 'Twitch', '#9146ff']].map(([v, l, col]) => {
+                    {[['both', 'Twitch + Kick', '#0e7490', ['twitch', 'kick']], ['kick', 'Kick', '#16a34a', ['kick']], ['twitch', 'Twitch', '#9146ff', ['twitch']]].map(([v, l, col, lg]) => {
                       const on = (keys.restreamFor || 'both') === v;
                       return (
                         <Pressable key={v} onPress={() => saveKeys({ ...keys, restreamFor: v })} style={{ paddingHorizontal: 14, height: 36, borderRadius: 8, justifyContent: 'center', borderWidth: 1, borderColor: on ? col : C.border, backgroundColor: on ? col : C.input }}>
-                          <Text style={{ color: on ? '#fff' : C.text, fontWeight: '700' }}>{l}</Text>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>{lg.map((x) => <Logo key={x} k={x} />)}<Text style={{ color: on ? '#fff' : C.text, fontWeight: '700' }}>{l}</Text></View>
                         </Pressable>
                       );
                     })}
@@ -564,7 +571,7 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true }) {
                       const col = p === 'twitch' ? '#9146ff' : '#16a34a';
                       return (
                         <Pressable key={p} onPress={() => saveKeys({ ...keys, customFor: p })} style={{ paddingHorizontal: 16, height: 36, borderRadius: 8, justifyContent: 'center', borderWidth: 1, borderColor: on ? col : C.border, backgroundColor: on ? col : C.input }}>
-                          <Text style={{ color: on ? '#fff' : C.text, fontWeight: '700' }}>{LABEL[p]}</Text>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><Logo k={p} /><Text style={{ color: on ? '#fff' : C.text, fontWeight: '700' }}>{LABEL[p]}</Text></View>
                         </Pressable>
                       );
                     })}
@@ -758,7 +765,7 @@ function InfoSheet({ C, ins, platform, setPlatform, userAgent, onClose, onWeb })
           <Text style={{ color: C.text, fontSize: 16, fontWeight: '700', flex: 1 }}>✏️ Başlık / Kategori</Text>
           {['twitch', 'kick'].map((p) => (
             <Pressable key={p} onPress={() => setPlatform(p)} style={{ paddingHorizontal: 12, height: 32, borderRadius: 8, justifyContent: 'center', borderWidth: 1, borderColor: platform === p ? (p === 'twitch' ? '#9146ff' : '#16a34a') : C.border, backgroundColor: platform === p ? (p === 'twitch' ? '#9146ff' : '#16a34a') : C.input }}>
-              <Text style={{ color: platform === p ? '#fff' : C.text, fontWeight: '700' }}>{LABEL[p]}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><Logo k={p} /><Text style={{ color: platform === p ? '#fff' : C.text, fontWeight: '700' }}>{LABEL[p]}</Text></View>
             </Pressable>
           ))}
         </View>
@@ -859,12 +866,13 @@ function Field({ C, value, onChange, placeholder, secure }) {
   );
 }
 
-function Toggle({ C, on, label, onPress }) {
+function Toggle({ C, on, label, logo, onPress }) {
   return (
     <Pressable onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
       <View style={{ width: 22, height: 22, borderRadius: 5, borderWidth: 2, borderColor: on ? '#9146ff' : C.border, backgroundColor: on ? '#9146ff' : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
         {on && <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>✓</Text>}
       </View>
+      {!!logo && <Logo k={logo} size={20} />}
       <Text style={{ color: C.text, fontWeight: '700' }}>{label}</Text>
     </Pressable>
   );

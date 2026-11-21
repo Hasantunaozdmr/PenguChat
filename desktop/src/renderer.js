@@ -282,9 +282,10 @@
   const feedEl = $('#feed'), feedList = $('#feedList'), feedBadge = $('#feedBadge');
   let feedUnseen = 0;
   const PLAT_HTML = {
-    twitch: '<svg viewBox="0 0 24 24"><path d="M4.3 1 2 5.6v15.2h5.3V24h3l3.1-3.2h4.6l6-6V1H4.3Zm17 12.6-3.5 3.5h-5.3l-3 3v-3H5.2V3.1h16.1v10.5ZM17.4 6.5h-2.1v6.1h2.1V6.5Zm-5.6 0H9.7v6.1h2.1V6.5Z"/></svg>',
-    kick: '<b>K</b>',
-    streamlabs: '<b>SL</b>',
+    // Gerçek logolar (img/logo-*.png)
+    twitch: '<img src="img/logo-twitch.png" alt="" />',
+    kick: '<img src="img/logo-kick.png" alt="" />',
+    streamlabs: '<img src="img/logo-streamlabs.png" alt="" />',
   };
   const PLAT_NAME = { twitch: 'Twitch', kick: 'Kick', streamlabs: 'Streamlabs' };
   const hhmm = (t) => new Date(t).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });

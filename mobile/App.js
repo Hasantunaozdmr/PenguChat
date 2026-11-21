@@ -29,7 +29,8 @@ const EV = require('./src/events');
 const { PRO_TEXT } = require('./src/LiveScreen');
 const EV_KEY = 'penguchat:events';
 const SL_KEY = 'penguchat:slToken';
-const PLAT_IMG = { twitch: require('./assets/ev-twitch.png'), kick: require('./assets/ev-kick.png'), streamlabs: require('./assets/ev-streamlabs.png') };
+// Gerçek platform logoları
+const PLAT_IMG = { twitch: require('./assets/logo-twitch.png'), kick: require('./assets/logo-kick.png'), streamlabs: require('./assets/logo-streamlabs.png') };
 import { OWNER_ACCOUNTS, logError, logModAction, reportRpc } from './src/report';
 
 // Cihaz: işletim sistemi + model (hata kaydı ve sorun bildiriminde görünür). Örn: "android 14 · SM-A546B"
@@ -708,8 +709,8 @@ function PenguChat() {
       {/* ---- Üst çubuk ---- */}
       <View style={[styles.bar, collapsed && { display: 'none' }]}>
         <View style={styles.linkBox}>
-          <View style={[styles.dot, { backgroundColor: PLATFORMS.twitch.color }]} />
-          <View style={[styles.dot, { backgroundColor: PLATFORMS.kick.color, marginLeft: -3 }]} />
+          <Image source={PLAT_IMG.twitch} style={styles.platLogo} />
+          <Image source={PLAT_IMG.kick} style={[styles.platLogo, { marginLeft: 3 }]} />
           <TextInput
             style={styles.linkInput}
             value={link}
@@ -1189,7 +1190,7 @@ function viewerText(n) {
 function PaneHeader({ k, channel, viewers, cat, compose, onAction }) {
   return (
     <View style={[styles.paneHead, { borderBottomColor: PLATFORMS[k].color }]}>
-      <View style={[styles.dot, { backgroundColor: PLATFORMS[k].color }]} />
+      <Image source={PLAT_IMG[k]} style={styles.platLogo} />
       <Text style={styles.paneTitle}>{PLATFORMS[k].label}</Text>
       <View style={{ flexShrink: 1 }}>
         <Text style={styles.paneChan} numberOfLines={1}>
@@ -1446,6 +1447,7 @@ function makeStyles() {
   updateClose: { color: '#fff', fontSize: 16, paddingLeft: 12 },
   hint: { paddingHorizontal: 10, paddingVertical: 3, fontSize: 12, backgroundColor: C.panel },
   dot: { width: 8, height: 8, borderRadius: 4 },
+  platLogo: { width: 18, height: 18, borderRadius: 4 },
 
   tabBar: { flexDirection: 'row', backgroundColor: C.panel2 },
   tab: {

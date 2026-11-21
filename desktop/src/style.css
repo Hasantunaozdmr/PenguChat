@@ -76,6 +76,9 @@ body { display: flex; flex-direction: column; }
 .hint.err { color: #ff6b6b; }
 
 .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+/* Gerçek platform logoları */
+.plat-logo { width: 16px; height: 16px; border-radius: 4px; flex: none; vertical-align: -3px; }
+.btn.chip .plat-logo { margin-right: 5px; }
 .twitch .dot, [data-platform="twitch"] .dot { background: var(--twitch); }
 .kick .dot, [data-platform="kick"] .dot { background: var(--kick); }
 
@@ -448,6 +451,7 @@ body.top-collapsed .toolbar, body.top-collapsed .actionbar, body.top-collapsed .
 @keyframes evNew { from { background: rgba(251,191,36,.35); } to { background: transparent; } }
 .ev .plat { flex: 0 0 18px; width: 18px; height: 18px; border-radius: 4px; display: grid; place-items: center; margin-top: 1px; }
 .ev .plat svg { width: 12px; height: 12px; fill: #fff; }
+.ev .plat img { width: 18px; height: 18px; border-radius: 4px; display: block; }
 .ev .plat.twitch { background: #9146ff; }
 .ev .plat.kick { background: #53fc18; }
 .ev .plat.kick b { color: #000; font: 900 12px/1 Arial, sans-serif; }
