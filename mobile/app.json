@@ -14,7 +14,8 @@
         "NSMicrophoneUsageDescription": "Yayında sesinin duyulması için mikrofon gerekiyor.",
         "NSPhotoLibraryUsageDescription": "Yayına kendi logonu ya da resmini eklemek için galeriye erişim gerekiyor.",
         "ITSAppUsesNonExemptEncryption": false
-      }
+      },
+      "icon": "./assets/icon-ios.png"
     },
     "android": {
       "adaptiveIcon": {
