@@ -30,6 +30,9 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 export const PRO_TEXT = 'Bu özellik PenguLive Pro\'da: Twitch + Kick aynı anda yayın, logoyu kaldırma, kendi logo / resim, donate bar ve uyarılar, dual cam ve 1080p.\n\nPro için uygulamanın yöneticisiyle iletişime geç.';
 const proAlert = () => Alert.alert('⭐ PenguLive Pro', PRO_TEXT);
 const TWITCH_INGEST = 'rtmp://live.twitch.tv/app/';
+const RESTREAM_INGEST = 'rtmp://live.restream.io/live';
+// Tek çıkışlı yollar: Restream (Twitch / Kick'e kendisi dağıtır) ya da özel RTMP (PC'deki OBS, kendi sunucun…)
+const VIA = { restream: '🔁 Restream', custom: '🖥️ Özel RTMP' };
 const QUALITY = { low: 'Düşük (480p)', mid: 'Orta (720p)', high: 'Yüksek (1080p)' };
 const LABEL = { twitch: 'Twitch', kick: 'Kick' };
 // ✏️ Başlık / kategori: Twitch'in ve Kick'in kendi "yayın bilgisi" sayfaları (uygulamadaki girişle açılır)
@@ -49,7 +52,7 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true }) {
   // iPhone: yayın ekranı tam ekran açılır; üstteki saat / çentik ve alttaki çizgiyle çakışmasın
   const safe = useSafeAreaInsets();
   const ins = Platform.OS === 'ios' ? safe : { top: 0, bottom: 0, left: 0, right: 0 };
-  const [keys, setKeys] = useState({ twitch: '', kickUrl: '', kick: '', useTwitch: true, useKick: true });
+  const [keys, setKeys] = useState({ twitch: '', kickUrl: '', kick: '', useTwitch: true, useKick: true, via: '', restreamUrl: RESTREAM_INGEST, restreamKey: '', customUrl: '', customKey: '' });
   const [quality, setQuality] = useState('mid');
   const [kbps, setKbps] = useState(0); // elle bitrate (0 = kaliteye göre)
   const [kbpsText, setKbpsText] = useState('');
@@ -79,7 +82,7 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true }) {
       setOvLoaded(true);
     }).catch(() => setOvLoaded(true));
     AsyncStorage.multiGet([KEY_STORE, SET_STORE]).then((r) => {
-      try { const k = JSON.parse(r[0][1] || '{}'); setKeys((o) => ({ ...o, ...k })); if (!k.twitch && !k.kick) setSetup(true); } catch { setSetup(true); }
+      try { const k = JSON.parse(r[0][1] || '{}'); setKeys((o) => ({ ...o, ...k })); if (!k.twitch && !k.kick && !k.restreamKey && !k.customUrl) setSetup(true); } catch { setSetup(true); }
       try {
         const st = JSON.parse(r[1][1] || '{}');
         if (QUALITY[st.quality]) setQuality(st.quality);
@@ -188,10 +191,17 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true }) {
     saveQuality(quality, v);
   };
 
-  const targets = () => [
-    keys.useTwitch && keys.twitch.trim() ? TWITCH_INGEST + keys.twitch.trim() : '',
-    keys.useKick ? joinUrl(keys.kickUrl.trim(), keys.kick.trim()) : '',
-  ];
+  const targets = () => {
+    if (keys.via === 'restream') return [joinUrl((keys.restreamUrl || RESTREAM_INGEST).trim(), (keys.restreamKey || '').trim()), ''];
+    if (keys.via === 'custom') {
+      const u = (keys.customUrl || '').trim(), k = (keys.customKey || '').trim();
+      return [/^rtmps?:\/\//i.test(u) ? (k ? joinUrl(u, k) : u) : '', ''];
+    }
+    return [
+      keys.useTwitch && keys.twitch.trim() ? TWITCH_INGEST + keys.twitch.trim() : '',
+      keys.useKick ? joinUrl(keys.kickUrl.trim(), keys.kick.trim()) : '',
+    ];
+  };
   const start = async (only) => {
     let t = targets();
     if (!t[0] && !t[1]) { setSetup(true); return; }
@@ -221,7 +231,7 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true }) {
     setStatus({ twitch: 'idle', kick: 'idle' });
   };
   const askStop = () =>
-    Alert.alert('Yayını bitir', 'Twitch ve Kick yayını kapatılsın mı?', [
+    Alert.alert('Yayını bitir', 'Yayın kapatılsın mı?', [
       { text: 'Vazgeç', style: 'cancel' },
       { text: 'Bitir', style: 'destructive', onPress: stop },
     ]);
@@ -265,7 +275,9 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true }) {
   const txt = { color: '#fff', fontWeight: '700', fontSize: 15 };
   const sbtn = (bg) => ({ paddingHorizontal: 12, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', backgroundColor: bg });
   const stxt = { color: '#fff', fontWeight: '700', fontSize: 14 };
-  const platforms = ['twitch', 'kick'].filter((p) => (p === 'twitch' ? keys.useTwitch && keys.twitch : keys.useKick && keys.kick && keys.kickUrl));
+  // Ekrandaki durum yazıları: Restream / özel RTMP'de tek çıkış (1. yuva) kullanılır
+  const platforms = keys.via ? ['twitch'] : ['twitch', 'kick'].filter((p) => (p === 'twitch' ? keys.useTwitch && keys.twitch : keys.useKick && keys.kick && keys.kickUrl));
+  const outLabel = (p) => (keys.via ? VIA[keys.via] : LABEL[p]);
   const anyLive = platforms.some((p) => status[p] === 'live');
 
   return (
@@ -281,7 +293,7 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true }) {
             onStatus={(e) => {
               const { platform, state, message } = e.nativeEvent;
               setStatus((s) => ({ ...s, [platform]: state }));
-              if (state === 'error' && message) setError(`${LABEL[platform]}: ${message}`);
+              if (state === 'error' && message) setError(`${keys.via ? VIA[keys.via] : LABEL[platform]}: ${message}`);
             }}
             onStats={(e) => setStats(e.nativeEvent)}
             onNotice={(e) => {
@@ -315,8 +327,8 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true }) {
           {running && (
             <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
               {platforms.map((p) => (
-                <Text key={p} style={[pill, { color: '#fff', backgroundColor: status[p] === 'live' ? (p === 'twitch' ? '#9146ff' : '#16a34a') : 'rgba(0,0,0,.6)' }]}>
-                  {LABEL[p]} · {STATE[status[p]] || status[p]} · 📶 {mbps(stats[p])}
+                <Text key={p} style={[pill, { color: '#fff', backgroundColor: status[p] === 'live' ? (keys.via ? '#0e7490' : p === 'twitch' ? '#9146ff' : '#16a34a') : 'rgba(0,0,0,.6)' }]}>
+                  {outLabel(p)} · {STATE[status[p]] || status[p]} · 📶 {mbps(stats[p])}
                 </Text>
               ))}
             </View>
@@ -503,14 +515,36 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true }) {
               <Text style={{ color: C.text, fontSize: 16, fontWeight: '700' }}>📡 Yayın ayarları</Text>
               <Text style={{ color: C.muted, fontSize: 12 }}>Anahtarlar sadece bu telefonda saklanır. Kimseyle paylaşma.</Text>
 
-              <Toggle C={C} on={keys.useTwitch} label="Twitch'e yayın" onPress={() => saveKeys({ ...keys, useTwitch: !keys.useTwitch })} />
+              <View style={{ opacity: keys.via ? 0.4 : 1, gap: 8 }} pointerEvents={keys.via ? 'none' : 'auto'}>
+              <Toggle C={C} on={!keys.via && keys.useTwitch} label="Twitch'e yayın" onPress={() => saveKeys({ ...keys, useTwitch: !keys.useTwitch })} />
               <Field C={C} value={keys.twitch} onChange={(v) => saveKeys({ ...keys, twitch: v.trim() })} placeholder="Twitch yayın anahtarı (live_…)" secure />
               <Text style={{ color: C.muted, fontSize: 11 }}>Twitch → Creator Dashboard → Ayarlar → Yayın → Birincil yayın anahtarı</Text>
 
-              <Toggle C={C} on={keys.useKick} label="Kick'e yayın" onPress={() => saveKeys({ ...keys, useKick: !keys.useKick })} />
+              <Toggle C={C} on={!keys.via && keys.useKick} label="Kick'e yayın" onPress={() => saveKeys({ ...keys, useKick: !keys.useKick })} />
               <Field C={C} value={keys.kickUrl} onChange={(v) => saveKeys({ ...keys, kickUrl: v.trim() })} placeholder="Kick Stream URL (rtmps://…)" />
               <Field C={C} value={keys.kick} onChange={(v) => saveKeys({ ...keys, kick: v.trim() })} placeholder="Kick Stream Key" secure />
               <Text style={{ color: C.muted, fontSize: 11 }}>Kick → Creator Dashboard → Ayarlar → Yayın anahtarı: "Stream URL" ve "Stream Key"</Text>
+              </View>
+
+              {/* 🔁 Restream: telefon tek yayın gönderir, Restream Twitch / Kick'e kendisi dağıtır (internet yarıya iner) */}
+              <Toggle C={C} on={keys.via === 'restream'} label="🔁 Restream üzerinden (tek yayın)" onPress={() => saveKeys({ ...keys, via: keys.via === 'restream' ? '' : 'restream' })} />
+              {keys.via === 'restream' && (
+                <>
+                  <Field C={C} value={keys.restreamUrl || RESTREAM_INGEST} onChange={(v) => saveKeys({ ...keys, restreamUrl: v.trim() })} placeholder={RESTREAM_INGEST} />
+                  <Field C={C} value={keys.restreamKey || ''} onChange={(v) => saveKeys({ ...keys, restreamKey: v.trim() })} placeholder="Restream yayın anahtarı (Stream Key)" secure />
+                  <Text style={{ color: C.muted, fontSize: 11 }}>Restream → Kaynak / OBS ayarları → RTMP URL ve Stream Key. Telefon tek yayın gönderir, Twitch ve Kick'e Restream dağıtır; internet yarıya iner. Açıkken yukarıdaki Twitch / Kick kullanılmaz.</Text>
+                </>
+              )}
+
+              {/* 🖥️ Özel RTMP: PC'deki OBS'e, kendi sunucuna ya da başka bir servise */}
+              <Toggle C={C} on={keys.via === 'custom'} label="🖥️ Özel RTMP (PC / OBS / kendi sunucun)" onPress={() => saveKeys({ ...keys, via: keys.via === 'custom' ? '' : 'custom' })} />
+              {keys.via === 'custom' && (
+                <>
+                  <Field C={C} value={keys.customUrl || ''} onChange={(v) => saveKeys({ ...keys, customUrl: v.trim() })} placeholder="rtmp://… ya da rtmps://… adresi" />
+                  <Field C={C} value={keys.customKey || ''} onChange={(v) => saveKeys({ ...keys, customKey: v.trim() })} placeholder="Anahtar (varsa)" secure />
+                  <Text style={{ color: C.muted, fontSize: 11 }}>PC'deki yayın programının (OBS vb.) ya da sunucunun verdiği RTMP adresi. Anahtar adresin içindeyse anahtar kutusunu boş bırak. Açıkken yukarıdaki Twitch / Kick kullanılmaz.</Text>
+                </>
+              )}
 
               <Text style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>Kalite (iki platforma birden gider; yayın sırasında değişmez)</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
@@ -547,7 +581,6 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true }) {
   );
 }
 
-// 🖼️ Sürüklenebilir kutu (bir ekran öğesinin yayındaki yeri)
 // ✏️ Başlık / kategori penceresi. Kaydetme, platformun kendi sitesinin kullandığı yolla, telefondaki
 // girişle yapılır (görünmez bir Twitch / Kick sayfasının içinden). Giriş bilgisi telefondan çıkmaz.
 const INFO_URL = { twitch: 'https://www.twitch.tv/robots.txt', kick: 'https://kick.com/robots.txt' };
@@ -740,6 +773,7 @@ function InfoSheet({ C, ins, platform, setPlatform, userAgent, onClose, onWeb })
   );
 }
 
+// 🖼️ Sürüklenebilir kutu (bir ekran öğesinin yayındaki yeri)
 function DragBox({ o, rect, hp, selected, onSelect, onMove }) {
   const cb = useRef(null);
   cb.current = { o, rect, hp, onSelect, onMove };
