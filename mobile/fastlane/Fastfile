@@ -1,0 +1,65 @@
+# 📲 iPhone → TestFlight (GitHub Actions'ta çalışır: .github/workflows/testflight.yml)
+# Gerçek bir "Apple Distribution" sertifikası ve App Store profiliyle imzalar, TestFlight'a yükler.
+# Anahtar bilgileri ortam değişkenlerinden gelir (ASC_KID, ASC_ISS, ASC_KEY_PATH, TEAM_ID); dosyada sır yok.
+default_platform(:ios)
+
+APP_ID = "com.dualchat.mobile"
+
+platform :ios do
+  lane :beta do
+    team = ENV.fetch("TEAM_ID")
+    api = app_store_connect_api_key(
+      key_id: ENV.fetch("ASC_KID"),
+      issuer_id: ENV.fetch("ASC_ISS"),
+      key_filepath: ENV.fetch("ASC_KEY_PATH")
+    )
+
+    # Her çalışmada yeni bir makine: önceki çalışmaların bıraktığı dağıtım sertifikalarını sil
+    # (Apple ekip başına sadece birkaç tane izin veriyor). Yayındaki / TestFlight'taki sürümleri etkilemez.
+    Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.from(hash: api)
+    Spaceship::ConnectAPI::Certificate.all(filter: { certificateType: "DISTRIBUTION,IOS_DISTRIBUTION" }).each do |c|
+      UI.message("Eski dağıtım sertifikası siliniyor: #{c.display_name || c.name} (#{c.id})")
+      c.delete!
+    end
+
+    create_keychain(name: "ci", password: "ci", default_keychain: true, unlock: true, timeout: 3600, lock_when_sleeps: false)
+    get_certificates(
+      api_key: api,
+      development: false,
+      keychain_path: File.expand_path("~/Library/Keychains/ci-db"),
+      keychain_password: "ci",
+      output_path: ENV.fetch("RUNNER_TEMP")
+    )
+    get_provisioning_profile(
+      api_key: api,
+      app_identifier: APP_ID,
+      force: true,
+      output_path: ENV.fetch("RUNNER_TEMP")
+    )
+    profile = lane_context[SharedValues::SIGH_NAME]
+
+    # Sadece uygulamanın kendisi elle imzalanır; içindeki kütüphaneler kopyalanırken aynı kimlikle imzalanır
+    update_code_signing_settings(
+      path: "ios/PenguLive.xcodeproj",
+      use_automatic_signing: false,
+      team_id: team,
+      code_sign_identity: "Apple Distribution",
+      profile_name: profile,
+      targets: ["PenguLive"],
+      build_configurations: ["Release"]
+    )
+
+    build_app(
+      workspace: "ios/PenguLive.xcworkspace",
+      scheme: "PenguLive",
+      configuration: "Release",
+      export_method: "app-store",
+      export_team_id: team,
+      export_options: { provisioningProfiles: { APP_ID => profile } },
+      output_directory: File.join(ENV.fetch("RUNNER_TEMP"), "out"),
+      buildlog_path: File.join(ENV.fetch("RUNNER_TEMP"), "buildlog")
+    )
+
+    upload_to_testflight(api_key: api, skip_waiting_for_build_processing: true)
+  end
+end
