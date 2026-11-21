@@ -711,8 +711,13 @@ final class PenguLiveView: ExpoView {
     // Tam piksel ve her zaman ekranın içinde (taşan görüntü yayını bozar)
     let width = max(2, min(sw, Int(Double(sw) * wPct / 100)))
     let height = max(2, min(sh, Int(Double(width) * o.aspect)))
-    let x = min(max(0, Int(Double(sw) * o.x / 100)), sw - width)
-    let y = min(max(0, Int(Double(sh) * o.y / 100)), sh - height)
+    var x = min(max(0, Int(Double(sw) * o.x / 100)), sw - width)
+    var y = min(max(0, Int(Double(sh) * o.y / 100)), sh - height)
+    // HaishinKit GPU çizicisi tam (0,0) konumunu ters çeviriyor (sol üst yerine sol alta çiziyor):
+    // tam köşeyi 1 piksel aşağı al
+    if x == 0 && y == 0 {
+      if height < sh { y = 1 } else if width < sw { x = 1 }
+    }
     let size = CGSize(width: width, height: height)
     if o.px != size {
       o.px = size

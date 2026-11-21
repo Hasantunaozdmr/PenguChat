@@ -697,11 +697,17 @@ function ChatPanel({ plats, channels, userAgent, style, liveChat }) {
     ks.forEach((k) => lc.start(k, (d) => onMsgRef.current(d)));
     return () => ks.forEach((k) => lc.stop(k));
   }, [sharedKey, liveChat]);
+  // ⚡ Görünmez chat sayfalarını 1,5 sn sonra aç: 💬 açılınca kamera görüntüsü takılmasın
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setReady(true), 1500);
+    return () => clearTimeout(t);
+  }, []);
   const shown = evOnly ? list.filter((m) => m.kind === 'ev') : list;
   const cleanColor = (c) => (/^#[0-9a-f]{6}$/i.test(c || '') ? c : null);
   return (
     <View style={[{ backgroundColor: '#0e0e10' }, style]}>
-      {own.map((p) => (
+      {ready && own.map((p) => (
         <WebView
           key={p + channels[p]}
           source={{ uri: PLATFORMS[p].chatUrl(String(channels[p]).toLowerCase()) }}
