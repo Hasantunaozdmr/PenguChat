@@ -100,7 +100,10 @@ final class PenguLiveView: ExpoView {
 
   override func layoutSubviews() {
     super.layoutSubviews()
-    preview.frame = bounds
+    // Ekran dönerken alan bir an çok küçülebilir: sıfır boyutlu görüntü çizilmesin (Metal çöker)
+    let ok = bounds.width >= 8 && bounds.height >= 8
+    preview.isHidden = !ok
+    if ok { preview.frame = bounds }
   }
 
   // Ekran açılınca kamerayı başlat, kapanınca her şeyi durdur

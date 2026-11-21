@@ -319,7 +319,7 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true, cha
     <Modal animationType="slide" onRequestClose={close} supportedOrientations={['portrait', 'landscape', 'landscape-left', 'landscape-right']}>
       <View style={{ flex: 1, backgroundColor: '#000' }} onLayout={(e) => setBox({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}>
         <View style={{ flex: 1, flexDirection: wide ? 'row' : 'column' }}>
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: split && wide ? 3 : 1, minHeight: 80, minWidth: 80 }}>
         {PenguLiveView ? (
           <PenguLiveView
             ref={ref}
@@ -349,7 +349,8 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true, cha
             plats={chatPlats}
             channels={chatChannels}
             userAgent={userAgent}
-            style={wide ? { width: chatW, paddingTop: ins.top, paddingRight: ins.right, paddingBottom: ins.bottom } : { height: chatH, paddingBottom: ins.bottom, paddingLeft: ins.left, paddingRight: ins.right }}
+            // Oranla (sabit piksel değil): dönerken eski ölçü kalsa bile kamera alanı hiç sıfıra inmesin
+            style={wide ? { flex: 2, paddingTop: ins.top, paddingRight: ins.right, paddingBottom: ins.bottom } : { flex: 1, paddingBottom: ins.bottom, paddingLeft: ins.left, paddingRight: ins.right }}
           />
         )}
         </View>
