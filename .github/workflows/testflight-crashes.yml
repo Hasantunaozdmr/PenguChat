@@ -1,0 +1,62 @@
+name: PenguLive - TestFlight çökme raporları
+
+# TestFlight'ta "Paylaş" denen çökme raporlarını App Store Connect'ten çeker ve özetini yazar
+# (hata türü + çöken iş parçacığı). Elle çalıştırılır.
+on:
+  workflow_dispatch:
+    inputs:
+      count:
+        description: "Kaç rapor"
+        default: "3"
+
+permissions:
+  contents: read
+
+jobs:
+  crashes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Raporları çek
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          APP_ID: "6837653168"
+          COUNT: ${{ github.event.inputs.count }}
+        run: |
+          sudo gem install jwt --no-document -q
+          cat > /tmp/crash.rb <<'RUBY'
+          require 'jwt'; require 'openssl'; require 'net/http'; require 'json'
+          key = OpenSSL::PKey::EC.new(ENV['ASC_KEY_P8'])
+          now = Time.now.to_i
+          tok = JWT.encode({ iss: ENV['ASC_ISSUER_ID'].strip, iat: now, exp: now + 1100, aud: 'appstoreconnect-v1' }, key, 'ES256', { kid: ENV['ASC_KEY_ID'].strip })
+          def get(path, tok)
+            uri = URI('https://api.appstoreconnect.apple.com' + path)
+            res = Net::HTTP.start(uri.host, uri.port, use_ssl: true) { |h| h.get(uri.request_uri, 'Authorization' => "Bearer #{tok}") }
+            [res.code.to_i, (JSON.parse(res.body) rescue {})]
+          end
+          n = (ENV['COUNT'] || '3').to_i.clamp(1, 10)
+          code, list = get("/v1/apps/#{ENV['APP_ID']}/betaFeedbackCrashSubmissions?limit=#{n}&sort=-createdDate", tok)
+          if code != 200 then puts "Liste alınamadı (#{code}): #{list.to_json[0, 600]}"; exit 1 end
+          subs = list['data'] || []
+          puts "Rapor sayısı: #{subs.size}"
+          subs.each do |s|
+            a = s['attributes'] || {}
+            puts "\n==================== #{a['createdDate']} · #{a['deviceModel']} · iOS #{a['osVersion']} · build #{a['buildBundleId'] || ''}"
+            puts "Not: #{a['comment']}" if a['comment'].to_s != ''
+            c2, log = get("/v1/betaFeedbackCrashSubmissions/#{s['id']}/crashLog", tok)
+            text = log.dig('data', 'attributes', 'logText').to_s
+            if c2 != 200 || text.empty? then puts "Kayıt alınamadı (#{c2})"; next end
+            lines = text.lines
+            keep = lines.select { |l| l =~ /^(Exception Type|Exception Codes|Exception Reason|Termination Reason|Crashed Thread|Triggered by Thread|Application Specific Information)/ }
+            puts keep.join
+            i = lines.index { |l| l =~ /^Thread \d+ (name: .*)?Crashed|^Thread \d+ Crashed/ } || lines.index { |l| l =~ /Last Exception Backtrace/ }
+            puts lines[i, 45].join if i
+            j = lines.index { |l| l =~ /Last Exception Backtrace/ }
+            puts lines[j, 30].join if j && j != i
+            asi = lines.index { |l| l =~ /Application Specific Information/ }
+            puts lines[asi, 8].join if asi
+          end
+          RUBY
+          ruby /tmp/crash.rb
