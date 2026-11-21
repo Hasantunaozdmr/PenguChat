@@ -14,22 +14,61 @@ platform :ios do
       key_filepath: ENV.fetch("ASC_KEY_PATH")
     )
 
-    # Her çalışmada yeni bir makine: önceki çalışmaların bıraktığı dağıtım sertifikalarını sil
-    # (Apple ekip başına sadece birkaç tane izin veriyor). Yayındaki / TestFlight'taki sürümleri etkilemez.
-    Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.from(hash: api)
-    Spaceship::ConnectAPI::Certificate.all(filter: { certificateType: "DISTRIBUTION,IOS_DISTRIBUTION" }).each do |c|
-      UI.message("Eski dağıtım sertifikası siliniyor: #{c.display_name || c.name} (#{c.id})")
-      c.delete!
+    keychain = File.expand_path("~/Library/Keychains/ci-db")
+    create_keychain(name: "ci", password: "ci", default_keychain: true, unlock: true, timeout: 3600, lock_when_sleeps: false)
+
+    # Önceki çalışmada saklanan sertifika (şifreli, GitHub önbelleğinde) varsa anahtarlığa koy:
+    # böylece her seferinde yeni sertifika açılmaz ("revoked" maili gelmez)
+    store = File.join(ENV.fetch("RUNNER_TEMP"), "cert-store")
+    work = File.join(ENV.fetch("RUNNER_TEMP"), "cert-work")
+    FileUtils.mkdir_p([store, work])
+    FileUtils.rm_f(File.join(store, "new"))
+    pass = ENV["CERT_PASS"].to_s
+    saved = nil
+    enc = File.join(store, "cert.enc")
+    if File.exist?(enc) && !pass.empty?
+      ok = system("openssl", "enc", "-d", "-aes-256-cbc", "-pbkdf2", "-iter", "200000", "-pass", "env:CERT_PASS",
+                  "-in", enc, "-out", File.join(work, "cert.tgz")) &&
+           system("tar", "-xzf", File.join(work, "cert.tgz"), "-C", work)
+      saved = File.read(File.join(work, "id")).strip if ok && File.exist?(File.join(work, "id"))
+      if saved
+        [".cer", ".p12"].each do |ext|
+          FastlaneCore::KeychainImporter.import_file(File.join(work, saved + ext), keychain, keychain_password: "ci", certificate_password: "")
+        end
+        UI.message("Kayıtlı sertifika kullanılacak: #{saved}")
+      else
+        UI.important("Kayıtlı sertifika açılamadı, yenisi oluşturulacak")
+      end
     end
 
-    create_keychain(name: "ci", password: "ci", default_keychain: true, unlock: true, timeout: 3600, lock_when_sleeps: false)
+    Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.from(hash: api)
+    unless saved
+      # Kayıtlı sertifika yok: eskileri sil (Apple ekip başına sadece birkaç tane izin veriyor).
+      # Yayındaki / TestFlight'taki sürümleri etkilemez.
+      Spaceship::ConnectAPI::Certificate.all(filter: { certificateType: "DISTRIBUTION,IOS_DISTRIBUTION" }).each do |c|
+        UI.message("Eski dağıtım sertifikası siliniyor: #{c.display_name || c.name} (#{c.id})")
+        c.delete!
+      end
+    end
+
     get_certificates(
       api_key: api,
       development: false,
-      keychain_path: File.expand_path("~/Library/Keychains/ci-db"),
+      keychain_path: keychain,
       keychain_password: "ci",
-      output_path: ENV.fetch("RUNNER_TEMP")
+      output_path: work
     )
+    cid = lane_context[SharedValues::CERT_CERTIFICATE_ID].to_s
+    if cid != saved.to_s && !pass.empty? && File.exist?(File.join(work, cid + ".p12"))
+      # Yeni sertifika oluştu: şifreleyip sakla (workflow bunu önbelleğe kaydeder)
+      File.write(File.join(work, "id"), cid)
+      system("tar", "-czf", File.join(work, "cert.tgz"), "-C", work, "id", cid + ".cer", cid + ".p12") &&
+        system("openssl", "enc", "-aes-256-cbc", "-pbkdf2", "-iter", "200000", "-salt", "-pass", "env:CERT_PASS",
+               "-in", File.join(work, "cert.tgz"), "-out", enc) &&
+        File.write(File.join(store, "new"), cid)
+      UI.message("Yeni sertifika saklandı: #{cid}")
+    end
+
     get_provisioning_profile(
       api_key: api,
       app_identifier: APP_ID,
