@@ -18,6 +18,7 @@ const HAS_LIVE = Platform.OS === 'android' || Platform.OS === 'ios';
 const live = HAS_LIVE ? require('../modules/pengu-live/src') : null;
 const PenguLiveView = live?.PenguLiveView || null;
 const keepAwake = HAS_LIVE ? require('expo-keep-awake') : null;
+const SO = HAS_LIVE ? require('expo-screen-orientation') : null;
 
 const KEY_STORE = 'penguchat:liveKeys';
 const CHAT_STORE = 'penguchat:liveChat';
@@ -70,11 +71,28 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true, cha
     const m = !muted;
     setMuted(m);
     ref.current?.setMuted(m);
-    setMicToast(m ? 'off' : 'on');
+    setMicToast(m ? { t: '🔇 Mikrofon kapatıldı', bg: 'rgba(220,38,38,.92)' } : { t: '🎤 Mikrofon açıldı', bg: 'rgba(22,163,74,.92)' });
     clearTimeout(micTimer.current);
     micTimer.current = setTimeout(() => setMicToast(null), 1500);
   };
   useEffect(() => () => clearTimeout(micTimer.current), []);
+  // 📱 Ekran yönü tuşu: telefonda otomatik döndürme kapalı olsa bile yan / dik çevirir
+  const [rot, setRot] = useState('auto');
+  const showToast = (t) => {
+    setMicToast({ t, bg: 'rgba(0,0,0,.8)' });
+    clearTimeout(micTimer.current);
+    micTimer.current = setTimeout(() => setMicToast(null), 1500);
+  };
+  const setRotation = async (next) => {
+    setRot(next);
+    showToast(next === 'land' ? '📱 Yan ekran (basılı tut: otomatik)' : next === 'port' ? '📱 Dik ekran (basılı tut: otomatik)' : '📱 Otomatik döndürme');
+    try {
+      if (!SO) return;
+      if (next === 'auto') await SO.unlockAsync();
+      else await SO.lockAsync(next === 'land' ? SO.OrientationLock.LANDSCAPE : SO.OrientationLock.PORTRAIT_UP);
+    } catch {}
+  };
+  useEffect(() => () => { SO?.unlockAsync().catch(() => {}); }, []); // yayın ekranı kapanınca serbest bırak
   const [running, setRunning] = useState(false); // yayıncı "Yayına başla"ya bastı
   const [status, setStatus] = useState({ twitch: 'idle', kick: 'idle' });
   const [stats, setStats] = useState({ twitch: 0, kick: 0, lowMode: false });
@@ -475,8 +493,8 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true, cha
         {/* 🎤 Mikrofon açıldı / kapandı: ortada kısa yazı */}
         {!!micToast && (
           <View pointerEvents="none" style={{ position: 'absolute', top: 0, bottom: chatH, left: 0, right: chatW, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: '#fff', fontSize: 22, fontWeight: '800', backgroundColor: micToast === 'off' ? 'rgba(220,38,38,.92)' : 'rgba(22,163,74,.92)', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 14, overflow: 'hidden' }}>
-              {micToast === 'off' ? '🔇 Mikrofon kapatıldı' : '🎤 Mikrofon açıldı'}
+            <Text style={{ color: '#fff', fontSize: 22, fontWeight: '800', backgroundColor: micToast.bg, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 14, overflow: 'hidden' }}>
+              {micToast.t}
             </Text>
           </View>
         )}
@@ -509,6 +527,15 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true, cha
           </Pressable>
           <Pressable style={btn('rgba(0,0,0,.6)')} onPress={() => { setError(''); setLayoutMode(true); }}>
             <Text style={txt}>🖼️</Text>
+          </Pressable>
+          <Pressable
+            style={btn(rot === 'auto' ? 'rgba(0,0,0,.6)' : '#0e8f8a')}
+            onPress={() => setRotation(portrait ? 'land' : 'port')} // her dokunuşta çevirir
+            onLongPress={() => setRotation('auto')} // basılı tut: otomatik döndürmeye dön
+            delayLongPress={600}
+            accessibilityLabel="Ekranı döndür"
+          >
+            <Text style={txt}>{rot === 'auto' ? '📱↻' : rot === 'land' ? '📱⇆' : '📱⇅'}</Text>
           </Pressable>
           <Pressable style={btn('rgba(0,0,0,.6)')} onPress={() => setSetup(true)}>
             <Text style={txt}>⚙️</Text>
