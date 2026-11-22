@@ -763,6 +763,42 @@
       evPost({ p: 'kick', id, type: 'raid', user: d.host_username || d.username, count: Number(d.number_viewers) || 0 });
     }
   }
+  // 💬 Kick: chat'i sayfaya bağlı kalmadan doğrudan Kick'in chat sunucusundan (Pusher) dinle.
+  // Kick'in yeni sayfası bağlantıyı bizim göremediğimiz yerde açabiliyor; bu yol her durumda çalışır.
+  // Sadece yayın ekranındaki chat açıkken (__penguChatOn) bağlanır, kapanınca bağlantı kapanır.
+  if (!isTwitch && !window.__penguKickWsTimer) {
+    let ws = null, room = 0, loading = false, retry = 0, keyIdx = 0, ok = false;
+    const KEYS = ['32cbd69e4b950bf97679', 'eb1d5f283081a78b932c']; // Kick'in chat anahtarı (yenisi, eskisi)
+    const slug = () => ((location.pathname.match(/^\/(?:popout\/)?([A-Za-z0-9_-]+)/) || [])[1] || '').toLowerCase();
+    const open = () => {
+      if (!room) return;
+      ok = false;
+      ws = new WebSocket('wss://ws-us2.pusher.com/app/' + KEYS[keyIdx % KEYS.length] + '?protocol=7&client=js&version=8.4.0&flash=false');
+      ws.onopen = () => {
+        ['chatrooms.' + room + '.v2', 'chatroom_' + room].forEach((ch) => ws.send(JSON.stringify({ event: 'pusher:subscribe', data: { auth: '', channel: ch } })));
+      };
+      ws.onmessage = (e) => {
+        const v = e.data;
+        if (typeof v !== 'string') return;
+        if (v.includes('pusher:connection_established')) { ok = true; retry = 0; }
+        if (v.includes('pusher:ping')) { try { ws.send('{"event":"pusher:pong","data":{}}'); } catch {} return; }
+        if (window.__penguChatOn && /ChatMessageEvent|MessageDeletedEvent|UserBannedEvent|ChatroomClearEvent/.test(v)) kickFrame(v);
+      };
+      ws.onclose = () => { ws = null; if (!ok) keyIdx++; }; // bağlanamadıysa diğer anahtarı dene
+    };
+    window.__penguKickWsTimer = setInterval(() => {
+      const on = !!window.__penguChatOn;
+      if (!on) { if (ws) { try { ws.close(); } catch {} ws = null; } return; }
+      if (ws) return;
+      if (room) { if (++retry % 3 === 1) open(); return; } // koparsa birkaç saniyede bir yeniden bağlan
+      if (loading || !slug()) return;
+      loading = true;
+      fetch('/api/v2/channels/' + encodeURIComponent(slug()), { credentials: 'include', headers: { Accept: 'application/json' } })
+        .then((r) => r.json())
+        .then((j) => { room = (j && j.chatroom && j.chatroom.id) || 0; loading = false; if (room) open(); })
+        .catch(() => { loading = false; });
+    }, 2000);
+  }
   if (!window.__penguEvHook) {
     window.__penguEvHook = true;
     try {

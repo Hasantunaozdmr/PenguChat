@@ -900,7 +900,7 @@ function ChatPanel({ plats, channels, userAgent, style, liveChat, store, onViewe
           data={shown}
           keyExtractor={(m) => m.id}
           contentContainerStyle={{ paddingHorizontal: 10, paddingVertical: 6 }}
-          ListEmptyComponent={<Text style={{ color: '#777', paddingVertical: 10, transform: [{ scaleY: -1 }] }}>{evOnly ? 'Henüz etkinlik yok' : 'Mesajlar burada görünecek…'}</Text>}
+          ListEmptyComponent={<Text style={{ color: '#777', paddingVertical: 10 }}>{evOnly ? 'Henüz etkinlik yok' : 'Mesajlar burada görünecek…'}</Text>}
           renderItem={({ item: m }) => (
             <View style={[{ flexDirection: 'row', gap: 6, paddingVertical: 3 }, m.kind === 'ev' && { backgroundColor: 'rgba(245,158,11,.22)', borderRadius: 6, paddingHorizontal: 6, marginVertical: 2 }]}>
               <Logo k={m.p} size={Math.round(size * 1.1)} style={{ marginTop: 2 }} />
