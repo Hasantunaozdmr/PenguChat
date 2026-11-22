@@ -72,7 +72,7 @@ platform :ios do
     get_provisioning_profile(
       api_key: api,
       app_identifier: APP_ID,
-      force: true,
+      force: false, # aynı profili tekrar kullan (her seferinde yenisi açılmasın)
       output_path: ENV.fetch("RUNNER_TEMP")
     )
     profile = lane_context[SharedValues::SIGH_NAME]
