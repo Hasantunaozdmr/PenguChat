@@ -568,6 +568,15 @@
     const sp = line.indexOf(' ');
     const tags = ircTags(line.slice(1, sp));
     const rest = line.slice(sp + 1);
+    // 🗑️ Silinen mesaj / zaman aşımı / ban: yayın ekranındaki chat'te de silindi görünsün
+    const cl = rest.match(/^:\S+ (CLEARCHAT|CLEARMSG) #\S+(?: :([\s\S]*))?$/);
+    if (cl) {
+      if (!window.__penguChatOn) return;
+      if (cl[1] === 'CLEARMSG') delPost({ p: 'twitch', id: 'tw:' + (tags['target-msg-id'] || '') });
+      else if (cl[2]) delPost({ p: 'twitch', user: cl[2].trim(), ban: tags['ban-duration'] ? 'to' : 'ban' });
+      else delPost({ p: 'twitch', all: true });
+      return;
+    }
     const m = rest.match(/^:\S+ (USERNOTICE|PRIVMSG) #\S+(?: :([\s\S]*))?$/);
     if (!m) return;
     const user = tags['display-name'] || tags.login || '';
@@ -577,7 +586,10 @@
       const bits = Number(tags.bits);
       if (bits > 0) evPost({ p: 'twitch', id, type: 'bits', user, amount: bits, msg: text.replace(/\b[A-Za-z]+\d+\b\s*/g, '').trim() });
       // 💬 Yayın ekranındaki chat (sadece orada açılan görünmez sayfada)
-      else if (window.__penguChatOn) chatPost({ p: 'twitch', id, user, color: tags.color || '', text: text.replace(/^\u0001ACTION (.*)\u0001$/, '$1') });
+      else if (window.__penguChatOn) {
+        const t = text.replace(/^\u0001ACTION (.*)\u0001$/, '$1');
+        chatPost({ p: 'twitch', id, user, color: tags.color || '', text: t, b: twBadges(tags.badges), parts: twParts(t, tags.emotes) });
+      }
       return;
     }
     const kind = tags['msg-id'];
@@ -601,6 +613,49 @@
     }
   }
   function chatPost(m) { post('__PENGU_MSG__' + JSON.stringify(m)); }
+  function delPost(m) { post('__PENGU_DEL__' + JSON.stringify(m)); }
+  // Rozetler: sadece bilinenler (yayıncı, mod, vip, abone…)
+  const BADGE_KEEP = ['broadcaster', 'moderator', 'vip', 'subscriber', 'founder', 'og', 'verified', 'partner', 'sub_gifter', 'staff'];
+  function twBadges(raw) {
+    return String(raw || '').split(',').map((x) => x.split('/')[0]).filter((x) => BADGE_KEEP.includes(x));
+  }
+  // Twitch emojileri: "25:0-4,12-16/1902:6-10" → metin parçaları + resimler (konumlar harf sırasına göre)
+  function twParts(text, emotes) {
+    if (!emotes) return null;
+    const chars = Array.from(text);
+    const at = [];
+    String(emotes).split('/').forEach((e) => {
+      const [eid, pos] = e.split(':');
+      (pos || '').split(',').forEach((r) => { const [a, b] = r.split('-').map(Number); if (b >= a) at.push([a, b, eid]); });
+    });
+    if (!at.length) return null;
+    at.sort((x, y) => x[0] - y[0]);
+    const out = [];
+    let i = 0;
+    at.forEach(([a, b, eid]) => {
+      if (a < i) return;
+      if (a > i) out.push({ t: chars.slice(i, a).join('') });
+      out.push({ e: 'https://static-cdn.jtvnw.net/emoticons/v2/' + eid + '/default/dark/1.0', n: chars.slice(a, b + 1).join('') });
+      i = b + 1;
+    });
+    if (i < chars.length) out.push({ t: chars.slice(i).join('') });
+    return out.slice(0, 60);
+  }
+  // Kick emojileri: [emote:123:isim] → resim
+  function kickParts(content) {
+    const re = /\[emote:(\d+):([^\]]*)\]/g;
+    if (!re.test(content)) return null;
+    re.lastIndex = 0;
+    const out = [];
+    let i = 0, m;
+    while ((m = re.exec(content))) {
+      if (m.index > i) out.push({ t: content.slice(i, m.index) });
+      out.push({ e: 'https://files.kick.com/emotes/' + m[1] + '/fullsize', n: m[2] });
+      i = m.index + m[0].length;
+    }
+    if (i < content.length) out.push({ t: content.slice(i) });
+    return out.slice(0, 60);
+  }
   function kickFrame(raw) {
     let f; try { f = JSON.parse(raw); } catch { return; }
     const name = String((f && f.event) || '');
@@ -610,9 +665,27 @@
     if (!d || typeof d !== 'object') return;
     if (/ChatMessageEvent/i.test(name)) {
       if (window.__penguChatOn && d.sender) {
-        const text = String(d.content || '').replace(/\[emote:\d+:([^\]]+)\]/g, ':$1:');
-        chatPost({ p: 'kick', id: 'km:' + (d.id || Math.random()), user: d.sender.username || '', color: (d.sender.identity && d.sender.identity.color) || '', text });
+        const raw = String(d.content || '');
+        const text = raw.replace(/\[emote:\d+:([^\]]+)\]/g, ':$1:');
+        const idt = d.sender.identity || {};
+        const b = (Array.isArray(idt.badges) ? idt.badges : []).map((x) => String((x && x.type) || '')).filter((x) => BADGE_KEEP.includes(x));
+        chatPost({ p: 'kick', id: 'km:' + (d.id || Math.random()), user: d.sender.username || '', color: idt.color || '', text, b, parts: kickParts(raw) });
       }
+      return;
+    }
+ // 🗑️ Kick: silinen mesaj / ban / chat temizleme
+    if (/MessageDeletedEvent/i.test(name)) {
+      const mid = (d.message && d.message.id) || d.id;
+      if (window.__penguChatOn && mid) delPost({ p: 'kick', id: 'km:' + mid });
+      return;
+    }
+    if (/UserBannedEvent/i.test(name)) {
+      const u = (d.user && d.user.username) || d.username;
+      if (window.__penguChatOn && u) delPost({ p: 'kick', user: u, ban: d.permanent === false || d.expires_at ? 'to' : 'ban' });
+      return;
+    }
+    if (/ChatroomClearEvent/i.test(name)) {
+      if (window.__penguChatOn) delPost({ p: 'kick', all: true });
       return;
     }
     const id = 'kk:' + name + ':' + (d.id || d.gift_transaction_id || d.created_at || '') + ':' + (d.username || d.gifter_username || (d.sender && d.sender.username) || '');
@@ -645,7 +718,7 @@
             if (typeof v === 'string' && ws instanceof WebSocket && !seen.has(this)) {
               seen.add(this);
               const chat = !!window.__penguChatOn;
-              if (isTwitch) { if (/irc-ws\.chat\.twitch\.tv/.test(ws.url) && (v.includes('USERNOTICE') || v.includes('bits=') || (chat && v.includes('PRIVMSG')))) v.split('\r\n').forEach(twitchLine); }
+              if (isTwitch) { if (/irc-ws\.chat\.twitch\.tv/.test(ws.url) && (v.includes('USERNOTICE') || v.includes('bits=') || (chat && (v.includes('PRIVMSG') || v.includes('CLEARCHAT') || v.includes('CLEARMSG'))))) v.split('\r\n').forEach(twitchLine); }
               else if (/pusher/i.test(ws.url) && (chat || !v.includes('ChatMessageEvent'))) kickFrame(v);
             }
           } catch {}

@@ -166,6 +166,7 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
   private var wantH = 720
   private var curBitrate = 3_000_000 // yayında şu an kullanılan (internet zayıflayınca kendiliğinden düşer)
   private var okTicks = 0
+  private var congTicks = 0
 
   fun setQuality(q: String) {
     val (w, h, b) = when (q) {
@@ -255,16 +256,23 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
     if (curBitrate > cap) { curBitrate = cap; runCatching { stream.setVideoBitrateOnFly(cap) } }
     val active = (0..1).filter { wanted[it] && live[it] }
     if (active.isEmpty()) return
-    val congested = active.any { runCatching { stream.getStreamClient(MultiType.RTMP, it).hasCongestion(20f) }.getOrDefault(false) }
+    // Kısa bir takılmada hemen düşürme: tampon yarıdan fazla doluysa ve 2 saniye üst üste sürerse düşür.
+    // Bağlantı rahatlayınca hızlı geri çık (her 3 saniyede %20). Böylece kalite gereksiz yere düşük kalmaz.
+    val congested = active.any { runCatching { stream.getStreamClient(MultiType.RTMP, it).hasCongestion(50f) }.getOrDefault(false) }
     val floor = maxOf(400_000, videoBitrate / 5)
     if (congested) {
       okTicks = 0
-      val nb = maxOf(floor, (curBitrate * 0.75).toInt())
+      if (++congTicks < 2) return
+      congTicks = 0
+      val nb = maxOf(floor, (curBitrate * 0.8).toInt())
       if (nb < curBitrate) { curBitrate = nb; runCatching { stream.setVideoBitrateOnFly(nb) } }
-    } else if (curBitrate < cap && ++okTicks >= 5) {
-      okTicks = 0
-      curBitrate = minOf(cap, (curBitrate * 1.1).toInt() + 100_000)
-      runCatching { stream.setVideoBitrateOnFly(curBitrate) }
+    } else {
+      congTicks = 0
+      if (curBitrate < cap && ++okTicks >= 3) {
+        okTicks = 0
+        curBitrate = minOf(cap, (curBitrate * 1.2).toInt() + 200_000)
+        runCatching { stream.setVideoBitrateOnFly(curBitrate) }
+      }
     }
   }
 

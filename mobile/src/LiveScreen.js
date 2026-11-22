@@ -54,7 +54,7 @@ const mbps = (b) => (b > 0 ? (b / 1e6).toFixed(1) + ' Mbps' : '—');
 // Kick "Stream URL" + "Stream Key" → tek adres
 const joinUrl = (url, key) => (url && key ? url.replace(/\/+$/, '') + '/' + key : '');
 
-export default function LiveScreen({ C, onClose, userAgent, unlocked = true, chatChannels = {}, liveChat }) {
+export default function LiveScreen({ C, onClose, userAgent, unlocked = true, chatChannels = {}, liveChat, viewers = {} }) {
   const ref = useRef(null);
   // iPhone: yayın ekranı tam ekran açılır; üstteki saat / çentik ve alttaki çizgiyle çakışmasın
   const safe = useSafeAreaInsets();
@@ -65,7 +65,10 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true, cha
   const [kbpsText, setKbpsText] = useState('');
   const [muted, setMuted] = useState(false);
   const [micToast, setMicToast] = useState(null);
-  const levelSink = useRef(null); // 🎙️ ses dalgası (yeniden çizim yok, doğrudan animasyon)
+  const levelSink = useRef(null);
+  // 💬 Chat mesajları burada saklanır: chat paneli kapanıp açılınca (⚙️, 🖼️, dönme) mesajlar kaybolmasın
+  const chatStore = useRef({ list: [], seen: new Set() });
+  const [ownViewers, setOwnViewers] = useState({}); // 🎙️ ses dalgası (yeniden çizim yok, doğrudan animasyon)
   const micTimer = useRef(null);
   const toggleMic = () => {
     const m = !muted;
@@ -376,6 +379,8 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true, cha
         </View>
         {split && (
           <ChatPanel
+            store={chatStore}
+            onViewers={(p, n) => setOwnViewers((v) => (v[p] === n ? v : { ...v, [p]: n }))}
             liveChat={liveChat}
             plats={chatPlats}
             channels={chatChannels}
@@ -399,6 +404,18 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true, cha
               {running ? (anyLive ? `● CANLI ${fmtTime(Math.floor((Date.now() - startedAt) / 1000))}` : 'Bağlanıyor…') : 'Yayında değil'}
             </Text>
             <Text style={[pill, { color: '#fff', backgroundColor: 'rgba(0,0,0,.6)' }]}>{QUALITY[quality]}{kbps ? ` · ${kbps} kbps` : ''}</Text>
+            {/* 👁 İzleyici sayısı (Twitch / Kick) */}
+            {chatPlats.some((p) => (ownViewers[p] ?? viewers[p]) != null) && (
+              <View style={[pill, { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(0,0,0,.6)' }]}>
+                <Text style={{ color: '#fff' }}>👁</Text>
+                {chatPlats.filter((p) => (ownViewers[p] ?? viewers[p]) != null).map((p) => (
+                  <View key={p} style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                    <Logo k={p} size={14} />
+                    <Text style={{ color: '#fff', fontWeight: '700' }}>{ownViewers[p] ?? viewers[p]}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
             <View style={{ flex: 1 }} />
             <Pressable onPress={close} hitSlop={10} style={{ backgroundColor: 'rgba(0,0,0,.6)', borderRadius: 18, width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
               <Text style={{ color: '#fff', fontSize: 18 }}>✕</Text>
@@ -683,7 +700,7 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true, cha
               <Text style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>Kalite (iki platforma birden gider; yayın sırasında değişmez)</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
                 {Object.entries(QUALITY).map(([k, v]) => (
-                  <Pressable key={k} disabled={running} onPress={() => (!unlocked && k === 'high' ? proAlert() : saveQuality(k))} style={{ opacity: running && quality !== k ? 0.4 : 1, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: quality === k ? '#9146ff' : C.border, backgroundColor: quality === k ? '#9146ff' : C.input }}>
+                  <Pressable key={k} onPress={() => (running ? (k !== quality && Alert.alert('Yayın sırasında değişmez', 'Çözünürlük (480p / 720p / 1080p) yayın açıkken değiştirilemez, değişirse yayın kopar. ■ Bitir → kaliteyi seç → ● Yayına başla.\n\nYayın sırasında aşağıdaki bitrate değiştirilebilir.')) : !unlocked && k === 'high' ? proAlert() : saveQuality(k))} style={{ opacity: running && quality !== k ? 0.4 : 1, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: quality === k ? '#9146ff' : C.border, backgroundColor: quality === k ? '#9146ff' : C.input }}>
                     <Text style={{ color: quality === k ? '#fff' : C.text, fontWeight: '600' }}>{v}</Text>
                   </Pressable>
                 ))}
@@ -742,24 +759,54 @@ function MicWave({ sink, muted }) {
 // 💬 Yayın ekranındaki chat: görünmez Twitch / Kick chat sayfalarından mesajlar ve etkinlikler.
 // Sadece yayıncının ekranında görünür, yayına gitmez.
 const CHAT_MAX = 150;
-const HIDDEN_WV = { position: 'absolute', left: 0, top: 0, width: 1, height: 1, opacity: 0, flex: 0 };
-function ChatPanel({ plats, channels, userAgent, style, liveChat }) {
-  const [list, setList] = useState([]);
+// Rozetler (Twitch / Kick): yayıncı, mod, vip, abone…
+const BADGE = { broadcaster: '🎥', moderator: '🗡️', vip: '💎', subscriber: '⭐', founder: '🏅', og: '👑', verified: '✔️', partner: '✔️', staff: '🛠️', sub_gifter: '🎁' };
+const HIDDEN_WV = { position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, opacity: 0, flex: 0, zIndex: -1, pointerEvents: 'none' };
+const TINY_WV = { position: 'absolute', left: 0, top: 0, width: 1, height: 1, opacity: 0, flex: 0 };
+function ChatPanel({ plats, channels, userAgent, style, liveChat, store, onViewers }) {
+  // Mesajlar üstteki ekranda saklanır: panel kapanıp açılınca kaybolmaz
+  const [list, setListState] = useState(() => store?.current.list || []);
+  const setList = (fn) =>
+    setListState((l) => {
+      const n = fn(l);
+      if (store) store.current.list = n;
+      return n;
+    });
   const [size, setSize] = useState(15);
   const [evOnly, setEvOnly] = useState(false);
-  const seen = useRef(new Set());
+  const seen = useRef(store?.current.seen || new Set());
   const add = (m) => {
     if (seen.current.has(m.id)) return;
     seen.current.add(m.id);
-    if (seen.current.size > 600) seen.current = new Set([...seen.current].slice(-300));
+    if (seen.current.size > 600) {
+      seen.current = new Set([...seen.current].slice(-300));
+      if (store) store.current.seen = seen.current;
+    }
     setList((l) => [m, ...l].slice(0, CHAT_MAX));
   };
-  const onMsg = (data) => {
+  // 🗑️ Silinen mesaj / TO / ban: mesaj yerinde kalır ama "silindi" diye görünür
+  const del = (d) => {
+    const u = String(d.user || '').toLowerCase();
+    const tag = d.ban === 'to' ? '⏱️ zaman aşımı' : d.ban === 'ban' ? '🚫 banlandı' : '🗑️ silindi';
+    setList((l) =>
+      l.map((m) =>
+        m.kind === 'msg' && m.p === d.p && !m.del && (d.all || (d.id && m.id === d.id) || (u && String(m.user).toLowerCase() === u)) ? { ...m, del: d.all ? '🧹 chat temizlendi' : tag } : m,
+      ),
+    );
+  };
+  const onMsg = (data, from) => {
     if (typeof data !== 'string') return;
     try {
       if (data.startsWith('__PENGU_MSG__')) {
         const m = JSON.parse(data.slice(13));
+        if (m && m.p) gotFrom.current[m.p] = true;
         if (m && m.text) add({ ...m, kind: 'msg' });
+      } else if (data.startsWith('__PENGU_DEL__')) {
+        const d = JSON.parse(data.slice(13));
+        if (d && d.p) del(d);
+      } else if (data.startsWith('__PENGU_VIEW__')) {
+        const v = JSON.parse(data.slice(14));
+        if (from && v && v.n !== -1) onViewers?.(from, v.n);
       } else if (data.startsWith('__PENGU_EVENT__')) {
         const e = JSON.parse(data.slice(15));
         if (e && e.id) add({ id: 'ev:' + e.id, p: e.p, kind: 'ev', user: e.user || '', text: `${EV_ICON[e.type] || '•'} ${evDescribe(e)}` });
@@ -767,11 +814,22 @@ function ChatPanel({ plats, channels, userAgent, style, liveChat }) {
     } catch {}
   };
   // ⚡ Uygulamada aynı kanalın chat'i zaten açıksa onu kullan (ikinci sayfa açma: daha az internet ve pil)
-  const shared = plats.filter((p) => liveChat?.current?.open(p) && liveChat.current.open(p) === String(channels[p]).toLowerCase());
+  // Uygulamanın chat'inden 60 sn'de hiç mesaj gelmeyen platform için kendi sayfamızı aç (yedek)
+  const [forceOwn, setForceOwn] = useState([]);
+  const gotFrom = useRef({});
+  const shared = plats.filter((p) => !forceOwn.includes(p) && liveChat?.current?.open(p) && liveChat.current.open(p) === String(channels[p]).toLowerCase());
   const own = plats.filter((p) => !shared.includes(p));
   const onMsgRef = useRef(onMsg);
   onMsgRef.current = onMsg;
   const sharedKey = shared.join(',');
+  useEffect(() => {
+    if (!sharedKey) return;
+    const t = setTimeout(() => {
+      const silent = sharedKey.split(',').filter((p) => !gotFrom.current[p]);
+      if (silent.length) setForceOwn((f) => [...new Set([...f, ...silent])]);
+    }, 60000);
+    return () => clearTimeout(t);
+  }, [sharedKey]);
   useEffect(() => {
     const lc = liveChat?.current;
     if (!lc) return;
@@ -785,6 +843,17 @@ function ChatPanel({ plats, channels, userAgent, style, liveChat }) {
     const t = setTimeout(() => setReady(true), 1500);
     return () => clearTimeout(t);
   }, []);
+  // 👁 Kendi açtığımız chat sayfalarından izleyici sayısını 30 saniyede bir sor
+  const wvs = useRef({});
+  const ownKey = own.join(',');
+  useEffect(() => {
+    if (!ready || !ownKey) return;
+    const ask = () =>
+      ownKey.split(',').forEach((p) => wvs.current[p]?.injectJavaScript(`window.__penguViewers && window.__penguViewers(${JSON.stringify(String(channels[p]).toLowerCase())}); true;`));
+    const t0 = setTimeout(ask, 6000);
+    const t = setInterval(ask, 30000);
+    return () => { clearTimeout(t0); clearInterval(t); };
+  }, [ready, ownKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const shown = evOnly ? list.filter((m) => m.kind === 'ev') : list;
   const cleanColor = (c) => (/^#[0-9a-f]{6}$/i.test(c || '') ? c : null);
   return (
@@ -792,9 +861,10 @@ function ChatPanel({ plats, channels, userAgent, style, liveChat }) {
       {ready && own.map((p) => (
         <WebView
           key={p + channels[p]}
+          ref={(w) => (wvs.current[p] = w)}
           source={{ uri: PLATFORMS[p].chatUrl(String(channels[p]).toLowerCase()) }}
           style={HIDDEN_WV}
-          containerStyle={HIDDEN_WV} // görünmez sayfa yer kaplamasın (sarmalayıcısı da)
+          containerStyle={HIDDEN_WV} // görünmez: panelin arkasında, panel boyutunda (Kick chat'i ekranda görünmeyen küçük sayfada bağlanmıyor)
           userAgent={userAgent}
           sharedCookiesEnabled
           thirdPartyCookiesEnabled
@@ -802,7 +872,7 @@ function ChatPanel({ plats, channels, userAgent, style, liveChat }) {
           javaScriptEnabled
           injectedJavaScriptBeforeContentLoaded={'window.__penguChatOn = 1; true;'}
           injectedJavaScript={'window.__penguChatOn = 1;\n' + PICK_USER_JS + '\ntrue;'}
-          onMessage={(e) => onMsg(e.nativeEvent.data)}
+          onMessage={(e) => onMsg(e.nativeEvent.data, p)}
           onShouldStartLoadWithRequest={(req) => req.isTopFrame === false || isInternalUrl(req.url)}
         />
       ))}
@@ -837,9 +907,24 @@ function ChatPanel({ plats, channels, userAgent, style, liveChat }) {
               <Text style={{ color: '#efeff1', fontSize: size, flex: 1, lineHeight: Math.round(size * 1.35) }}>
                 {m.kind === 'msg' ? (
                   <>
+                    {(m.b || []).map((b) => (BADGE[b] ? <Text key={b}>{BADGE[b]} </Text> : null))}
                     <Text style={{ fontWeight: '700', color: cleanColor(m.color) || (m.p === 'twitch' ? '#bf94ff' : '#53fc18') }}>{m.user}</Text>
                     {'  '}
-                    {m.text}
+                    {m.del ? (
+                      <Text style={{ color: '#888', fontStyle: 'italic' }}>
+                        <Text style={{ textDecorationLine: 'line-through' }}>{m.text}</Text> ({m.del})
+                      </Text>
+                    ) : Array.isArray(m.parts) ? (
+                      m.parts.map((x, i) =>
+                        x.e && /^https:\/\/(static-cdn\.jtvnw\.net|files\.kick\.com)\//.test(x.e) ? (
+                          <Image key={i} source={{ uri: x.e }} style={{ width: Math.round(size * 1.6), height: Math.round(size * 1.6) }} accessibilityLabel={x.n} />
+                        ) : (
+                          <Text key={i}>{x.t ?? x.n ?? ''}</Text>
+                        ),
+                      )
+                    ) : (
+                      m.text
+                    )}
                   </>
                 ) : (
                   <>
@@ -976,8 +1061,8 @@ function InfoSheet({ C, ins, platform, setPlatform, userAgent, onClose, onWeb })
         key={platform}
         ref={view}
         source={{ uri: INFO_URL[platform] }}
-        style={HIDDEN_WV}
-          containerStyle={HIDDEN_WV} // görünmez sayfa yer kaplamasın (sarmalayıcısı da)
+        style={TINY_WV}
+          containerStyle={TINY_WV} // görünmez sayfa yer kaplamasın (sarmalayıcısı da)
         userAgent={userAgent}
         sharedCookiesEnabled
         thirdPartyCookiesEnabled

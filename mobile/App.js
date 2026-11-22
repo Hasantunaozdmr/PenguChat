@@ -533,7 +533,7 @@ function PenguChat() {
   };
   const onWebMessage = (k, data) => {
     if (typeof data !== 'string') return;
-    if (data.startsWith('__PENGU_MSG__')) {
+    if (data.startsWith('__PENGU_MSG__') || data.startsWith('__PENGU_DEL__')) {
       if (liveChatOn.current[k]) liveSink.current?.(data);
       return;
     }
@@ -809,7 +809,7 @@ function PenguChat() {
           <Text style={styles.maintSmall}>Her 30 saniyede bir kontrol ediliyor…</Text>
         </View>
       )}
-      {liveOpen && <LiveScreen C={C} userAgent={USER_AGENT} unlocked={pro.open || pro.pro} chatChannels={{ twitch: accounts.twitch || s.twitch || '', kick: String(accounts.kick || s.kick || '').toLowerCase().replace(/_/g, '-') }} liveChat={liveChat} onClose={() => setLiveOpen(false)} />}
+      {liveOpen && <LiveScreen C={C} userAgent={USER_AGENT} unlocked={pro.open || pro.pro} chatChannels={{ twitch: accounts.twitch || s.twitch || '', kick: String(accounts.kick || s.kick || '').toLowerCase().replace(/_/g, '-') }} liveChat={liveChat} viewers={viewers} onClose={() => setLiveOpen(false)} />}
       {settingsOpen && (
         <SettingsSheet
           onClose={() => setSettingsOpen(false)}
