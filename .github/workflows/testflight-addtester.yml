@@ -1,0 +1,56 @@
+name: PenguLive - TestFlight test edeni gruba ekle
+
+# Uygulamanın kayıtlı test edenlerini iç test gruplarına ekler (grup yenilenince boş kalmasın). Elle çalıştırılır.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  addtester:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Test edeni gruba ekle
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          APP_ID: "6837653168"
+        run: |
+          sudo gem install jwt --no-document -q
+          cat > /tmp/addt.rb <<'RUBY'
+          require 'jwt'; require 'openssl'; require 'net/http'; require 'json'
+          key = OpenSSL::PKey::EC.new(ENV['ASC_KEY_P8'])
+          now = Time.now.to_i
+          tok = JWT.encode({ iss: ENV['ASC_ISSUER_ID'].strip, iat: now, exp: now + 1100, aud: 'appstoreconnect-v1' }, key, 'ES256', { kid: ENV['ASC_KEY_ID'].strip })
+          def get(path, tok)
+            uri = URI('https://api.appstoreconnect.apple.com' + path)
+            res = Net::HTTP.start(uri.host, uri.port, use_ssl: true) { |h| h.get(uri.request_uri, 'Authorization' => "Bearer #{tok}") }
+            [res.code.to_i, (JSON.parse(res.body) rescue {})]
+          end
+          app = ENV['APP_ID']
+          def post(path, tok, body)
+            uri = URI('https://api.appstoreconnect.apple.com' + path)
+            req = Net::HTTP::Post.new(uri, 'Authorization' => "Bearer #{tok}", 'Content-Type' => 'application/json')
+            req.body = body.to_json
+            res = Net::HTTP.start(uri.host, uri.port, use_ssl: true) { |h| h.request(req) }
+            [res.code.to_i, res.body.to_s[0, 300]]
+          end
+          c, t = get("/v1/betaTesters?filter[apps]=#{app}&limit=50", tok)
+          testers = (t['data'] || []).map { |x| x['id'] }
+          if testers.empty?
+            c, t = get("/v1/betaTesters?limit=50", tok)
+            testers = (t['data'] || []).map { |x| x['id'] }
+          end
+          puts "Kayıtlı test eden: #{testers.size} (#{c})"
+          c, g = get("/v1/apps/#{app}/betaGroups?limit=20", tok)
+          (g['data'] || []).select { |x| x.dig('attributes', 'isInternalGroup') }.each do |grp|
+            code, body = post("/v1/betaGroups/#{grp['id']}/relationships/betaTesters", tok, { data: testers.map { |i| { type: 'betaTesters', id: i } } })
+            puts "#{grp.dig('attributes', 'name')}: #{code} #{code >= 300 ? body : ''}"
+            c2, tt = get("/v1/betaGroups/#{grp['id']}/betaTesters?limit=20", tok)
+            puts "  şimdi test eden: #{(tt['data'] || []).size} (#{(tt['data'] || []).map { |y| y.dig('attributes', 'state') }.join(',')})"
+          end
+          RUBY
+          ruby /tmp/addt.rb
