@@ -33,7 +33,7 @@ public class PenguLiveModule: Module {
     }
 
     View(PenguLiveView.self) {
-      Events("onStatus", "onStats", "onNotice")
+      Events("onStatus", "onStats", "onNotice", "onLevel")
 
       // "low" | "mid" | "high"
       Prop("quality") { (view: PenguLiveView, quality: String) in

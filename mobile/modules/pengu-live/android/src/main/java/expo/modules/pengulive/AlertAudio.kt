@@ -203,8 +203,29 @@ class MixMicSource : AudioSource(), GetMicrophoneData {
 
   override fun inputPCMData(frame: Frame) {
     AlertAudio.mixInto(frame.buffer, frame.offset, frame.size)
+    measure(frame.buffer, frame.offset, frame.size)
     getMicrophoneData?.inputPCMData(frame)
   }
+
+  // 🎙️ Ses dalgası: yayına giden sesin seviyesi (0 sessiz … 1 çok yüksek), 16 bit PCM
+  @Volatile private var peak = 0f
+  private fun measure(b: ByteArray, off: Int, size: Int) {
+    var sum = 0.0
+    var count = 0
+    var i = off
+    val end = off + size - 1
+    while (i < end) {
+      val v = ((b[i].toInt() and 0xff) or (b[i + 1].toInt() shl 8)).toShort() / 32768.0
+      sum += v * v; count++
+      i += 8 // her 4. örnek yeterli
+    }
+    if (count == 0) return
+    val rms = Math.sqrt(sum / count)
+    val db = 20 * Math.log10(Math.max(rms, 0.00001))
+    val level = ((db + 55) / 50).coerceIn(0.0, 1.0).toFloat()
+    if (level > peak) peak = level
+  }
+  fun takeLevel(): Float { val p = peak; peak = 0f; return p }
 
   fun mute() = mic.mute()
   fun unMute() = mic.unMute()

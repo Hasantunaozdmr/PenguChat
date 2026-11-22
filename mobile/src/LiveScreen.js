@@ -6,7 +6,7 @@
 //   Donate sayfasının abone / bağış sesleri de yayına karışır (🔊 / 🔇).
 // Yayın anahtarları ve donate linkleri sadece bu telefonda saklanır; sadece Twitch'e / Kick'e / donate sitesine gider.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, FlatList, Image, Linking, Modal, PanResponder, PermissionsAndroid, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Alert, Animated, FlatList, Image, Linking, Modal, PanResponder, PermissionsAndroid, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { WebView } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -64,6 +64,7 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true, cha
   const [kbpsText, setKbpsText] = useState('');
   const [muted, setMuted] = useState(false);
   const [micToast, setMicToast] = useState(null);
+  const levelSink = useRef(null); // 🎙️ ses dalgası (yeniden çizim yok, doğrudan animasyon)
   const micTimer = useRef(null);
   const toggleMic = () => {
     const m = !muted;
@@ -344,6 +345,7 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true, cha
               if (state === 'error' && message) setError(`${keys.via ? VIA[keys.via] : LABEL[platform]}: ${message}`);
             }}
             onStats={(e) => setStats(e.nativeEvent)}
+            onLevel={(e) => levelSink.current?.(e.nativeEvent?.v || 0)}
             onNotice={(e) => {
               const m = String(e.nativeEvent?.message || '');
               if (m) setError(m);
@@ -486,7 +488,10 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true, cha
             <Text style={txt}>🔄</Text>
           </Pressable>
           <Pressable style={btn(muted ? '#dc2626' : 'rgba(0,0,0,.6)')} onPress={toggleMic}>
-            <Text style={txt}>{muted ? '🔇' : '🎤'}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={txt}>{muted ? '🔇' : '🎤'}</Text>
+              <MicWave sink={levelSink} muted={muted} />
+            </View>
           </Pressable>
           <Pressable style={btn(chatOn ? '#9146ff' : 'rgba(0,0,0,.6)')} onPress={toggleChat}>
             <Text style={txt}>💬</Text>
@@ -680,6 +685,30 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true, cha
         )}
       </View>
     </Modal>
+  );
+}
+
+// 🎙️ Ses dalgası: yayına giden sesin seviyesi (yeşil çubuklar oynuyorsa ses gidiyor).
+// Seviye saniyede 8 kez gelir; çubuklar ekranı yeniden çizmeden, doğrudan animasyonla oynar.
+const WAVE_N = 5;
+function MicWave({ sink, muted }) {
+  const vals = useRef([...Array(WAVE_N)].map(() => new Animated.Value(0.15))).current;
+  const hist = useRef(Array(WAVE_N).fill(0));
+  useEffect(() => {
+    sink.current = (v) => {
+      hist.current = [...hist.current.slice(1), v];
+      hist.current.forEach((x, i) => Animated.timing(vals[i], { toValue: Math.max(0.15, x), duration: 110, useNativeDriver: true }).start());
+    };
+    return () => {
+      sink.current = null;
+    };
+  }, [sink, vals]);
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, height: 22 }}>
+      {vals.map((v, i) => (
+        <Animated.View key={i} style={{ width: 3, height: 22, borderRadius: 2, backgroundColor: muted ? '#9ca3af' : '#22c55e', transform: [{ scaleY: v }] }} />
+      ))}
+    </View>
   );
 }
 

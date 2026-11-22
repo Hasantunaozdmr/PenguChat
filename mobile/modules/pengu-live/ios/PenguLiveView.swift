@@ -40,6 +40,7 @@ final class PenguLiveView: ExpoView {
   let onStatus = EventDispatcher()
   let onStats = EventDispatcher()
   let onNotice = EventDispatcher()
+  let onLevel = EventDispatcher()
 
   private static var factoryReady = false
   private let names = ["twitch", "kick"]
@@ -81,6 +82,8 @@ final class PenguLiveView: ExpoView {
   private var okSince: Date?
   private var statsTimer: Timer?
   private var webTimer: Timer?
+  private var levelTimer: Timer?
+  private let meter = MicMeter()
 
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
@@ -95,6 +98,7 @@ final class PenguLiveView: ExpoView {
   deinit {
     statsTimer?.invalidate()
     webTimer?.invalidate()
+    levelTimer?.invalidate()
     NotificationCenter.default.removeObserver(self)
   }
 
@@ -153,11 +157,20 @@ final class PenguLiveView: ExpoView {
     try? await mixer.attachAudio(AVCaptureDevice.default(for: .audio))
     await mixer.startRunning()
     await mixer.addOutput(preview)
+    await mixer.addOutput(meter)
     await applyOverlays()
 
     statsTimer?.invalidate()
     statsTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
       Task { @MainActor in self?.tick() }
+    }
+    // 🎙️ Ses dalgası: yayına giden sesin seviyesi (saniyede 8 kez)
+    levelTimer?.invalidate()
+    levelTimer = Timer.scheduledTimer(withTimeInterval: 0.125, repeats: true) { [weak self] _ in
+      Task { @MainActor in
+        guard let self else { return }
+        self.onLevel(["v": Double(self.meter.take())])
+      }
     }
   }
 
@@ -166,8 +179,10 @@ final class PenguLiveView: ExpoView {
     running = false
     statsTimer?.invalidate(); statsTimer = nil
     webTimer?.invalidate(); webTimer = nil
+    levelTimer?.invalidate(); levelTimer = nil
     await stop()
     await mixer.removeOutput(preview)
+    await mixer.removeOutput(meter)
     await mixer.stopRunning()
     try? await mixer.attachAudio(nil)
     try? await mixer.attachVideo(nil, track: 0)
@@ -780,5 +795,48 @@ final class PenguLiveView: ExpoView {
         }
       }
     }
+  }
+}
+
+
+/// 🎙️ Yayına giden (karıştırılmış) sesin seviyesi: 0 sessiz … 1 çok yüksek
+final class MicMeter: MediaMixerOutput, @unchecked Sendable {
+  private let lock = NSLock()
+  private var peak: Float = 0
+
+  var videoTrackId: UInt8? { get async { nil } }
+  var audioTrackId: UInt8? { get async { UInt8.max } }
+
+  func selectTrack(_ id: UInt8?, mediaType: CMFormatDescription.MediaType) async {}
+  func mixer(_ mixer: MediaMixer, didOutput sampleBuffer: CMSampleBuffer) {}
+
+  func mixer(_ mixer: MediaMixer, didOutput buffer: AVAudioPCMBuffer, when: AVAudioTime) {
+    let n = Int(buffer.frameLength)
+    guard n > 0 else { return }
+    var sum: Float = 0
+    var count = 0
+    if let ch = buffer.floatChannelData {
+      let step = buffer.stride
+      let p = ch[0]
+      var i = 0
+      while i < n * step { let v = p[i]; sum += v * v; count += 1; i += step * 4 }
+    } else if let ch = buffer.int16ChannelData {
+      let step = buffer.stride
+      let p = ch[0]
+      var i = 0
+      while i < n * step { let v = Float(p[i]) / 32768; sum += v * v; count += 1; i += step * 4 }
+    } else { return }
+    guard count > 0 else { return }
+    let rms = sqrt(sum / Float(count))
+    let db = 20 * log10(max(rms, 0.00001)) // -100 … 0
+    let level = min(1, max(0, (db + 55) / 50))
+    lock.lock(); if level > peak { peak = level }; lock.unlock()
+  }
+
+  func take() -> Float {
+    lock.lock(); defer { lock.unlock() }
+    let p = peak
+    peak = 0
+    return p
   }
 }

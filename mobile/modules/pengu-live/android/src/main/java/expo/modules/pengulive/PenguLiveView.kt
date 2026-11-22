@@ -49,6 +49,7 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
   private val onStatus by EventDispatcher()
   private val onStats by EventDispatcher()
   private val onNotice by EventDispatcher()
+  private val onLevel by EventDispatcher()
 
   private val main = Handler(Looper.getMainLooper())
   private val names = arrayOf("twitch", "kick")
@@ -145,8 +146,17 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
     }
   }
 
+  // 🎙️ Ses dalgası: saniyede 8 kez yayına giden sesin seviyesi
+  private val levelTick = object : Runnable {
+    override fun run() {
+      (stream.audioSource as? MixMicSource)?.let { onLevel(mapOf("v" to it.takeLevel().toDouble())) }
+      main.postDelayed(this, 125)
+    }
+  }
+
   init {
     main.post(statsTick)
+    main.post(levelTick)
   }
 
   private var presetBitrate = 3_000_000
