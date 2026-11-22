@@ -752,7 +752,7 @@ function PenguChat() {
         </View>
       </View>
       {/* ---- Yazılı düğme sırası: bütün işlevler görünür (gizli menü yok) ---- */}
-      <View style={[styles.actBar, collapsed && { display: 'none' }]}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.actScroll, collapsed && { display: 'none' }]} contentContainerStyle={styles.actBar}>
         {anyModAccess && (
           <Act
             label="👤 Mod"
@@ -784,13 +784,13 @@ function PenguChat() {
         {(Platform.OS === 'android' || Platform.OS === 'ios') && (roles.stream || !!admin || ownerOn.twitch || ownerOn.kick) && <Act label="📡 Yayın" onPress={() => setLiveOpen(true)} />}
         <Act label="🔧 Ayarlar" dot={!!newVersion} onPress={() => setSettingsOpen(true)} />
         <Act label="▲ Gizle" onPress={() => update({ topCollapsed: true })} />
-      </View>
+      </ScrollView>
       {/* 🔔 Etkinlikler: üstte hep açık (son 2 etkinlik), dokununca büyür */}
       <Pressable style={[styles.evStrip, !!evToast && styles.evStripNew]} onPress={() => { setEvToast(null); setEvOpen(true); }} accessibilityLabel="Etkinlikler">
         {events.length ? (
           events.slice(0, 2).map((e, i) => <EvLine key={(e.id || '') + i} e={e} compact />)
         ) : (
-          <Text style={{ color: C.muted, fontSize: 12 }}>🔔 Etkinlikler: abone, hediye abone, bit, Kicks, bağış ve takipler burada görünür</Text>
+          <Text style={{ color: C.muted, fontSize: 12 }} numberOfLines={1}>🔔 Etkinlikler (abone, bit, Kicks, bağış…) burada görünür</Text>
         )}
       </Pressable>
       {/* Üst kısım gizliyken: ince şerit, dokununca geri açılır */}
@@ -1404,7 +1404,8 @@ function makeStyles() {
   expandBadge: { color: '#fff', backgroundColor: '#e5484d', borderRadius: 9, minWidth: 18, textAlign: 'center', fontSize: 11, fontWeight: '700', paddingHorizontal: 5, overflow: 'hidden' },
   evStrip: { paddingHorizontal: 10, paddingVertical: 4, gap: 1, minHeight: 30, justifyContent: 'center', backgroundColor: C.panel2, borderBottomWidth: 1, borderBottomColor: C.border },
   evStripNew: { backgroundColor: 'rgba(251,191,36,.18)' },
-  actBar: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 8, paddingVertical: 6, backgroundColor: C.panel2, borderBottomWidth: 1, borderBottomColor: C.border },
+  actScroll: { flexGrow: 0, backgroundColor: C.panel2, borderBottomWidth: 1, borderBottomColor: C.border },
+  actBar: { flexDirection: 'row', gap: 6, paddingHorizontal: 8, paddingVertical: 6 },
   act: { height: 32, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1, borderColor: C.border, backgroundColor: C.panel, justifyContent: 'center' },
   actText: { color: C.text, fontSize: 13, fontWeight: '600' },
   menuBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50 },

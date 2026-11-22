@@ -159,7 +159,14 @@
   // Kapalıyken mesaj yazma kutusu ekran dışına taşınır, tüm alan mesajlara kalır. Kutu sayfada
   // kaldığı için hızlı timeout / ban komutları çalışmaya devam eder. Giriş yapılmamışsa dokunmaz,
   // böylece chat'teki "Giriş yap" düğmesi görünür kalır.
-  const loggedIn = () => !!(isTwitch ? cookie('auth-token') : cookie('session_token'));
+  // Kick'te (özellikle iPhone'da) oturum çerezi sayfadan okunamayabiliyor: mesaj kutusu var ve
+  // "Giriş yap" düğmesi yoksa da giriş yapılmış say
+  const loginBtn = () =>
+    [...document.querySelectorAll('button, a')].some((b) => {
+      const r = b.getBoundingClientRect();
+      return r.width > 0 && r.bottom > innerHeight * 0.5 && /^(giriş yap|log ?in|sign ?(up|in)|kaydol)$/i.test((b.textContent || '').trim());
+    });
+  const loggedIn = () => !!(isTwitch ? cookie('auth-token') : cookie('session_token') || (findInput() && !loginBtn()));
   const HIDE = ['position', 'left', 'top', 'width'];
   let composerShown = true;
   let hiddenBox = null;
@@ -171,7 +178,7 @@
   }
   // Okuma modu (✏️ kapalı): mesajlara daha çok yer kalsın diye Twitch'in sohbet başlığı ve
   // abone hedefi / öne çıkanlar bandı da gizlenir (✏️ açılınca geri gelir)
-  const RO_CSS = '.pengu-ro .stream-chat-header,.pengu-ro [class*="community-highlight-stack"]{display:none!important}';
+  const RO_CSS = '.pengu-ro .stream-chat-header,.pengu-ro [class*="community-highlight"],.pengu-ro .pengu-top{display:none!important}';
   function readOnlyLook(on) {
     if (!document.getElementById('pengu-ro-css') && document.head) {
       const st = document.createElement('style');
@@ -180,6 +187,22 @@
       document.head.appendChild(st);
     }
     document.documentElement.classList.toggle('pengu-ro', on);
+    if (on && isTwitch) markTopBars();
+  }
+  // Twitch: mesaj listesinin üstündeki her şeyi (abone hedefi, öne çıkanlar, sabit mesaj bandı) işaretle;
+  // sadece okuma modunda gizlenir
+  function markTopBars() {
+    const list = document.querySelector('.chat-scrollable-area__message-container, [data-test-selector="chat-scrollable-area__message-container"]');
+    if (!list) return;
+    let el = list;
+    for (let depth = 0; depth < 6 && el.parentElement && el.parentElement !== document.body; depth++) {
+      const parent = el.parentElement;
+      for (let sib = el.previousElementSibling; sib; sib = sib.previousElementSibling) {
+        if (sib.tagName !== 'STYLE' && sib.tagName !== 'SCRIPT') sib.classList.add('pengu-top');
+      }
+      if (parent.classList.contains('chat-room__content') || parent.classList.contains('chat-room')) break;
+      el = parent;
+    }
   }
   function applyComposer() {
     readOnlyLook(!composerShown);
