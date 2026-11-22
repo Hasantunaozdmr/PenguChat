@@ -1,0 +1,48 @@
+name: PenguLive - TestFlight temizle
+
+# TestFlight'taki bütün eski sürümleri kapatır (süresini bitirir). Elle çalıştırılır; yeni sürüm sonra gönderilir.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  clean:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Eski sürümleri kapat
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          APP_ID: "6837653168"
+        run: |
+          sudo gem install jwt --no-document -q
+          cat > /tmp/clean.rb <<'RUBY'
+          require 'jwt'; require 'openssl'; require 'net/http'; require 'json'
+          key = OpenSSL::PKey::EC.new(ENV['ASC_KEY_P8'])
+          now = Time.now.to_i
+          tok = JWT.encode({ iss: ENV['ASC_ISSUER_ID'].strip, iat: now, exp: now + 1100, aud: 'appstoreconnect-v1' }, key, 'ES256', { kid: ENV['ASC_KEY_ID'].strip })
+          def get(path, tok)
+            uri = URI('https://api.appstoreconnect.apple.com' + path)
+            res = Net::HTTP.start(uri.host, uri.port, use_ssl: true) { |h| h.get(uri.request_uri, 'Authorization' => "Bearer #{tok}") }
+            [res.code.to_i, (JSON.parse(res.body) rescue {})]
+          end
+          app = ENV['APP_ID']
+          def patch(path, tok, body)
+            uri = URI('https://api.appstoreconnect.apple.com' + path)
+            req = Net::HTTP::Patch.new(uri, 'Authorization' => "Bearer #{tok}", 'Content-Type' => 'application/json')
+            req.body = body.to_json
+            res = Net::HTTP.start(uri.host, uri.port, use_ssl: true) { |h| h.request(req) }
+            res.code.to_i
+          end
+          c, b = get("/v1/builds?filter[app]=#{app}&filter[expired]=false&limit=50", tok)
+          (b['data'] || []).each do |x|
+            code = patch("/v1/builds/#{x['id']}", tok, { data: { type: 'builds', id: x['id'], attributes: { expired: true } } })
+            puts "build #{x.dig('attributes', 'version')} kapatıldı (#{code})"
+          end
+          puts "Bitti"
+          RUBY
+          ruby /tmp/clean.rb
