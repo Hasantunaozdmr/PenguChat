@@ -774,6 +774,7 @@ function ChatPanel({ plats, channels, userAgent, style, liveChat, store, onViewe
     });
   const [size, setSize] = useState(15);
   const [evOnly, setEvOnly] = useState(false);
+  const [kickSt, setKickSt] = useState('Kick: sayfa açılıyor…'); // Kick bağlantı durumu (sorun olursa sebebi görünsün)
   const seen = useRef(store?.current.seen || new Set());
   const add = (m) => {
     if (seen.current.has(m.id)) return;
@@ -800,7 +801,10 @@ function ChatPanel({ plats, channels, userAgent, style, liveChat, store, onViewe
       if (data.startsWith('__PENGU_MSG__')) {
         const m = JSON.parse(data.slice(13));
         if (m && m.p) gotFrom.current[m.p] = true;
+        if (m && m.p === 'kick') setKickSt('');
         if (m && m.text) add({ ...m, kind: 'msg' });
+      } else if (data.startsWith('__PENGU_KST__')) {
+        setKickSt(data.slice(13).slice(0, 140));
       } else if (data.startsWith('__PENGU_DEL__')) {
         const d = JSON.parse(data.slice(13));
         if (d && d.p) del(d);
@@ -892,6 +896,11 @@ function ChatPanel({ plats, channels, userAgent, style, liveChat, store, onViewe
           <Text style={{ color: '#fff', fontSize: 12 }}>A+</Text>
         </Pressable>
       </View>
+      {plats.includes('kick') && !!kickSt && (
+        <Text style={{ color: '#9ca3af', fontSize: 11, paddingHorizontal: 10, paddingVertical: 3, backgroundColor: '#17171b' }} numberOfLines={2}>
+          🟩 {kickSt}
+        </Text>
+      )}
       {!plats.length ? (
         <Text style={{ color: '#aaa', padding: 14 }}>Chat için önce Twitch / Kick hesabına giriş yap ya da chat ekranında kanalını aç.</Text>
       ) : (

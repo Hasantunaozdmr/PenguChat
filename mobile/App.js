@@ -533,7 +533,7 @@ function PenguChat() {
   };
   const onWebMessage = (k, data) => {
     if (typeof data !== 'string') return;
-    if (data.startsWith('__PENGU_MSG__') || data.startsWith('__PENGU_DEL__')) {
+    if (data.startsWith('__PENGU_MSG__') || data.startsWith('__PENGU_DEL__') || data.startsWith('__PENGU_KST__')) {
       if (liveChatOn.current[k]) liveSink.current?.(data);
       return;
     }
