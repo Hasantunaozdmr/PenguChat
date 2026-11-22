@@ -1,0 +1,51 @@
+name: PenguLive - TestFlight durumu
+
+# TestFlight'taki sürümlerin ve test gruplarının durumunu yazar (sürüm görünmüyorsa neden). Elle çalıştırılır.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  status:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Durumu yaz
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          APP_ID: "6837653168"
+        run: |
+          sudo gem install jwt --no-document -q
+          cat > /tmp/status.rb <<'RUBY'
+          require 'jwt'; require 'openssl'; require 'net/http'; require 'json'
+          key = OpenSSL::PKey::EC.new(ENV['ASC_KEY_P8'])
+          now = Time.now.to_i
+          tok = JWT.encode({ iss: ENV['ASC_ISSUER_ID'].strip, iat: now, exp: now + 1100, aud: 'appstoreconnect-v1' }, key, 'ES256', { kid: ENV['ASC_KEY_ID'].strip })
+          def get(path, tok)
+            uri = URI('https://api.appstoreconnect.apple.com' + path)
+            res = Net::HTTP.start(uri.host, uri.port, use_ssl: true) { |h| h.get(uri.request_uri, 'Authorization' => "Bearer #{tok}") }
+            [res.code.to_i, (JSON.parse(res.body) rescue {})]
+          end
+          app = ENV['APP_ID']
+          c, b = get("/v1/builds?filter[app]=#{app}&sort=-uploadedDate&limit=8&include=buildBetaDetail", tok)
+          puts "Sürümler (#{c}):"
+          det = {}
+          (b['included'] || []).each { |i| det[i['id']] = i['attributes'] if i['type'] == 'buildBetaDetails' }
+          (b['data'] || []).each do |x|
+            a = x['attributes']; d = det[x.dig('relationships', 'buildBetaDetail', 'data', 'id')] || {}
+            puts "  build #{a['version']} · yüklendi #{a['uploadedDate']} · işlem #{a['processingState']} · süresi doldu #{a['expired']} · iç test #{d['internalBuildState']} · dış #{d['externalBuildState']} · şifreleme #{a['usesNonExemptEncryption'].inspect}"
+          end
+          c, g = get("/v1/apps/#{app}/betaGroups?limit=20", tok)
+          puts "Test grupları (#{c}):"
+          (g['data'] || []).each do |x|
+            a = x['attributes']
+            c2, t = get("/v1/betaGroups/#{x['id']}/betaTesters?limit=20", tok)
+            c3, bb = get("/v1/betaGroups/#{x['id']}/builds?limit=3", tok)
+            puts "  #{a['name']} · iç #{a['isInternalGroup']} · tüm sürümlere erişim #{a['hasAccessToAllBuilds']} · test eden #{(t['data'] || []).size} (#{(t['data'] || []).map { |y| y.dig('attributes', 'state') }.join(',')}) · sürüm #{(bb['data'] || []).size}"
+          end
+          RUBY
+          ruby /tmp/status.rb
