@@ -732,8 +732,8 @@ function PenguChat() {
       {/* ---- Üst çubuk ---- */}
       <View style={[styles.bar, collapsed && { display: 'none' }]}>
         <View style={styles.linkBox}>
-          <Image source={PLAT_IMG.twitch} style={styles.platLogo} />
-          <Image source={PLAT_IMG.kick} style={[styles.platLogo, { marginLeft: 3 }]} />
+          <Image source={PLAT_IMG.twitch} style={styles.linkLogo} />
+          <Image source={PLAT_IMG.kick} style={styles.linkLogo} />
           <TextInput
             style={styles.linkInput}
             value={link}
@@ -1341,7 +1341,7 @@ function makeStyles() {
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 8,
-    paddingVertical: 6,
+    paddingVertical: 4,
     backgroundColor: C.panel,
     borderBottomWidth: 1,
     borderBottomColor: C.border,
@@ -1350,24 +1350,24 @@ function makeStyles() {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    height: 38,
-    paddingLeft: 10,
+    gap: 5,
+    height: 30,
+    paddingLeft: 8,
     backgroundColor: C.input,
     borderWidth: 1,
     borderColor: C.border,
     borderRadius: 8,
     overflow: 'hidden',
   },
-  linkInput: { flex: 1, minWidth: 0, color: C.text, fontSize: 14, paddingVertical: 0 },
+  linkInput: { flex: 1, minWidth: 0, color: C.text, fontSize: 13, paddingVertical: 0 },
   pasteBtn: {
     flexShrink: 0,
     height: '100%',
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     justifyContent: 'center',
     backgroundColor: PLATFORMS.twitch.color,
   },
-  pasteText: { color: '#fff', fontWeight: '700', fontSize: 17 },
+  pasteText: { color: '#fff', fontWeight: '700', fontSize: 14 },
   iconBtn: {
     width: 38,
     height: 38,
@@ -1402,12 +1402,12 @@ function makeStyles() {
   expandBar: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: C.panel2, borderBottomWidth: 1, borderBottomColor: C.border },
   expandText: { color: C.text, fontSize: 13, fontWeight: '700', flexShrink: 1 },
   expandBadge: { color: '#fff', backgroundColor: '#e5484d', borderRadius: 9, minWidth: 18, textAlign: 'center', fontSize: 11, fontWeight: '700', paddingHorizontal: 5, overflow: 'hidden' },
-  evStrip: { paddingHorizontal: 10, paddingVertical: 4, gap: 1, minHeight: 30, justifyContent: 'center', backgroundColor: C.panel2, borderBottomWidth: 1, borderBottomColor: C.border },
+  evStrip: { paddingHorizontal: 10, paddingVertical: 3, gap: 1, minHeight: 24, justifyContent: 'center', backgroundColor: C.panel2, borderBottomWidth: 1, borderBottomColor: C.border },
   evStripNew: { backgroundColor: 'rgba(251,191,36,.18)' },
   actScroll: { flexGrow: 0, backgroundColor: C.panel2, borderBottomWidth: 1, borderBottomColor: C.border },
-  actBar: { flexDirection: 'row', gap: 6, paddingHorizontal: 8, paddingVertical: 6 },
-  act: { height: 32, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1, borderColor: C.border, backgroundColor: C.panel, justifyContent: 'center' },
-  actText: { color: C.text, fontSize: 13, fontWeight: '600' },
+  actBar: { flexDirection: 'row', gap: 6, paddingHorizontal: 8, paddingVertical: 4 },
+  act: { height: 28, paddingHorizontal: 9, borderRadius: 8, borderWidth: 1, borderColor: C.border, backgroundColor: C.panel, justifyContent: 'center' },
+  actText: { color: C.text, fontSize: 12, fontWeight: '600' },
   menuBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50 },
   menu: {
     position: 'absolute',
@@ -1474,6 +1474,7 @@ function makeStyles() {
   hint: { paddingHorizontal: 10, paddingVertical: 3, fontSize: 12, backgroundColor: C.panel },
   dot: { width: 8, height: 8, borderRadius: 4 },
   platLogo: { width: 18, height: 18, borderRadius: 4 },
+  linkLogo: { width: 15, height: 15, borderRadius: 3 },
 
   tabBar: { flexDirection: 'row', backgroundColor: C.panel2 },
   tab: {
