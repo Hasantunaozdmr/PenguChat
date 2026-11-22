@@ -616,8 +616,68 @@
   function delPost(m) { post('__PENGU_DEL__' + JSON.stringify(m)); }
   // Rozetler: sadece bilinenler (yayıncı, mod, vip, abone…)
   const BADGE_KEEP = ['broadcaster', 'moderator', 'vip', 'subscriber', 'founder', 'og', 'verified', 'partner', 'sub_gifter', 'staff'];
+  // 🏅 Gerçek rozet resimleri: Twitch'ten genel + kanalın kendi rozetleri (abone rozetleri dahil), bir kez çekilir
+  let twBadgeMap = null, twBadgeLoading = false;
+  function loadTwBadges() {
+    if (twBadgeMap || twBadgeLoading) return;
+    twBadgeLoading = true;
+    const login = (location.pathname.match(/^\/(?:popout\/)?([A-Za-z0-9_]+)/) || [])[1] || '';
+    fetch('https://gql.twitch.tv/gql', {
+      method: 'POST',
+      headers: { 'Client-Id': 'kimne78kx3ncx6brgo4mv6wki5h1ko' },
+      // İki ayrı sorgu: biri hata verirse diğeri yine gelsin
+      body: JSON.stringify([
+        { query: 'query { badges { setID version imageURL(size: DOUBLE) } }' },
+        { query: 'query($l: String!) { user(login: $l) { broadcastBadges { setID version imageURL(size: DOUBLE) } } }', variables: { l: login } },
+      ]),
+    })
+      .then((r) => r.json())
+      .then((arr) => {
+        const map = {};
+        const g = (arr && arr[0] && arr[0].data) || {};
+        const c = (arr && arr[1] && arr[1].data) || {};
+        (g.badges || []).forEach((b) => b && b.imageURL && (map[b.setID + '/' + b.version] = b.imageURL));
+        ((c.user && c.user.broadcastBadges) || []).forEach((b) => b && b.imageURL && (map[b.setID + '/' + b.version] = b.imageURL)); // kanalınki genelin üstüne
+        twBadgeMap = map;
+      })
+      .catch(() => { twBadgeLoading = false; });
+  }
   function twBadges(raw) {
-    return String(raw || '').split(',').map((x) => x.split('/')[0]).filter((x) => BADGE_KEEP.includes(x));
+    loadTwBadges();
+    return String(raw || '').split(',').filter(Boolean).slice(0, 5).map((x) => {
+      const n = x.split('/')[0];
+      const u = twBadgeMap && twBadgeMap[x];
+      return u ? { n, u } : BADGE_KEEP.includes(n) ? { n } : null;
+    }).filter(Boolean);
+  }
+  // Kick: kanalın abone rozetleri (ay sayısına göre); diğer rozetlerin resmi yok, işaretle gösterilir
+  let kickSubBadges = null, kickBadgeLoading = false;
+  function loadKickBadges() {
+    if (kickSubBadges || kickBadgeLoading) return;
+    kickBadgeLoading = true;
+    const slug = (location.pathname.match(/^\/(?:popout\/)?([A-Za-z0-9_-]+)/) || [])[1] || '';
+    fetch('/api/v2/channels/' + encodeURIComponent(slug), { credentials: 'include', headers: { Accept: 'application/json' } })
+      .then((r) => r.json())
+      .then((j) => {
+        kickSubBadges = ((j && j.subscriber_badges) || [])
+          .map((b) => ({ m: Number(b.months) || 0, u: (b.badge_image && b.badge_image.src) || '' }))
+          .filter((b) => b.u)
+          .sort((a, b) => a.m - b.m);
+      })
+      .catch(() => { kickBadgeLoading = false; });
+  }
+  function kickBadges(list) {
+    loadKickBadges();
+    return (Array.isArray(list) ? list : []).slice(0, 5).map((x) => {
+      const n = String((x && x.type) || '');
+      if (n === 'subscriber' && kickSubBadges && kickSubBadges.length) {
+        const months = Number(x.count) || 1;
+        let pick = kickSubBadges[0];
+        kickSubBadges.forEach((b) => { if (b.m <= months) pick = b; });
+        return { n, u: pick.u };
+      }
+      return BADGE_KEEP.includes(n) ? { n } : null;
+    }).filter(Boolean);
   }
   // Twitch emojileri: "25:0-4,12-16/1902:6-10" → metin parçaları + resimler (konumlar harf sırasına göre)
   function twParts(text, emotes) {
@@ -668,7 +728,7 @@
         const raw = String(d.content || '');
         const text = raw.replace(/\[emote:\d+:([^\]]+)\]/g, ':$1:');
         const idt = d.sender.identity || {};
-        const b = (Array.isArray(idt.badges) ? idt.badges : []).map((x) => String((x && x.type) || '')).filter((x) => BADGE_KEEP.includes(x));
+        const b = kickBadges(idt.badges);
         chatPost({ p: 'kick', id: 'km:' + (d.id || Math.random()), user: d.sender.username || '', color: idt.color || '', text, b, parts: kickParts(raw) });
       }
       return;

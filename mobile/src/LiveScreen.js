@@ -907,7 +907,14 @@ function ChatPanel({ plats, channels, userAgent, style, liveChat, store, onViewe
               <Text style={{ color: '#efeff1', fontSize: size, flex: 1, lineHeight: Math.round(size * 1.35) }}>
                 {m.kind === 'msg' ? (
                   <>
-                    {(m.b || []).map((b) => (BADGE[b] ? <Text key={b}>{BADGE[b]} </Text> : null))}
+                    {(m.b || []).map((b, i) => {
+                      // Yeni biçim { n, u } (resim), eski biçim sadece isim
+                      const n = typeof b === 'string' ? b : b && b.n;
+                      const u = typeof b === 'object' && b && /^https:\/\/(static-cdn\.jtvnw\.net|files\.kick\.com)\//.test(b.u || '') ? b.u : '';
+                      if (u) return <Image key={i} source={{ uri: u }} style={{ width: Math.round(size * 1.15), height: Math.round(size * 1.15) }} accessibilityLabel={n} />;
+                      return BADGE[n] ? <Text key={i}>{BADGE[n]}</Text> : null;
+                    })}
+                    {!!(m.b && m.b.length) && ' '}
                     <Text style={{ fontWeight: '700', color: cleanColor(m.color) || (m.p === 'twitch' ? '#bf94ff' : '#53fc18') }}>{m.user}</Text>
                     {'  '}
                     {m.del ? (
