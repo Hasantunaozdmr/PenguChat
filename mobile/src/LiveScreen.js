@@ -63,6 +63,17 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true, cha
   const [kbps, setKbps] = useState(0); // elle bitrate (0 = kaliteye göre)
   const [kbpsText, setKbpsText] = useState('');
   const [muted, setMuted] = useState(false);
+  const [micToast, setMicToast] = useState(null);
+  const micTimer = useRef(null);
+  const toggleMic = () => {
+    const m = !muted;
+    setMuted(m);
+    ref.current?.setMuted(m);
+    setMicToast(m ? 'off' : 'on');
+    clearTimeout(micTimer.current);
+    micTimer.current = setTimeout(() => setMicToast(null), 1500);
+  };
+  useEffect(() => () => clearTimeout(micTimer.current), []);
   const [running, setRunning] = useState(false); // yayıncı "Yayına başla"ya bastı
   const [status, setStatus] = useState({ twitch: 'idle', kick: 'idle' });
   const [stats, setStats] = useState({ twitch: 0, kick: 0, lowMode: false });
@@ -383,6 +394,12 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true, cha
               ))}
             </View>
           )}
+          {/* 🔇 Mikrofon kapalıyken hep görünür */}
+          {muted && (
+            <Pressable onPress={toggleMic}>
+              <Text style={[pill, { color: '#fff', backgroundColor: '#dc2626', fontWeight: '700' }]}>🔇 Mikrofon KAPALI — izleyiciler sesini duymuyor (açmak için dokun)</Text>
+            </Pressable>
+          )}
           {/* 🔋 Şarj / ısı uyarısı (uygulama bu durumda kare hızını kendiliğinden sabitler); dokununca hemen kapanır */}
           {powerShow && !!powerMsg && (
             <Pressable onPress={() => setPowerShow(false)}>
@@ -453,13 +470,22 @@ export default function LiveScreen({ C, onClose, userAgent, unlocked = true, cha
           </View>
         )}
 
+        {/* 🎤 Mikrofon açıldı / kapandı: ortada kısa yazı */}
+        {!!micToast && (
+          <View pointerEvents="none" style={{ position: 'absolute', top: 0, bottom: chatH, left: 0, right: chatW, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ color: '#fff', fontSize: 22, fontWeight: '800', backgroundColor: micToast === 'off' ? 'rgba(220,38,38,.92)' : 'rgba(22,163,74,.92)', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 14, overflow: 'hidden' }}>
+              {micToast === 'off' ? '🔇 Mikrofon kapatıldı' : '🎤 Mikrofon açıldı'}
+            </Text>
+          </View>
+        )}
+
         {/* Alt tuşlar */}
         {!layoutMode && (
         <View style={{ position: 'absolute', bottom: Math.max(18, ins.bottom + 6) + chatH, left: ins.left + 8, right: ins.right + 8 + chatW, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
           <Pressable style={btn('rgba(0,0,0,.6)')} onPress={() => ref.current?.switchCamera()}>
             <Text style={txt}>🔄</Text>
           </Pressable>
-          <Pressable style={btn(muted ? '#dc2626' : 'rgba(0,0,0,.6)')} onPress={() => { const m = !muted; setMuted(m); ref.current?.setMuted(m); }}>
+          <Pressable style={btn(muted ? '#dc2626' : 'rgba(0,0,0,.6)')} onPress={toggleMic}>
             <Text style={txt}>{muted ? '🔇' : '🎤'}</Text>
           </Pressable>
           <Pressable style={btn(chatOn ? '#9146ff' : 'rgba(0,0,0,.6)')} onPress={toggleChat}>
