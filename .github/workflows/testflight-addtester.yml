@@ -50,6 +50,10 @@ jobs:
             code, body = post("/v1/betaGroups/#{grp['id']}/relationships/betaTesters", tok, { data: testers.map { |i| { type: 'betaTesters', id: i } } })
             puts "#{grp.dig('attributes', 'name')}: #{code} #{code >= 300 ? body : ''}"
             c2, tt = get("/v1/betaGroups/#{grp['id']}/betaTesters?limit=20", tok)
+            testers.each do |tid|
+              ci, bi = post("/v1/betaTesterInvitations", tok, { data: { type: 'betaTesterInvitations', relationships: { app: { data: { type: 'apps', id: app } }, betaTester: { data: { type: 'betaTesters', id: tid } } } } })
+              puts "  davet gönderildi: #{ci} #{ci >= 300 ? bi : ''}"
+            end
             puts "  şimdi test eden: #{(tt['data'] || []).size} (#{(tt['data'] || []).map { |y| y.dig('attributes', 'state') }.join(',')})"
           end
           RUBY
