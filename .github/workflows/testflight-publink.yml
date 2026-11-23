@@ -1,0 +1,67 @@
+name: PenguLive - TestFlight herkese açık link
+
+# Dış test grubu "Link" (herkese açık link, en fazla 2 kişi) kurar, en yeni sürümü ekler ve Apple incelemesine gönderir. Elle çalıştırılır.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publink:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Link grubu + inceleme
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          APP_ID: "6837653168"
+        run: |
+          sudo gem install jwt --no-document -q
+          cat > /tmp/publink.rb <<'RUBY'
+          require 'jwt'; require 'openssl'; require 'net/http'; require 'json'
+          key = OpenSSL::PKey::EC.new(ENV['ASC_KEY_P8'])
+          now = Time.now.to_i
+          tok = JWT.encode({ iss: ENV['ASC_ISSUER_ID'].strip, iat: now, exp: now + 1100, aud: 'appstoreconnect-v1' }, key, 'ES256', { kid: ENV['ASC_KEY_ID'].strip })
+          def get(path, tok)
+            uri = URI('https://api.appstoreconnect.apple.com' + path)
+            res = Net::HTTP.start(uri.host, uri.port, use_ssl: true) { |h| h.get(uri.request_uri, 'Authorization' => "Bearer #{tok}") }
+            [res.code.to_i, (JSON.parse(res.body) rescue {})]
+          end
+          app = ENV['APP_ID']
+          def req(m, path, tok, body = nil)
+            uri = URI('https://api.appstoreconnect.apple.com' + path)
+            r = (m == :post ? Net::HTTP::Post : Net::HTTP::Patch).new(uri, 'Authorization' => "Bearer #{tok}", 'Content-Type' => 'application/json')
+            r.body = body.to_json if body
+            res = Net::HTTP.start(uri.host, uri.port, use_ssl: true) { |h| h.request(r) }
+            [res.code.to_i, (JSON.parse(res.body) rescue {})]
+          end
+          errs = ->(j) { (j['errors'] || []).map { |e| "#{e['code']}: #{e['detail']}" }.join(' | ') }
+          c, g = get("/v1/apps/#{app}/betaGroups?limit=20", tok)
+          grp = (g['data'] || []).find { |x| !x.dig('attributes', 'isInternalGroup') && x.dig('attributes', 'name') == 'Link' }
+          unless grp
+            pc, pj = req(:post, "/v1/betaGroups", tok, { data: { type: 'betaGroups', attributes: { name: 'Link', publicLinkEnabled: true, publicLinkLimitEnabled: true, publicLinkLimit: 2 }, relationships: { app: { data: { type: 'apps', id: app } } } } })
+            puts "Link grubu oluşturuldu: #{pc} #{pc >= 300 ? errs.(pj) : ''}"
+            grp = pj['data']
+          else
+            uc, uj = req(:patch, "/v1/betaGroups/#{grp['id']}", tok, { data: { type: 'betaGroups', id: grp['id'], attributes: { publicLinkEnabled: true, publicLinkLimitEnabled: true, publicLinkLimit: 2 } } })
+            puts "Link grubu var, link açık: #{uc} #{uc >= 300 ? errs.(uj) : ''}"
+          end
+          abort "grup yok" unless grp
+          c, b = get("/v1/builds?filter[app]=#{app}&filter[expired]=false&sort=-uploadedDate&limit=1", tok)
+          bld = (b['data'] || []).first
+          c, b = get("/v1/builds?filter[app]=#{app}&sort=-uploadedDate&limit=1", tok) unless bld
+          bld ||= (b['data'] || []).first
+          abort "sürüm yok" unless bld
+          puts "Sürüm: #{bld.dig('attributes', 'version')}"
+          ac, aj = req(:post, "/v1/betaGroups/#{grp['id']}/relationships/builds", tok, { data: [{ type: 'builds', id: bld['id'] }] })
+          puts "Gruba eklendi: #{ac} #{ac >= 300 ? errs.(aj) : ''}"
+          sc, sj = req(:post, "/v1/betaAppReviewSubmissions", tok, { data: { type: 'betaAppReviewSubmissions', relationships: { build: { data: { type: 'builds', id: bld['id'] } } } } })
+          puts "İncelemeye gönderildi: #{sc} #{sc >= 300 ? errs.(sj) : ''}"
+          c, gg = get("/v1/betaGroups/#{grp['id']}", tok)
+          ga = gg.dig('data', 'attributes') || {}
+          puts "Link açık: #{ga['publicLinkEnabled']} · sınır #{ga['publicLinkLimit']} · link #{ga['publicLink'].to_s.empty? ? 'henüz yok (onaydan sonra)' : 'hazır'}"
+          RUBY
+          ruby /tmp/publink.rb
