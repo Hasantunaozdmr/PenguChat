@@ -47,5 +47,11 @@ jobs:
             c3, bb = get("/v1/betaGroups/#{x['id']}/builds?limit=3", tok)
             puts "  #{a['name']} · iç #{a['isInternalGroup']} · tüm sürümlere erişim #{a['hasAccessToAllBuilds']} · test eden #{(t['data'] || []).size} (#{(t['data'] || []).map { |y| y.dig('attributes', 'state') }.join(',')}) · sürüm #{(bb['data'] || []).size}"
           end
+          c, loc = get("/v1/apps/#{app}/betaAppLocalizations", tok)
+          (loc['data'] || []).each { |l| a = l['attributes']; puts "Dil #{a['locale']}: açıklama #{!a['description'].to_s.empty?} · geri bildirim maili #{!a['feedbackEmail'].to_s.empty?} · gizlilik linki #{!a['privacyPolicyUrl'].to_s.empty?}" }
+          c, rd = get("/v1/apps/#{app}/betaAppReviewDetail", tok)
+          a = rd.dig('data', 'attributes') || {}
+          ph = a['contactPhone'].to_s
+          puts "İnceleme bilgisi: ad #{!a['contactFirstName'].to_s.empty?} · soyad #{!a['contactLastName'].to_s.empty?} · telefon #{ph.empty? ? 'boş' : 'dolu (' + ph.gsub(/\d/, '#') + ')'} · mail #{!a['contactEmail'].to_s.empty?} · not #{!a['notes'].to_s.empty?}"
           RUBY
           ruby /tmp/status.rb
