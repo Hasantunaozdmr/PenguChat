@@ -1,0 +1,48 @@
+name: PenguLive - Bütün sertifikaları sil
+
+# Hesaptaki bütün sertifikaları (dağıtım + geliştirme) siler. Sonra TestFlight derlemesi tek yeni dağıtım sertifikası oluşturur. Elle çalıştırılır.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  certreset:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Sertifikaları sil
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          APP_ID: "6837653168"
+        run: |
+          sudo gem install jwt --no-document -q
+          cat > /tmp/certreset.rb <<'RUBY'
+          require 'jwt'; require 'openssl'; require 'net/http'; require 'json'
+          key = OpenSSL::PKey::EC.new(ENV['ASC_KEY_P8'])
+          now = Time.now.to_i
+          tok = JWT.encode({ iss: ENV['ASC_ISSUER_ID'].strip, iat: now, exp: now + 1100, aud: 'appstoreconnect-v1' }, key, 'ES256', { kid: ENV['ASC_KEY_ID'].strip })
+          def get(path, tok)
+            uri = URI('https://api.appstoreconnect.apple.com' + path)
+            res = Net::HTTP.start(uri.host, uri.port, use_ssl: true) { |h| h.get(uri.request_uri, 'Authorization' => "Bearer #{tok}") }
+            [res.code.to_i, (JSON.parse(res.body) rescue {})]
+          end
+          def del(path, tok)
+            uri = URI('https://api.appstoreconnect.apple.com' + path)
+            res = Net::HTTP.start(uri.host, uri.port, use_ssl: true) { |h| h.request(Net::HTTP::Delete.new(uri, 'Authorization' => "Bearer #{tok}")) }
+            res.code.to_i
+          end
+          c, l = get("/v1/certificates?limit=200", tok)
+          certs = l['data'] || []
+          puts "Sertifika sayısı: #{certs.size} (#{c})"
+          certs.each do |x|
+            a = x['attributes'] || {}
+            puts "  #{a['certificateType']} · bitiş #{a['expirationDate'].to_s[0, 10]} → silindi #{del("/v1/certificates/#{x['id']}", tok)}"
+          end
+          c, l = get("/v1/certificates?limit=200", tok)
+          puts "Kalan: #{(l['data'] || []).size}"
+          RUBY
+          ruby /tmp/certreset.rb
