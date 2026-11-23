@@ -12,6 +12,7 @@ import { WebView } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PLATFORMS, isInternalUrl } from './links';
 import { PICK_USER_JS } from './injected';
+import { WS_SNIFF_JS } from './wsSniff';
 const { describe: evDescribe, ICON: EV_ICON } = require('./events');
 
 const HAS_LIVE = Platform.OS === 'android' || Platform.OS === 'ios';
@@ -874,7 +875,7 @@ function ChatPanel({ plats, channels, userAgent, style, liveChat, store, onViewe
           thirdPartyCookiesEnabled
           domStorageEnabled
           javaScriptEnabled
-          injectedJavaScriptBeforeContentLoaded={'window.__penguChatOn = 1; true;'}
+          injectedJavaScriptBeforeContentLoaded={WS_SNIFF_JS + '\nwindow.__penguChatOn = 1; true;'}
           injectedJavaScript={'window.__penguChatOn = 1;\n' + PICK_USER_JS + '\ntrue;'}
           onMessage={(e) => onMsg(e.nativeEvent.data, p)}
           onShouldStartLoadWithRequest={(req) => req.isTopFrame === false || isInternalUrl(req.url)}

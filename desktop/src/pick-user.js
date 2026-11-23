@@ -769,7 +769,25 @@
   // Sadece yayın ekranındaki chat açıkken (__penguChatOn) bağlanır, kapanınca bağlantı kapanır.
   if (!isTwitch && !window.__penguKickWsTimer) {
     let ws = null, room = 0, loading = false, retry = 0, keyIdx = 0, ok = false;
-    const KEYS = ['32cbd69e4b950bf97679', 'eb1d5f283081a78b932c']; // Kick'in chat anahtarı (yenisi, eskisi)
+    const KEYS = ['32cbd69e4b950bf97679', 'eb1d5f283081a78b932c']; // tahmini anahtarlar (sayfadan bulunamazsa)
+    const CLUSTERS = ['us2', 'mt1', 'us3', 'eu'];
+    // Kick'in kendi sayfasının kullandığı chat sunucusu adresi: önce sayfanın açtığı bağlantılardan,
+    // sonra sayfadaki Pusher / Echo nesnesinden; bulunamazsa tahmini anahtarlar denenir
+    const pageUrl = () => {
+      const u = (window.__penguWsUrls || []).find((x) => /pusher|\/app\/[a-z0-9]{10,}/i.test(x));
+      if (u) return { url: u, src: 'sayfa' };
+      try {
+        const cands = [window.Echo && window.Echo.connector && window.Echo.connector.pusher, window.Pusher && window.Pusher.instances && window.Pusher.instances[0]];
+        for (const pz of cands) {
+          if (pz && pz.key) {
+            const cfg = pz.config || {};
+            const host = cfg.wsHost || 'ws-' + (cfg.cluster || 'us2') + '.pusher.com';
+            return { url: 'wss://' + host + '/app/' + pz.key + '?protocol=7&client=js&version=8.4.0&flash=false', src: 'pusher' };
+          }
+        }
+      } catch {}
+      return null;
+    };
     // Durum yazısı: yayın ekranındaki chat'te Kick'in bağlantı durumu görünsün (sorun olursa sebebi anlaşılsın)
     let lastSt = '';
     let domOn = false, failUntil = 0;
@@ -778,8 +796,13 @@
     const open = () => {
       if (!room) return;
       ok = false;
-      st('Kick sunucusuna bağlanıyor… (oda ' + room + ', anahtar ' + (keyIdx % KEYS.length + 1) + ')');
-      ws = new WebSocket('wss://ws-us2.pusher.com/app/' + KEYS[keyIdx % KEYS.length] + '?protocol=7&client=js&version=8.4.0&flash=false');
+      const found = pageUrl();
+      const n = KEYS.length * CLUSTERS.length;
+      const k = keyIdx % n;
+      const url = found ? found.url : 'wss://ws-' + CLUSTERS[Math.floor(k / KEYS.length)] + '.pusher.com/app/' + KEYS[k % KEYS.length] + '?protocol=7&client=js&version=8.4.0&flash=false';
+      const hosts = [...new Set((window.__penguWsUrls || []).map((x) => { try { return new URL(x).host; } catch { return ''; } }).filter(Boolean))].slice(0, 3).join(', ');
+      st('Kick sunucusuna bağlanıyor… (oda ' + room + ', ' + (found ? 'adres ' + found.src + 'dan' : 'deneme ' + (k + 1) + '/' + n + (hosts ? ' · sayfa: ' + hosts : ' · sayfa bağlantısı görülmedi')) + ')');
+      ws = new WebSocket(url);
       ws.onopen = () => {
         ['chatrooms.' + room + '.v2', 'chatroom_' + room].forEach((ch) => ws.send(JSON.stringify({ event: 'pusher:subscribe', data: { auth: '', channel: ch } })));
       };
