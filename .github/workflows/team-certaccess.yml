@@ -1,0 +1,69 @@
+name: PenguLive - Ekip üyesine sertifika yetkisi
+
+# Adı verilen ekip üyesine (veya bekleyen davetine) sertifikalara erişim yetkisi verir. Kişisel bilgiler kayıtlara yazılmaz. Elle çalıştırılır.
+on:
+  workflow_dispatch:
+    inputs:
+      first_name:
+        description: "Ekip üyesinin adı"
+        default: "Mustafa"
+      admin:
+        description: "Admin yapılsın mı (true/false)"
+        default: "false"
+
+permissions:
+  contents: read
+
+jobs:
+  certaccess:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Sertifika yetkisi ver
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          APP_ID: "6837653168"
+          FIRST: ${{ github.event.inputs.first_name }}
+          ADMIN: ${{ github.event.inputs.admin }}
+        run: |
+          sudo gem install jwt --no-document -q
+          cat > /tmp/certaccess.rb <<'RUBY'
+          require 'jwt'; require 'openssl'; require 'net/http'; require 'json'
+          key = OpenSSL::PKey::EC.new(ENV['ASC_KEY_P8'])
+          now = Time.now.to_i
+          tok = JWT.encode({ iss: ENV['ASC_ISSUER_ID'].strip, iat: now, exp: now + 1100, aud: 'appstoreconnect-v1' }, key, 'ES256', { kid: ENV['ASC_KEY_ID'].strip })
+          def get(path, tok)
+            uri = URI('https://api.appstoreconnect.apple.com' + path)
+            res = Net::HTTP.start(uri.host, uri.port, use_ssl: true) { |h| h.get(uri.request_uri, 'Authorization' => "Bearer #{tok}") }
+            [res.code.to_i, (JSON.parse(res.body) rescue {})]
+          end
+          def req(m, path, tok, body = nil)
+            uri = URI('https://api.appstoreconnect.apple.com' + path)
+            r = (m == :post ? Net::HTTP::Post : m == :patch ? Net::HTTP::Patch : Net::HTTP::Delete).new(uri, 'Authorization' => "Bearer #{tok}", 'Content-Type' => 'application/json')
+            r.body = body.to_json if body
+            res = Net::HTTP.start(uri.host, uri.port, use_ssl: true) { |h| h.request(r) }
+            [res.code.to_i, (JSON.parse(res.body) rescue {})]
+          end
+          errs = ->(j) { (j['errors'] || []).map { |e| "#{e['code']}: #{e['detail']}" }.join(' | ') }
+          first = ENV['FIRST'].to_s.strip.downcase
+          admin = ENV['ADMIN'].to_s.strip == 'true'
+          roles = admin ? ['ADMIN'] : ['DEVELOPER']
+          c, u = get("/v1/users?limit=50", tok)
+          user = (u['data'] || []).find { |x| x.dig('attributes', 'firstName').to_s.strip.downcase == first }
+          if user
+            pc, pj = req(:patch, "/v1/users/#{user['id']}", tok, { data: { type: 'users', id: user['id'], attributes: { roles: roles, provisioningAllowed: true, allAppsVisible: true } } })
+            puts "Ekip üyesi güncellendi (#{roles.join(',')}, sertifika erişimi): #{pc} #{pc >= 300 ? errs.(pj) : ''}"
+          else
+            c, iv = get("/v1/userInvitations?limit=50", tok)
+            inv = (iv['data'] || []).find { |x| x.dig('attributes', 'firstName').to_s.strip.downcase == first }
+            abort "Bu adla ekip üyesi ya da davet bulunamadı" unless inv
+            a = inv['attributes']
+            dc, dj = req(:delete, "/v1/userInvitations/#{inv['id']}", tok)
+            puts "Eski davet silindi: #{dc} #{dc >= 300 ? errs.(dj) : ''}"
+            nc, nj = req(:post, "/v1/userInvitations", tok, { data: { type: 'userInvitations', attributes: { email: a['email'], firstName: a['firstName'], lastName: a['lastName'], roles: roles, provisioningAllowed: true, allAppsVisible: true } } })
+            puts "Yeni davet (#{roles.join(',')}, sertifika erişimi): #{nc} #{nc >= 300 ? errs.(nj) : ''}"
+          end
+          RUBY
+          ruby /tmp/certaccess.rb
