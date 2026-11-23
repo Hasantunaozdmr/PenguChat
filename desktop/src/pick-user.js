@@ -818,7 +818,7 @@
       ws.onclose = (e) => { ws = null; if (!ok) keyIdx++; st('Kick bağlantısı kapandı (' + (e && e.code) + '), tekrar deneniyor'); }; // bağlanamadıysa diğer anahtarı dene
     };
     // Yedek yol: sunucudan 15 sn'de hiç mesaj gelmezse mesajları Kick'in kendi chat sayfasından oku
-    let onSince = 0, domObs = null;
+    let onSince = 0, domObs = null, domSince = 0;
     const domMsg = (el) => {
       if (!(el instanceof HTMLElement) || el.__penguSeen) return;
       const box = el.closest('[data-index]') || (el.matches('[data-index]') ? el : null);
@@ -883,11 +883,14 @@
         }));
       });
       domObs.observe(document.body, { childList: true, subtree: true });
+      domSince = Date.now();
     };
     window.__penguKickWsTimer = setInterval(() => {
       const on = !!window.__penguChatOn;
       if (!on) { onSince = 0; if (ws) { try { ws.close(); } catch {} ws = null; } if (domObs) { domObs.disconnect(); domObs = null; } return; }
       if (!onSince) onSince = Date.now();
+      // Sunucu bağlantısı sonradan çalışırsa sayfadan okumayı bırak (mesajlar çift görünmesin)
+      if (domObs && (window.__penguKickGot || 0) > domSince) { domObs.disconnect(); domObs = null; domOn = false; st('Kick chat bağlı ✓', true); }
       if (!domObs && !window.__penguKickGot && Date.now() - onSince > 15000) startDom();
       if (ws) return;
       if (room) { if (++retry % 3 === 1) open(); return; } // koparsa birkaç saniyede bir yeniden bağlan
