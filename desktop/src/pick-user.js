@@ -819,6 +819,40 @@
     };
     // Yedek yol: sunucudan 15 sn'de hiç mesaj gelmezse mesajları Kick'in kendi chat sayfasından oku
     let onSince = 0, domObs = null, domSince = 0;
+    // Kick'in çizim (SVG) rozetlerini resme çevir: Kick'te nasıl görünüyorsa öyle görünsün
+    const svgPng = {};
+    const svgToPng = (svg) => {
+      try {
+        const clone = svg.cloneNode(true);
+        // Renkler sayfanın stilinden gelebilir: hesaplanmış renkleri çizimin içine yaz
+        const src = [svg, ...svg.querySelectorAll('*')];
+        const dst = [clone, ...clone.querySelectorAll('*')];
+        src.forEach((n, i) => {
+          const cs = getComputedStyle(n);
+          if (dst[i] && dst[i].setAttribute) {
+            ['fill', 'stroke', 'color', 'opacity', 'stroke-width'].forEach((k) => { const v = cs.getPropertyValue(k); if (v) dst[i].style.setProperty(k, v); });
+          }
+        });
+        const r = svg.getBoundingClientRect();
+        const w = Math.round(r.width) || 18, h = Math.round(r.height) || 18;
+        clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        clone.setAttribute('width', w); clone.setAttribute('height', h);
+        const xml = new XMLSerializer().serializeToString(clone);
+        if (svgPng[xml] !== undefined) return svgPng[xml];
+        svgPng[xml] = null;
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const c = document.createElement('canvas');
+            c.width = w * 2; c.height = h * 2;
+            c.getContext('2d').drawImage(img, 0, 0, w * 2, h * 2);
+            svgPng[xml] = c.toDataURL('image/png');
+          } catch {}
+        };
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
+        return null; // ilk seferde hazır değil, sonraki mesajlarda resim olarak gelir
+      } catch { return null; }
+    };
     const domMsg = (el) => {
       if (!(el instanceof HTMLElement) || el.__penguSeen) return;
       const box = el.closest('[data-index]') || (el.matches('[data-index]') ? el : null);
@@ -866,6 +900,12 @@
         const label = n.getAttribute('title') || n.getAttribute('aria-label') || n.getAttribute('alt') || (n.tagName === 'title' ? n.textContent : '');
         const k = kind(label);
         if (k && !seenB.has(k)) { seenB.add(k); b.push({ n: k }); }
+        // Çizim rozeti (en dıştaki SVG): resmini ekle
+        if (n.tagName && n.tagName.toLowerCase() === 'svg' && !(n.parentElement && n.parentElement.closest('svg')) && b.length < 4) {
+          const png = svgToPng(n);
+          const last = b[b.length - 1];
+          if (png) { if (last && !last.u) last.u = png; else b.push({ n: k || 'badge', u: png }); }
+        }
       }
       const parts = [];
       let colonSkipped = false;
@@ -887,7 +927,10 @@
       if (domObs) return;
       st('Kick sunucusundan mesaj gelmedi, Kick sayfasından okunuyor…');
       domOn = true;
-      document.querySelectorAll('[data-index]').forEach((el) => (el.__penguSeen = true)); // eskileri atla
+      document.querySelectorAll('[data-index]').forEach((el) => {
+        el.__penguSeen = true; // eskileri atla
+        el.querySelectorAll('svg').forEach((sv) => { if (!(sv.parentElement && sv.parentElement.closest('svg'))) svgToPng(sv); }); // rozet resimlerini önceden hazırla
+      });
       domObs = new MutationObserver((ms) => {
         if (!window.__penguChatOn) return;
         ms.forEach((m) => m.addedNodes.forEach((n) => {

@@ -920,7 +920,7 @@ function ChatPanel({ plats, channels, userAgent, style, liveChat, store, onViewe
                     {(m.b || []).map((b, i) => {
                       // Yeni biçim { n, u } (resim), eski biçim sadece isim
                       const n = typeof b === 'string' ? b : b && b.n;
-                      const u = typeof b === 'object' && b && /^https:\/\/(static-cdn\.jtvnw\.net|files\.kick\.com)\//.test(b.u || '') ? b.u : '';
+                      const u = typeof b === 'object' && b && (/^https:\/\/(static-cdn\.jtvnw\.net|files\.kick\.com)\//.test(b.u || '') || (/^data:image\/png;base64,/.test(b.u || '') && b.u.length < 60000)) ? b.u : '';
                       if (u) return <Image key={i} source={{ uri: u }} style={{ width: Math.round(size * 1.15), height: Math.round(size * 1.15) }} accessibilityLabel={n} />;
                       return BADGE[n] ? <Text key={i}>{BADGE[n]}</Text> : null;
                     })}
