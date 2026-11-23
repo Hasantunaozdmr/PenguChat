@@ -1,0 +1,73 @@
+name: PenguLive - TestFlight test edeni sıfırdan oluştur
+
+# Takılı kalan davetler için: test edenleri silip aynı bilgilerle yeniden oluşturur (yeni davet gider).
+# Ayrıca Test Information'da hangi alanların boş olduğunu yazar. Kişisel bilgiler kayıtlara yazılmaz.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fixtester:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Test edeni sıfırdan oluştur
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          APP_ID: "6837653168"
+        run: |
+          sudo gem install jwt --no-document -q
+          cat > /tmp/fixt.rb <<'RUBY'
+          require 'jwt'; require 'openssl'; require 'net/http'; require 'json'
+          key = OpenSSL::PKey::EC.new(ENV['ASC_KEY_P8'])
+          now = Time.now.to_i
+          tok = JWT.encode({ iss: ENV['ASC_ISSUER_ID'].strip, iat: now, exp: now + 1100, aud: 'appstoreconnect-v1' }, key, 'ES256', { kid: ENV['ASC_KEY_ID'].strip })
+          def get(path, tok)
+            uri = URI('https://api.appstoreconnect.apple.com' + path)
+            res = Net::HTTP.start(uri.host, uri.port, use_ssl: true) { |h| h.get(uri.request_uri, 'Authorization' => "Bearer #{tok}") }
+            [res.code.to_i, (JSON.parse(res.body) rescue {})]
+          end
+          app = ENV['APP_ID']
+          def req(m, path, tok, body = nil)
+            uri = URI('https://api.appstoreconnect.apple.com' + path)
+            r = (m == :post ? Net::HTTP::Post : m == :patch ? Net::HTTP::Patch : Net::HTTP::Delete).new(uri, 'Authorization' => "Bearer #{tok}", 'Content-Type' => 'application/json')
+            r.body = body.to_json if body
+            res = Net::HTTP.start(uri.host, uri.port, use_ssl: true) { |h| h.request(r) }
+            [res.code.to_i, (JSON.parse(res.body) rescue {})]
+          end
+          errs = ->(j) { (j['errors'] || []).map { |e| "#{e['code']}: #{e['detail']} #{e.dig('source', 'pointer')}" }.join(' | ') }
+          c, g = get("/v1/apps/#{app}/betaGroups?limit=20", tok)
+          grp = (g['data'] || []).find { |x| x.dig('attributes', 'isInternalGroup') }
+          abort "iç grup yok" unless grp
+          puts "Grup: #{grp.dig('attributes', 'name')}"
+          c, t = get("/v1/betaTesters?filter[apps]=#{app}&limit=50", tok)
+          (t['data'] || []).each_with_index do |x, i|
+            a = x['attributes'] || {}
+            email, fn, ln = a['email'], a['firstName'], a['lastName']
+            puts "Test eden #{i + 1}: durum #{a['state']} · davet türü #{a['inviteType']}"
+            next unless email
+            dc, dj = req(:delete, "/v1/betaTesters/#{x['id']}", tok)
+            puts "  silindi: #{dc} #{dc >= 300 ? errs.(dj) : ''}"
+            sleep 3
+            pc, pj = req(:post, "/v1/betaTesters", tok, { data: { type: 'betaTesters', attributes: { email: email, firstName: fn.to_s.empty? ? 'Test' : fn, lastName: ln.to_s.empty? ? 'Test' : ln }, relationships: { betaGroups: { data: [{ type: 'betaGroups', id: grp['id'] }] } } } })
+            puts "  yeniden oluşturuldu: #{pc} #{pc >= 300 ? errs.(pj) : ''}"
+            nid = pj.dig('data', 'id')
+            if nid
+              ic, ij = req(:post, "/v1/betaTesterInvitations", tok, { data: { type: 'betaTesterInvitations', relationships: { app: { data: { type: 'apps', id: app } }, betaTester: { data: { type: 'betaTesters', id: nid } } } } })
+              puts "  davet: #{ic} #{ic >= 300 ? errs.(ij) : ''}"
+              c2, n2 = get("/v1/betaTesters/#{nid}", tok)
+              puts "  yeni durum: #{n2.dig('data', 'attributes', 'state')}"
+            end
+          end
+          # Test Information: hangi alanlar dolu (değerler yazılmaz)
+          c, loc = get("/v1/apps/#{app}/betaAppLocalizations", tok)
+          (loc['data'] || []).each { |l| a = l['attributes']; puts "Dil #{a['locale']}: açıklama #{!a['description'].to_s.empty?} · geri bildirim maili #{!a['feedbackEmail'].to_s.empty?} · gizlilik linki #{!a['privacyPolicyUrl'].to_s.empty?}" }
+          c, rd = get("/v1/apps/#{app}/betaAppReviewDetail", tok)
+          a = rd.dig('data', 'attributes') || {}
+          puts "İnceleme bilgisi (#{c}): ad #{!a['contactFirstName'].to_s.empty?} · soyad #{!a['contactLastName'].to_s.empty?} · telefon #{!a['contactPhone'].to_s.empty?} · mail #{!a['contactEmail'].to_s.empty?} · not #{!a['notes'].to_s.empty?} · giriş gerekli #{a['demoAccountRequired']}"
+          RUBY
+          ruby /tmp/fixt.rb
