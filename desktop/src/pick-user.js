@@ -725,6 +725,7 @@
     if (!d || typeof d !== 'object') return;
     if (/ChatMessageEvent/i.test(name)) {
       if (window.__penguChatOn && d.sender) {
+        window.__penguKickGot = Date.now();
         const raw = String(d.content || '');
         const text = raw.replace(/\[emote:\d+:([^\]]+)\]/g, ':$1:');
         const idt = d.sender.identity || {};
@@ -771,7 +772,8 @@
     const KEYS = ['32cbd69e4b950bf97679', 'eb1d5f283081a78b932c']; // Kick'in chat anahtarı (yenisi, eskisi)
     // Durum yazısı: yayın ekranındaki chat'te Kick'in bağlantı durumu görünsün (sorun olursa sebebi anlaşılsın)
     let lastSt = '';
-    const st = (t) => { if (t !== lastSt) { lastSt = t; post('__PENGU_KST__' + t); } };
+    let domOn = false, failUntil = 0;
+    const st = (t, force) => { if ((force || !domOn) && t !== lastSt) { lastSt = t; post('__PENGU_KST__' + t); } };
     const slug = () => ((location.pathname.match(/^\/(?:popout\/)?([A-Za-z0-9_-]+)/) || [])[1] || '').toLowerCase();
     const open = () => {
       if (!room) return;
@@ -792,19 +794,88 @@
       };
       ws.onclose = (e) => { ws = null; if (!ok) keyIdx++; st('Kick bağlantısı kapandı (' + (e && e.code) + '), tekrar deneniyor'); }; // bağlanamadıysa diğer anahtarı dene
     };
+    // Yedek yol: sunucudan 15 sn'de hiç mesaj gelmezse mesajları Kick'in kendi chat sayfasından oku
+    let onSince = 0, domObs = null;
+    const domMsg = (el) => {
+      if (!(el instanceof HTMLElement) || el.__penguSeen) return;
+      const box = el.closest('[data-index]') || (el.matches('[data-index]') ? el : null);
+      if (!box || box.__penguSeen) return;
+      box.__penguSeen = true;
+      const walker = document.createTreeWalker(box, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+      const nodes = [];
+      for (let n = walker.nextNode(); n && nodes.length < 300; n = walker.nextNode()) nodes.push(n);
+      // Kullanıcı adı: arkasından ":" gelen ilk kısa yazı
+      let ui = -1;
+      for (let i = 0; i < nodes.length; i++) {
+        const n = nodes[i];
+        if (n.nodeType !== 3) continue;
+        const t = n.textContent.trim();
+        if (!/^[A-Za-z0-9_.-]{2,30}$/.test(t)) continue;
+        for (let j = i + 1; j < nodes.length; j++) {
+          if (nodes[j].nodeType !== 3) continue;
+          const nt = nodes[j].textContent;
+          if (!nt.trim()) continue;
+          if (nt.trim().startsWith(':')) ui = i;
+          break;
+        }
+        if (ui >= 0) break;
+      }
+      if (ui < 0) return;
+      const user = nodes[ui].textContent.trim();
+      const uEl = nodes[ui].parentElement;
+      const color = uEl ? getComputedStyle(uEl).color : '';
+      const hex = (color.match(/\d+/g) || []).slice(0, 3).map((x) => Number(x).toString(16).padStart(2, '0')).join('');
+      const b = [];
+      for (let i = 0; i < ui; i++) {
+        const n = nodes[i];
+        if (n.nodeType === 1 && n.tagName === 'IMG' && /^https:\/\/files\.kick\.com\//.test(n.src) && b.length < 4) b.push({ n: n.alt || 'badge', u: n.src });
+      }
+      const parts = [];
+      let colonSkipped = false;
+      for (let i = ui + 1; i < nodes.length; i++) {
+        const n = nodes[i];
+        if (n.nodeType === 3) {
+          let t = n.textContent;
+          if (!colonSkipped) { if (!t.trim()) continue; t = t.replace(/^\s*:\s?/, ''); colonSkipped = true; }
+          if (t) parts.push({ t });
+        } else if (n.tagName === 'IMG' && /^https:\/\/files\.kick\.com\/emotes\//.test(n.src)) {
+          parts.push({ e: n.src, n: n.alt || '' });
+        }
+      }
+      const text = parts.map((x) => x.t || (x.n ? ':' + x.n + ':' : '')).join('').trim();
+      if (!text) return;
+      chatPost({ p: 'kick', id: 'kd:' + (box.getAttribute('data-index') || '') + ':' + user + ':' + text.slice(0, 40), user, color: hex.length === 6 ? '#' + hex : '', text, b, parts: parts.some((x) => x.e) ? parts : null });
+    };
+    const startDom = () => {
+      if (domObs) return;
+      st('Kick sunucusundan mesaj gelmedi, Kick sayfasından okunuyor…');
+      domOn = true;
+      document.querySelectorAll('[data-index]').forEach((el) => (el.__penguSeen = true)); // eskileri atla
+      domObs = new MutationObserver((ms) => {
+        if (!window.__penguChatOn) return;
+        ms.forEach((m) => m.addedNodes.forEach((n) => {
+          if (n.nodeType !== 1) return;
+          domMsg(n);
+          n.querySelectorAll && n.querySelectorAll('[data-index]').forEach(domMsg);
+        }));
+      });
+      domObs.observe(document.body, { childList: true, subtree: true });
+    };
     window.__penguKickWsTimer = setInterval(() => {
       const on = !!window.__penguChatOn;
-      if (!on) { if (ws) { try { ws.close(); } catch {} ws = null; } return; }
+      if (!on) { onSince = 0; if (ws) { try { ws.close(); } catch {} ws = null; } if (domObs) { domObs.disconnect(); domObs = null; } return; }
+      if (!onSince) onSince = Date.now();
+      if (!domObs && !window.__penguKickGot && Date.now() - onSince > 15000) startDom();
       if (ws) return;
       if (room) { if (++retry % 3 === 1) open(); return; } // koparsa birkaç saniyede bir yeniden bağlan
-      if (loading) return;
+      if (loading || Date.now() < failUntil) return;
       if (!slug()) { st('Kick: kanal adı bulunamadı (' + location.pathname + ')'); return; }
       loading = true;
       st('Kick kanalı aranıyor: ' + slug());
       fetch('/api/v2/channels/' + encodeURIComponent(slug()), { credentials: 'include', headers: { Accept: 'application/json' } })
         .then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
         .then((j) => { room = (j && j.chatroom && j.chatroom.id) || 0; loading = false; if (room) open(); else st('Kick: chat odası bulunamadı'); })
-        .catch((e) => { loading = false; st('Kick kanal bilgisi alınamadı: ' + ((e && e.message) || e)); });
+        .catch((e) => { loading = false; failUntil = Date.now() + 30000; st('Kick kanal bilgisi alınamadı: ' + ((e && e.message) || e)); });
     }, 2000);
   }
   if (!window.__penguEvHook) {
