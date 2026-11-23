@@ -53,7 +53,7 @@ jobs:
           c, u = get("/v1/users?limit=50", tok)
           user = (u['data'] || []).find { |x| x.dig('attributes', 'firstName').to_s.strip.downcase == first }
           if user
-            pc, pj = req(:patch, "/v1/users/#{user['id']}", tok, { data: { type: 'users', id: user['id'], attributes: { roles: roles, provisioningAllowed: true, allAppsVisible: true } } })
+            pc, pj = req(:patch, "/v1/users/#{user['id']}", tok, { data: { type: 'users', id: user['id'], attributes: admin ? { roles: roles, allAppsVisible: true } : { roles: roles, provisioningAllowed: true, allAppsVisible: true } } })
             puts "Ekip üyesi güncellendi (#{roles.join(',')}, sertifika erişimi): #{pc} #{pc >= 300 ? errs.(pj) : ''}"
           else
             c, iv = get("/v1/userInvitations?limit=50", tok)
@@ -62,7 +62,7 @@ jobs:
             a = inv['attributes']
             dc, dj = req(:delete, "/v1/userInvitations/#{inv['id']}", tok)
             puts "Eski davet silindi: #{dc} #{dc >= 300 ? errs.(dj) : ''}"
-            nc, nj = req(:post, "/v1/userInvitations", tok, { data: { type: 'userInvitations', attributes: { email: a['email'], firstName: a['firstName'], lastName: a['lastName'], roles: roles, provisioningAllowed: true, allAppsVisible: true } } })
+            nc, nj = req(:post, "/v1/userInvitations", tok, { data: { type: 'userInvitations', attributes: { email: a['email'], firstName: a['firstName'], lastName: a['lastName'], roles: roles, allAppsVisible: true }.merge(admin ? {} : { provisioningAllowed: true }) } })
             puts "Yeni davet (#{roles.join(',')}, sertifika erişimi): #{nc} #{nc >= 300 ? errs.(nj) : ''}"
           end
           RUBY
