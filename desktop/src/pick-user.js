@@ -849,9 +849,23 @@
       const color = uEl ? getComputedStyle(uEl).color : '';
       const hex = (color.match(/\d+/g) || []).slice(0, 3).map((x) => Number(x).toString(16).padStart(2, '0')).join('');
       const b = [];
-      for (let i = 0; i < ui; i++) {
+      const seenB = new Set();
+      // Rozet türünü üzerindeki yazıdan anla (Kick çoğu rozeti çizim olarak gösteriyor, resim değil)
+      const kind = (t) => {
+        t = String(t || '').toLowerCase();
+        return /broadcaster|yayıncı|host/.test(t) ? 'broadcaster' : /moderat/.test(t) ? 'moderator' : /vip/.test(t) ? 'vip' : /\bog\b/.test(t) ? 'og' : /founder|kurucu/.test(t) ? 'founder' : /verified|onaylı/.test(t) ? 'verified' : /gift|hediye/.test(t) ? 'sub_gifter' : /sub|abone/.test(t) ? 'subscriber' : '';
+      };
+      for (let i = 0; i < ui && b.length < 4; i++) {
         const n = nodes[i];
-        if (n.nodeType === 1 && n.tagName === 'IMG' && /^https:\/\/files\.kick\.com\//.test(n.src) && b.length < 4) b.push({ n: n.alt || 'badge', u: n.src });
+        if (n.nodeType !== 1) continue;
+        if (n.tagName === 'IMG' && /^https:\/\/files\.kick\.com\//.test(n.src)) {
+          const k = kind(n.alt || n.title) || 'subscriber';
+          if (!seenB.has(k)) { seenB.add(k); b.push({ n: k, u: n.src }); }
+          continue;
+        }
+        const label = n.getAttribute('title') || n.getAttribute('aria-label') || n.getAttribute('alt') || (n.tagName === 'title' ? n.textContent : '');
+        const k = kind(label);
+        if (k && !seenB.has(k)) { seenB.add(k); b.push({ n: k }); }
       }
       const parts = [];
       let colonSkipped = false;
