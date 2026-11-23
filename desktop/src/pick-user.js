@@ -889,9 +889,15 @@
         t = String(t || '').toLowerCase();
         return /broadcaster|yayıncı|host/.test(t) ? 'broadcaster' : /moderat/.test(t) ? 'moderator' : /vip/.test(t) ? 'vip' : /\bog\b/.test(t) ? 'og' : /founder|kurucu/.test(t) ? 'founder' : /verified|onaylı/.test(t) ? 'verified' : /gift|hediye/.test(t) ? 'sub_gifter' : /sub|abone/.test(t) ? 'subscriber' : '';
       };
+      const uBtn = uEl && uEl.closest('button');
       for (let i = 0; i < ui && b.length < 4; i++) {
         const n = nodes[i];
         if (n.nodeType !== 1) continue;
+        // Moderatör düğmeleri (sil / zaman aşımı / ban) rozet değil: düğmenin içindekileri atla
+        const btn = n.closest('button, [role="button"]');
+        if (btn && btn !== uBtn && box.contains(btn)) continue;
+        const lab = (n.getAttribute('title') || n.getAttribute('aria-label') || '').toLowerCase();
+        if (/delete|sil|timeout|zaman|ban|pin|reply|yanıt|copy|kopyala/.test(lab)) continue;
         if (n.tagName === 'IMG' && /^https:\/\/files\.kick\.com\//.test(n.src)) {
           const k = kind(n.alt || n.title) || 'subscriber';
           if (!seenB.has(k)) { seenB.add(k); b.push({ n: k, u: n.src }); }
