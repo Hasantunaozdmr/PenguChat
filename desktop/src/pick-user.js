@@ -1030,7 +1030,7 @@
     };
     const startDom = () => {
       if (domObs) return;
-      st('Kick sunucusundan mesaj gelmedi, Kick sayfasından okunuyor…');
+      st('Kick chat hazır, mesaj bekleniyor…');
       domOn = true;
       document.querySelectorAll('[data-index]').forEach((el) => {
         el.__penguSeen = true; // eskileri atla
@@ -1053,7 +1053,7 @@
       if (!onSince) onSince = Date.now();
       // Sunucu bağlantısı sonradan çalışırsa sayfadan okumayı bırak (mesajlar çift görünmesin)
       if (domObs && (window.__penguKickGot || 0) > domSince) { domObs.disconnect(); domObs = null; domOn = false; st('Kick chat bağlı ✓', true); }
-      if (!domObs && !window.__penguKickGot && Date.now() - onSince > 15000) startDom();
+      if (!domObs && !window.__penguKickGot && Date.now() - onSince > 1000) startDom(); // sayfadan okumayı hemen başlat (sunucu sonradan bağlanırsa ona geçilir)
       if (ws) return;
       if (room) { if (++retry % 3 === 1) open(); return; } // koparsa birkaç saniyede bir yeniden bağlan
       if (loading || Date.now() < failUntil) return;
@@ -1064,7 +1064,7 @@
         .then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
         .then((j) => { room = (j && j.chatroom && j.chatroom.id) || 0; loading = false; if (room) open(); else st('Kick: chat odası bulunamadı'); })
         .catch((e) => { loading = false; failUntil = Date.now() + 30000; st('Kick kanal bilgisi alınamadı: ' + ((e && e.message) || e)); });
-    }, 2000);
+    }, 1000);
   }
   if (!window.__penguEvHook) {
     window.__penguEvHook = true;

@@ -777,9 +777,20 @@ function ChatPanel({ plats, channels, userAgent, style, liveChat, store, onViewe
   const [evOnly, setEvOnly] = useState(false);
   const [kickSt, setKickSt] = useState('Kick: sayfa açılıyor…'); // Kick bağlantı durumu (sorun olursa sebebi görünsün)
   const seen = useRef(store?.current.seen || new Set());
+  // Aynı mesaj iki yoldan gelirse (Kick sunucusu + Kick sayfası) birini at: kişi + yazı 20 sn içinde aynıysa
+  const recent = useRef(new Map());
   const add = (m) => {
     if (seen.current.has(m.id)) return;
     seen.current.add(m.id);
+    if (m.kind === 'msg') {
+      const sig = m.p + '|' + String(m.user).toLowerCase() + '|' + String(m.text).trim();
+      const now = Date.now();
+      const last = recent.current.get(sig);
+      if (last && now - last < 20000 && !String(m.id).startsWith(String(recent.current.get(sig + '#id') || '').slice(0, 3))) return;
+      recent.current.set(sig, now);
+      recent.current.set(sig + '#id', String(m.id));
+      if (recent.current.size > 400) recent.current = new Map([...recent.current].slice(-200));
+    }
     if (seen.current.size > 600) {
       seen.current = new Set([...seen.current].slice(-300));
       if (store) store.current.seen = seen.current;
@@ -832,7 +843,7 @@ function ChatPanel({ plats, channels, userAgent, style, liveChat, store, onViewe
     const t = setTimeout(() => {
       const silent = sharedKey.split(',').filter((p) => !gotFrom.current[p]);
       if (silent.length) setForceOwn((f) => [...new Set([...f, ...silent])]);
-    }, 60000);
+    }, 20000);
     return () => clearTimeout(t);
   }, [sharedKey]);
   useEffect(() => {
