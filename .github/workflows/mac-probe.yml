@@ -1,0 +1,17 @@
+name: Mac makine testi
+# Hangi Mac makinelerinin verildiğini ve üzerlerindeki Xcode sürümlerini gösterir (geçici test).
+on:
+  push:
+    branches: [main]
+    paths: [".github/workflows/mac-probe.yml"]
+  workflow_dispatch:
+jobs:
+  probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-latest, macos-26-arm64]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - run: sw_vers; ls -d /Applications/Xcode*.app
