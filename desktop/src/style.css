@@ -479,3 +479,15 @@ body.top-collapsed .toolbar, body.top-collapsed .actionbar, body.top-collapsed .
 .pro-tag.warn { background: #fef3c7; color: #92400e; } .pro-tag.end { background: #fee2e2; color: #991b1b; }
 .pro-acts { white-space: nowrap; }
 .pro-acts .btn { margin-left: 2px; }
+
+/* 🏷️ Başlık / Kategori penceresi */
+.info-dlg { width: min(440px, 100%); gap: 8px; }
+.info-label { font-size: 12px; color: var(--muted); }
+.info-cat { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+.info-cat span { flex: 1; }
+.info-cat.hidden, #infoQ.hidden { display: none; }
+.info-hits { display: flex; flex-direction: column; gap: 4px; max-height: 220px; overflow: auto; }
+.info-hits button { text-align: left; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--input); color: var(--text); font: inherit; cursor: pointer; }
+.info-hits button:hover { background: var(--hover); }
+#infoMsg.ok { color: #16a34a; }
+#infoMsg.err { color: #dc2626; }

@@ -996,7 +996,7 @@ window.__penguInfo=function(id,op,a){ ops[op](a||{}).then(function(r){send({id:i
 send({ready:true});
 })(); true;`;
 
-function InfoSheet({ C, ins, platform, setPlatform, userAgent, onClose, onWeb }) {
+export function InfoSheet({ C, ins, platform, setPlatform, userAgent, onClose, onWeb }) {
   const view = useRef(null);
   const ready = useRef(false);
   const queue = useRef([]);
@@ -1142,9 +1142,11 @@ function InfoSheet({ C, ins, platform, setPlatform, userAgent, onClose, onWeb })
             <Text style={{ color: '#fff', fontWeight: '700' }}>{busy ? 'Bekle…' : `${LABEL[platform]}'te kaydet`}</Text>
           </Pressable>
         </View>
-        <Pressable onPress={onWeb} hitSlop={8} style={{ alignSelf: 'center', paddingVertical: 6 }}>
-          <Text style={{ color: C.muted, fontSize: 12, textDecorationLine: 'underline' }}>Olmazsa: 🌐 sitenin kendi sayfasından düzenle</Text>
-        </Pressable>
+        {!!onWeb && (
+          <Pressable onPress={onWeb} hitSlop={8} style={{ alignSelf: 'center', paddingVertical: 6 }}>
+            <Text style={{ color: C.muted, fontSize: 12, textDecorationLine: 'underline' }}>Olmazsa: 🌐 sitenin kendi sayfasından düzenle</Text>
+          </Pressable>
+        )}
       </ScrollView>
     </View>
   );

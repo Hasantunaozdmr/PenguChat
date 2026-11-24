@@ -150,6 +150,68 @@
     $('[data-act="compose"]', panes[p].el)?.classList.toggle('on', compose[p]);
   }
 
+  // ---- 🏷️ Yayın başlığı / kategori: giriş yapılmış hesabın kendi kanalı (chat sayfası üzerinden) ----
+  const info = { p: null, cat: null, timer: null };
+  const infoName = { twitch: 'Twitch', kick: 'Kick' };
+  const infoMsg = (t, cls) => { const m = $('#infoMsg'); m.textContent = t || ''; m.className = 'dlg-note' + (cls ? ' ' + cls : ''); };
+  const infoErr = (e) => (e === 'login' ? `${infoName[info.p]}'e giriş yapılmamış. Önce ${infoName[info.p]} chat'inde hesabına giriş yap.` : e);
+  async function infoRun(op, a) {
+    const wv = panes[info.p] && panes[info.p].view;
+    if (!wv) return { ok: false, err: 'Önce chat\'i aç' };
+    return wv.executeJavaScript(`window.__penguInfoRun ? window.__penguInfoRun(${JSON.stringify(op)}, ${JSON.stringify(a || {})}) : { ok: false, err: 'Chat sayfası hazır değil, biraz bekleyip tekrar dene' }`).catch((e) => ({ ok: false, err: String(e.message || e) }));
+  }
+  function infoSetCat(c) {
+    info.cat = c;
+    $('#infoCat').classList.toggle('hidden', !c);
+    $('#infoQ').classList.toggle('hidden', !!c);
+    $('#infoCatName').textContent = c ? '🎮 ' + c.name : '';
+    $('#infoHits').innerHTML = '';
+  }
+  async function openInfo(p) {
+    info.p = p;
+    $('#infoHead').textContent = `🏷️ ${infoName[p]} başlık / kategori`;
+    $('#infoSave').textContent = `${infoName[p]}'te kaydet`;
+    $('#infoTitleIn').value = '';
+    $('#infoQ').value = '';
+    $('#infoWho').textContent = 'Giriş yaptığın hesabın kanalını değiştirir.';
+    infoSetCat(null);
+    infoMsg('Okunuyor…');
+    $('#infoDlg').classList.remove('hidden');
+    const r = await infoRun('get');
+    if (!r.ok) return infoMsg(infoErr(r.err), 'err');
+    $('#infoTitleIn').value = r.data.title || '';
+    infoSetCat(r.data.cat || null);
+    if (r.data.me) $('#infoWho').textContent = `Kanal: ${r.data.me}`;
+    infoMsg('');
+  }
+  $('#infoCatChange').addEventListener('click', () => { infoSetCat(null); $('#infoQ').focus(); });
+  $('#infoQ').addEventListener('input', () => {
+    clearTimeout(info.timer);
+    const q = $('#infoQ').value.trim();
+    if (q.length < 2) { $('#infoHits').innerHTML = ''; return; }
+    info.timer = setTimeout(async () => {
+      const r = await infoRun('search', { q });
+      const box = $('#infoHits');
+      box.innerHTML = '';
+      (r.ok ? r.data : []).forEach((h) => {
+        const b = document.createElement('button');
+        b.textContent = '🎮 ' + h.name;
+        b.addEventListener('click', () => infoSetCat(h));
+        box.appendChild(b);
+      });
+    }, 350);
+  });
+  $('#infoSave').addEventListener('click', async () => {
+    const title = $('#infoTitleIn').value.trim();
+    if (!title) return infoMsg('Başlığı yaz.', 'err');
+    $('#infoSave').disabled = true;
+    infoMsg('Kaydediliyor…');
+    const r = await infoRun('save', { title, cat: info.cat });
+    $('#infoSave').disabled = false;
+    if (r.ok) infoMsg(`✓ ${infoName[info.p]}'te kaydedildi`, 'ok');
+    else infoMsg(infoErr(r.err), 'err');
+  });
+
   function paneAction(p, act) {
     const pane = panes[p];
     switch (act) {
@@ -160,6 +222,9 @@
         break;
       case 'chat':
         openChat(p);
+        break;
+      case 'info':
+        openInfo(p);
         break;
       case 'zoom-in':
       case 'zoom-out': {
@@ -517,13 +582,13 @@
   });
   $('#themeBtn').addEventListener('click', () => themeDlg.classList.remove('hidden'));
   applyTheme();
-  for (const d of [reportDlg, inboxDlg, themeDlg, $('#settingsDlg'), $('#privacyDlg')]) {
+  for (const d of [reportDlg, inboxDlg, themeDlg, $('#settingsDlg'), $('#privacyDlg'), $('#infoDlg')]) {
     d.addEventListener('click', (e) => {
       if (e.target === d || e.target.closest('[data-close]')) d.classList.add('hidden');
     });
   }
   window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') { reportDlg.classList.add('hidden'); inboxDlg.classList.add('hidden'); themeDlg.classList.add('hidden'); $('#settingsDlg').classList.add('hidden'); $('#privacyDlg').classList.add('hidden'); }
+    if (e.key === 'Escape') { reportDlg.classList.add('hidden'); inboxDlg.classList.add('hidden'); themeDlg.classList.add('hidden'); $('#settingsDlg').classList.add('hidden'); $('#privacyDlg').classList.add('hidden'); $('#infoDlg').classList.add('hidden'); }
   });
 
   function reportHint(text, cls) {

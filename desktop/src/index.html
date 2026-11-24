@@ -77,6 +77,7 @@
         <span class="cat"></span>
         <span class="status"></span>
         <div class="spacer"></div>
+        <button class="btn mini" data-act="info" title="Yayın başlığı / kategori">🏷️</button>
         <button class="btn mini" data-act="compose" title="Mesaj kutusunu aç / kapat">✏️</button>
         <button class="btn mini" data-act="chat" title="Chat'e geri dön / yenile">⟳</button>
         <button class="btn mini" data-act="zoom-out" title="Yazıyı küçült">A−</button>
@@ -98,6 +99,7 @@
         <span class="cat"></span>
         <span class="status"></span>
         <div class="spacer"></div>
+        <button class="btn mini" data-act="info" title="Yayın başlığı / kategori">🏷️</button>
         <button class="btn mini" data-act="compose" title="Mesaj kutusunu aç / kapat">✏️</button>
         <button class="btn mini" data-act="chat" title="Chat'e geri dön / yenile">⟳</button>
         <button class="btn mini" data-act="zoom-out" title="Yazıyı küçült">A−</button>
@@ -139,6 +141,21 @@
         <button class="set-item" data-action="logout"><b>🚪 Hesaplardan çık</b><small>Twitch ve Kick hesaplarından çıkış yap</small></button>
         <button class="set-item" data-action="privacy"><b>🔒 Gizlilik</b><small>Hangi verilerin neden toplandığı</small></button>
       </div>
+    </div>
+  </div>
+
+  <div id="infoDlg" class="dlg-wrap hidden">
+    <div class="dlg info-dlg">
+      <div class="dlg-head"><strong id="infoHead">🏷️ Başlık / Kategori</strong><div class="spacer"></div><button class="btn mini" data-close>✕</button></div>
+      <p class="dlg-note" id="infoWho">Giriş yaptığın hesabın kanalını değiştirir.</p>
+      <label class="info-label">Başlık</label>
+      <input id="infoTitleIn" maxlength="140" placeholder="Yayın başlığı" />
+      <label class="info-label">Kategori</label>
+      <div id="infoCat" class="info-cat hidden"><span id="infoCatName"></span><button class="btn mini" id="infoCatChange">Değiştir</button></div>
+      <input id="infoQ" placeholder="Kategori ara (örn: Just Chatting)" />
+      <div id="infoHits" class="info-hits"></div>
+      <p class="dlg-note" id="infoMsg"></p>
+      <div class="dlg-foot"><div class="spacer"></div><button class="btn" data-close>Kapat</button><button class="btn act" id="infoSave">Kaydet</button></div>
     </div>
   </div>
 

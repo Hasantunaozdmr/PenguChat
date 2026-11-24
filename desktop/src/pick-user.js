@@ -238,6 +238,87 @@
   };
   window.__penguReadOnly = () => window.__penguComposer(false);
 
+  // ---- 🏷️ Yayın başlığı / kategori (giriş yapılmış hesabın kendi kanalı) ----
+  // PC ve telefondaki chat ekranının 🏷️ düğmesi kullanır: __penguInfoRun('get' | 'search' | 'save', { ... })
+  {
+    const gql = async (q, v) => {
+      const t = cookie('auth-token');
+      if (!t) throw new Error('login');
+      const r = await fetch('https://gql.twitch.tv/gql', { method: 'POST', headers: { 'Client-Id': 'kimne78kx3ncx6brgo4mv6wki5h1ko', Authorization: 'OAuth ' + t }, body: JSON.stringify({ query: q, variables: v || {} }) });
+      if (r.status === 401) throw new Error('login');
+      const j = await r.json();
+      if (j.errors && j.errors.length) throw new Error(j.errors[0].message || 'Twitch hatası');
+      return j.data || {};
+    };
+    const kk = async (path, method, body) => {
+      const t = cookie('session_token');
+      if (!t) throw new Error('login');
+      const h = { Accept: 'application/json', Authorization: 'Bearer ' + t };
+      const x = cookie('XSRF-TOKEN');
+      if (x) h['X-XSRF-TOKEN'] = x;
+      if (body) h['Content-Type'] = 'application/json';
+      const r = await fetch(path, { method: method || 'GET', credentials: 'include', headers: h, body: body ? JSON.stringify(body) : undefined });
+      if (r.status === 401) throw new Error('login');
+      if (!r.ok) throw new Error('Kick kabul etmedi (' + r.status + ')');
+      const tx = await r.text();
+      return tx ? JSON.parse(tx) : {};
+    };
+    let infoMe = null;
+    const twMe = async () => {
+      if (infoMe) return infoMe;
+      const d = await gql('query{currentUser{id login}}');
+      if (!d.currentUser) throw new Error('login');
+      return (infoMe = d.currentUser);
+    };
+    const kkMe = async () => {
+      if (infoMe) return infoMe;
+      const u = await kk('/api/v1/user');
+      if (!u || !u.username) throw new Error('login');
+      return (infoMe = { slug: String(u.username).toLowerCase().replace(/_/g, '-'), login: u.username });
+    };
+    const ops = {
+      async get() {
+        if (isTwitch) {
+          const u = await twMe();
+          const d = await gql('query($id:ID!){user(id:$id){broadcastSettings{title game{id displayName}}}}', { id: u.id });
+          const b = (d.user && d.user.broadcastSettings) || {};
+          return { title: b.title || '', cat: b.game ? { id: b.game.id, name: b.game.displayName } : null, me: u.login };
+        }
+        const m = await kkMe();
+        const i = await kk('/api/v2/channels/' + m.slug + '/stream-info');
+        return { title: i.stream_title || '', cat: i.category ? { id: i.category.id, name: i.category.name } : null, me: m.login };
+      },
+      async search(a) {
+        if (isTwitch) {
+          const d = await gql('query($q:String!){searchCategories(query:$q,first:8){edges{node{id displayName}}}}', { q: a.q });
+          return ((d.searchCategories && d.searchCategories.edges) || []).map((e) => ({ id: e.node.id, name: e.node.displayName }));
+        }
+        const r = await fetch('https://search.kick.com/collections/subcategory_index/documents/search?q=' + encodeURIComponent(a.q) + '&query_by=name', { headers: { Accept: 'application/json', 'X-Typesense-Api-Key': 'nXIMW0iEN6sMujFYjFuhdrSwVow3pDQu' } });
+        const j = await r.json();
+        return (j.hits || []).slice(0, 8).map((h) => ({ id: h.document.id, name: h.document.name }));
+      },
+      async save(a) {
+        if (isTwitch) {
+          const u = await twMe();
+          const inp = { userID: u.id, status: a.title };
+          if (a.cat) { inp.categoryID = String(a.cat.id); inp.game = a.cat.name; }
+          const d = await gql('mutation($input:UpdateBroadcastSettingsInput!){updateBroadcastSettings(input:$input){error}}', { input: inp });
+          const e = d.updateBroadcastSettings && d.updateBroadcastSettings.error;
+          if (e) throw new Error(String(e));
+          return true;
+        }
+        const m = await kkMe();
+        const body = { stream_title: a.title };
+        if (a.cat) body.category_id = Number(a.cat.id);
+        await kk('/api/v2/channels/' + m.slug + '/stream-info', 'PATCH', body);
+        return true;
+      },
+    };
+    window.__penguInfoRun = async (op, a) => {
+      try { return { ok: true, data: await ops[op](a || {}) }; } catch (e) { return { ok: false, err: String((e && e.message) || e) }; }
+    };
+  }
+
   // ---- Yayının anlık izleyici sayısı (yayın kapalıysa null) ----
   window.__penguViewers = async (channel) => {
     let n = null;

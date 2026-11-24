@@ -23,7 +23,7 @@ import Constants from 'expo-constants';
 import { PLATFORMS, cleanChannel, hasLink, isInternalUrl, parseTargets } from './src/links';
 import { FIT_POPUPS_JS, PICK_USER_JS } from './src/injected';
 import { WS_SNIFF_JS } from './src/wsSniff';
-import LiveScreen from './src/LiveScreen';
+import LiveScreen, { InfoSheet } from './src/LiveScreen';
 import ReportModal, { applyModalTheme, countNew, hasMineNews, loadAdmin, storeAdmin } from './src/ReportModal';
 const { themeFrom, PRESETS: THEME_PRESETS, DEFAULT: THEME_DEFAULT } = require('./src/theme');
 const EV = require('./src/events');
@@ -236,6 +236,7 @@ function PenguChat() {
   }, []);
   const [ownerOn, setOwnerOn] = useState({ twitch: false, kick: false }); // sahibin hesabıyla girilmiş mi
   const [accounts, setAccounts] = useState({ twitch: '', kick: '' }); // giriş yapılmış hesap adları
+  const [infoFor, setInfoFor] = useState(null); // 🏷️ başlık / kategori penceresi (twitch | kick)
   // Uygulama içi yetkiler (📥 → 👥 Yetkiler'den verilir; giriş yapılan Twitch/Kick adına göre)
   const [roles, setRoles] = useState({ modlog: false, reports: false, stats: false, stream: false });
   const anyRole = roles.modlog || roles.reports || roles.stats;
@@ -431,6 +432,7 @@ function PenguChat() {
   // ---- Panel işlemleri ----
   const paneAction = (k, act) => {
     const wv = views.current[k];
+    if (act === 'info') return setInfoFor(k); // 🏷️ yayın başlığı / kategori
     if (act === 'compose') {
       const on = !composeRef.current[k];
       setCompose((p) => ({ ...p, [k]: on }));
@@ -984,6 +986,8 @@ function PenguChat() {
           ];
         })}
       </View>
+      {/* 🏷️ Yayın başlığı / kategori (en üstte, chat'lerin üstünde) */}
+      {!!infoFor && <InfoSheet C={C} ins={{ top: 0, bottom: 0, left: 0, right: 0 }} platform={infoFor} setPlatform={setInfoFor} userAgent={USER_AGENT} onClose={() => setInfoFor(null)} />}
     </View>
   );
 }
@@ -1249,6 +1253,7 @@ function PaneButtons({ k, compose, onAction }) {
   );
   return (
     <View style={styles.row}>
+      {btn('info', '🏷️')}
       {btn('compose', '✏️', compose)}
       {btn('chat', '⟳')}
       {btn('zoom-out', 'A−')}
