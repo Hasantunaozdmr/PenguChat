@@ -53,5 +53,8 @@ jobs:
           a = rd.dig('data', 'attributes') || {}
           ph = a['contactPhone'].to_s
           puts "İnceleme bilgisi: ad #{!a['contactFirstName'].to_s.empty?} · soyad #{!a['contactLastName'].to_s.empty?} · telefon #{ph.empty? ? 'boş' : 'dolu (' + ph.gsub(/\d/, '#') + ')'} · mail #{!a['contactEmail'].to_s.empty?} · not #{!a['notes'].to_s.empty?}"
+          c, dv = get("/v1/devices?limit=50", tok)
+          puts "Kayıtlı cihaz sayısı: #{(dv['data'] || []).size} (#{c})"
+          (dv['data'] || []).each { |d| a = d['attributes']; puts "  cihaz: #{a['deviceClass']} · #{a['model']} · durum #{a['status']} · eklendi #{a['addedDate'].to_s[0, 10]}" }
           RUBY
           ruby /tmp/status.rb
