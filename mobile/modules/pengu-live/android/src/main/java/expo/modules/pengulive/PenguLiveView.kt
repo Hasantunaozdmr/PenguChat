@@ -141,7 +141,11 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
       // Telefon döndüyse ekran öğelerinin oranını düzelt
       val p = isPortrait()
       val r = displayDeg()
-      if (p != lastPortrait || r != lastRot) { lastPortrait = p; lastRot = r; overlays.values.forEach { place(it) } }
+      if (p != lastPortrait || r != lastRot) {
+        lastPortrait = p; lastRot = r
+        syncStreamOrientation()
+        overlays.values.forEach { place(it) }
+      }
       main.postDelayed(this, 1000)
     }
   }
@@ -438,6 +442,18 @@ class PenguLiveView(context: Context, appContext: AppContext) : ExpoView(context
       onNotice(mapOf("message" to msg))
       // Açılamadıysa kutuyu kaldır (yayında boş kutu kalmasın)
       overlays["cam"]?.let { removeOverlay("cam") }
+    }
+  }
+
+  // 📱 Döndürme tuşu ekranı telefon dönmeden çevirebilir. Kütüphane yönü sadece telefon fiziksel olarak dönünce
+  // güncelliyor; ekran yönü değişince görüntünün yönünü ekrana göre biz ayarlarız (kütüphanenin kendi hesabıyla aynı)
+  private fun syncStreamOrientation() {
+    runCatching {
+      val o = CameraHelper.getCameraOrientation(context)
+      val deg = if (o == 0) 270 else o - 90
+      val gl = stream.getGlInterface()
+      gl.setCameraOrientation(deg)
+      gl.setIsPortrait(deg == 0 || deg == 180)
     }
   }
 
