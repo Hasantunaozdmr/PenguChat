@@ -24,7 +24,7 @@ Paneller platformların **resmi popout chat'leridir**. Hesabınla giriş yaptı�
 ## Kurulum
 
 ### Windows
-**https://github.com/Hasantunaozdmr/PenguChat/releases/latest/download/PenguChat-Setup.exe** dosyasını indir ve kur.
+**https://github.com/pengulivedestek-cmd/PenguChat/releases/latest/download/PenguChat-Setup.exe** dosyasını indir ve kur.
 Sonraki sürümler uygulamanın içindeki **⬆ Güncelle** düğmesiyle gelir.
 
 ### Kaynaktan çalıştırma

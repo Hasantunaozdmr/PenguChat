@@ -42,7 +42,7 @@ const DEVICE = (() => {
 })();
 
 const STORE_KEY = 'dualchat:settings';
-const RELEASE_BASE = 'https://github.com/Hasantunaozdmr/PenguChat/releases/latest/download';
+const RELEASE_BASE = 'https://github.com/pengulivedestek-cmd/PenguChat/releases/latest/download';
 const APP_VERSION = Constants.expoConfig?.version || '0.0.0';
 
 function isNewer(a, b) {

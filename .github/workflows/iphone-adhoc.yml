@@ -1,7 +1,7 @@
 name: PenguLive - iPhone Ad Hoc (linkten kurulum)
 
 # iPhone sürümünü kayıtlı iPhone'lar için (Ad Hoc) imzalar. Çıkan .ipa "iphone-adhoc" sürümüne yüklenir,
-# telefondan https://hasantunaozdmr.github.io/PenguChat/ios/ sayfasındaki düğmeyle doğrudan kurulur (TestFlight gerekmez).
+# telefondan https://pengulivedestek-cmd.github.io/PenguChat/ios/ sayfasındaki düğmeyle doğrudan kurulur (TestFlight gerekmez).
 # Gerekenler (GitHub → Settings → Secrets → Actions): ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8
 # (App Store Connect API anahtarı). Anahtarlar sadece bu adımda geçici bir dosyaya yazılır.
 on:
@@ -106,9 +106,9 @@ jobs:
           cp "$RUNNER_TEMP/out/PenguLive.ipa" PenguLive.ipa
           gh release view iphone-adhoc >/dev/null 2>&1 || gh release create iphone-adhoc --prerelease --latest=false \
             --title "PenguLive iPhone (linkten kurulum)" \
-            --notes "Kayıtlı iPhone'lar için. Telefondan https://hasantunaozdmr.github.io/PenguChat/ios/ adresini açıp Yükle'ye basın."
+            --notes "Kayıtlı iPhone'lar için. Telefondan https://pengulivedestek-cmd.github.io/PenguChat/ios/ adresini açıp Yükle'ye basın."
           gh release upload iphone-adhoc PenguLive.ipa --clobber
-          echo "✅ Hazır: https://hasantunaozdmr.github.io/PenguChat/ios/"
+          echo "✅ Hazır: https://pengulivedestek-cmd.github.io/PenguChat/ios/"
 
       - name: Yeni sertifika var mı
         id: newcert

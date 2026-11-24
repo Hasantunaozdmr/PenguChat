@@ -22,7 +22,7 @@ Masaüstü PenguLive'in telefon sürümü. Twitch ve Kick'in resmi chat sayfalar
 ## Kurulum
 
 ### Android
-**https://github.com/Hasantunaozdmr/PenguChat/releases/latest/download/PenguChat.apk** dosyasını telefona indir ve aç. Telefon "bilinmeyen kaynaklardan uygulama yükleme" izni isterse ver.
+**https://github.com/pengulivedestek-cmd/PenguChat/releases/latest/download/PenguChat.apk** dosyasını telefona indir ve aç. Telefon "bilinmeyen kaynaklardan uygulama yükleme" izni isterse ver.
 
 ### iPhone
 Hazır bir iPhone sürümü yok; Apple, App Store dışından uygulama kurmayı zorlaştırıyor. İki yol var:

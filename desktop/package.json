@@ -32,7 +32,7 @@
     "publish": [
       {
         "provider": "generic",
-        "url": "https://github.com/Hasantunaozdmr/PenguChat/releases/latest/download"
+        "url": "https://github.com/pengulivedestek-cmd/PenguChat/releases/latest/download"
       }
     ],
     "win": {

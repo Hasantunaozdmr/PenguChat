@@ -5,7 +5,7 @@ Paneller platformların resmi chat sayfalarıdır: hesabınla giriş yaptığın
 
 ## İndir
 
-**https://github.com/Hasantunaozdmr/PenguChat/releases/latest**
+**https://github.com/pengulivedestek-cmd/PenguChat/releases/latest**
 
 | | Dosya |
 |---|---|
