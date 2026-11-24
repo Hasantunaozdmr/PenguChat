@@ -3,13 +3,8 @@ name: PenguLive - iPhone TestFlight
 # iPhone sürümünü Apple hesabıyla imzalayıp TestFlight'a gönderir.
 # Gerekenler (GitHub → Settings → Secrets → Actions): ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8
 # (App Store Connect API anahtarı). Anahtarlar sadece bu adımda geçici bir dosyaya yazılır.
+# Şimdilik sadece elle çalıştırılır (TestFlight davetleri Apple tarafında takılı; iPhone kurulumu iphone-adhoc.yml ile)
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "mobile/**"
-      - ".github/workflows/testflight.yml"
   workflow_dispatch:
 
 concurrency:
@@ -66,6 +61,17 @@ jobs:
           echo "ASC_KEY_PATH=$RUNNER_TEMP/asc/AuthKey_$KEY_ID.p8" >> "$GITHUB_ENV"
           echo "ASC_KID=$KEY_ID" >> "$GITHUB_ENV"
           echo "ASC_ISS=$(printf '%s' "$ASC_ISSUER_ID" | tr -d '[:space:]')" >> "$GITHUB_ENV"
+          # Saklanan sertifikanın şifresi (API anahtarından türetilir, kayıtlarda gizlenir)
+          CP=$(printf '%s' "$ASC_KEY_P8" | shasum -a 256 | cut -d' ' -f1)
+          echo "::add-mask::$CP"
+          echo "CERT_PASS=$CP" >> "$GITHUB_ENV"
+
+      - name: Kayıtlı sertifika (önbellek)
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/cert-store
+          key: dist-cert-${{ github.run_id }}
+          restore-keys: dist-cert-
 
       - name: Sürüm numarası
         working-directory: mobile/ios
@@ -86,6 +92,18 @@ jobs:
           FASTLANE_HIDE_CHANGELOG: "1"
           FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: "120"
 
+      - name: Yeni sertifika var mı
+        id: newcert
+        if: always()
+        run: '[ -f "$RUNNER_TEMP/cert-store/new" ] && echo "yes=1" >> "$GITHUB_OUTPUT" || true'
+
+      - name: Yeni sertifikayı sakla (şifreli)
+        if: always() && steps.newcert.outputs.yes == '1'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/cert-store
+          key: dist-cert-${{ github.run_id }}
+
       - name: Derleme kaydı (hata olursa)
         if: failure()
         run: |
@@ -94,5 +112,5 @@ jobs:
       - name: Anahtarı sil
         if: always()
         run: |
-          rm -rf "$RUNNER_TEMP/asc"
+          rm -rf "$RUNNER_TEMP/asc" "$RUNNER_TEMP/cert-work"
           security delete-keychain ci-db 2>/dev/null || true

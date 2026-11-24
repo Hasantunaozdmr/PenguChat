@@ -1,39 +1,77 @@
-# 📲 iPhone → TestFlight (GitHub Actions'ta çalışır: .github/workflows/testflight.yml)
-# Gerçek bir "Apple Distribution" sertifikası ve App Store profiliyle imzalar, TestFlight'a yükler.
-# Anahtar bilgileri ortam değişkenlerinden gelir (ASC_KID, ASC_ISS, ASC_KEY_PATH, TEAM_ID); dosyada sır yok.
+# 📲 iPhone imzalama (GitHub Actions'ta çalışır)
+# - beta:  App Store profiliyle imzalar, TestFlight'a yükler (.github/workflows/testflight.yml)
+# - adhoc: Kayıtlı iPhone'lar için imzalar, linkten doğrudan kurulan .ipa üretir (.github/workflows/iphone-adhoc.yml)
+# Dağıtım sertifikası bir kez oluşturulur ve şifreli olarak GitHub önbelleğinde saklanır; sonraki derlemeler
+# aynısını kullanır. Böylece sertifika silinmez, önceki sürümler (TestFlight / linkten kurulan) bozulmaz.
+# Anahtar bilgileri ortam değişkenlerinden gelir (ASC_KID, ASC_ISS, ASC_KEY_PATH, TEAM_ID, CERT_PASS); dosyada sır yok.
 default_platform(:ios)
 
 APP_ID = "com.dualchat.mobile"
 
 platform :ios do
-  lane :beta do
+  # Ortak: API anahtarı + sertifika (saklanandan ya da yeni) + profil + imza ayarları. Profil adını döndürür.
+  private_lane :sign_setup do |options|
+    adhoc = options[:adhoc] == true
     team = ENV.fetch("TEAM_ID")
     api = app_store_connect_api_key(
       key_id: ENV.fetch("ASC_KID"),
       issuer_id: ENV.fetch("ASC_ISS"),
       key_filepath: ENV.fetch("ASC_KEY_PATH")
     )
-
-    # Her çalışmada yeni bir makine: önceki çalışmaların bıraktığı dağıtım sertifikalarını sil
-    # (Apple ekip başına sadece birkaç tane izin veriyor). Yayındaki / TestFlight'taki sürümleri etkilemez.
     Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.from(hash: api)
-    Spaceship::ConnectAPI::Certificate.all(filter: { certificateType: "DISTRIBUTION,IOS_DISTRIBUTION" }).each do |c|
-      UI.message("Eski dağıtım sertifikası siliniyor: #{c.display_name || c.name} (#{c.id})")
-      c.delete!
+
+    keychain = File.expand_path("~/Library/Keychains/ci-db")
+    create_keychain(name: "ci", password: "ci", default_keychain: true, unlock: true, timeout: 3600, lock_when_sleeps: false)
+
+    # Önceki çalışmada saklanan sertifika varsa anahtarlığa koy (get_certificates onu bulup kullanır)
+    store = File.join(ENV.fetch("RUNNER_TEMP"), "cert-store")
+    work = File.join(ENV.fetch("RUNNER_TEMP"), "cert-work")
+    FileUtils.mkdir_p([store, work])
+    FileUtils.rm_f(File.join(store, "new"))
+    pass = ENV["CERT_PASS"].to_s
+    saved = nil
+    enc = File.join(store, "cert.enc")
+    if File.exist?(enc) && !pass.empty?
+      ok = system("openssl", "enc", "-d", "-aes-256-cbc", "-pbkdf2", "-iter", "200000", "-pass", "env:CERT_PASS",
+                  "-in", enc, "-out", File.join(work, "cert.tgz")) &&
+           system("tar", "-xzf", File.join(work, "cert.tgz"), "-C", work)
+      saved = File.read(File.join(work, "id")).strip if ok && File.exist?(File.join(work, "id"))
+      if saved
+        [".cer", ".p12"].each do |ext|
+          FastlaneCore::KeychainImporter.import_file(File.join(work, saved + ext), keychain, keychain_password: "ci", certificate_password: "")
+        end
+        UI.message("Kayıtlı sertifika denenecek: #{saved}")
+      else
+        UI.important("Kayıtlı sertifika açılamadı, yenisi oluşturulacak")
+      end
     end
 
-    create_keychain(name: "ci", password: "ci", default_keychain: true, unlock: true, timeout: 3600, lock_when_sleeps: false)
-    get_certificates(
-      api_key: api,
-      development: false,
-      keychain_path: File.expand_path("~/Library/Keychains/ci-db"),
-      keychain_password: "ci",
-      output_path: ENV.fetch("RUNNER_TEMP")
-    )
+    cert_opts = { api_key: api, development: false, keychain_path: keychain, keychain_password: "ci", output_path: work }
+    begin
+      get_certificates(cert_opts)
+    rescue => e
+      # Apple ekip başına sınırlı sayıda dağıtım sertifikasına izin veriyor: sınır dolduysa eskileri silip tekrar dene
+      UI.important("Sertifika alınamadı (#{e.message}); eski dağıtım sertifikaları silinip tekrar denenecek")
+      Spaceship::ConnectAPI::Certificate.all(filter: { certificateType: "DISTRIBUTION,IOS_DISTRIBUTION" }).each(&:delete!)
+      get_certificates(cert_opts)
+    end
+    cid = lane_context[SharedValues::CERT_CERTIFICATE_ID].to_s
+    if cid != saved.to_s && !pass.empty? && File.exist?(File.join(work, cid + ".p12"))
+      # Yeni sertifika oluştu: şifreleyip sakla (workflow önbelleğe kaydeder)
+      File.write(File.join(work, "id"), cid)
+      system("tar", "-czf", File.join(work, "cert.tgz"), "-C", work, "id", cid + ".cer", cid + ".p12") &&
+        system("openssl", "enc", "-aes-256-cbc", "-pbkdf2", "-iter", "200000", "-salt", "-pass", "env:CERT_PASS",
+               "-in", File.join(work, "cert.tgz"), "-out", enc) &&
+        File.write(File.join(store, "new"), cid)
+      UI.message("Yeni sertifika saklandı: #{cid}")
+    end
+
+    # Ad Hoc profil her seferinde yenilenir (yeni kaydedilen iPhone'lar da girsin); App Store profili tekrar kullanılır
     get_provisioning_profile(
       api_key: api,
       app_identifier: APP_ID,
-      force: true,
+      adhoc: adhoc,
+      force: adhoc,
       output_path: ENV.fetch("RUNNER_TEMP")
     )
     profile = lane_context[SharedValues::SIGH_NAME]
@@ -48,18 +86,39 @@ platform :ios do
       targets: ["PenguLive"],
       build_configurations: ["Release"]
     )
+    profile
+  end
 
+  lane :beta do
+    profile = sign_setup(adhoc: false)
     build_app(
       workspace: "ios/PenguLive.xcworkspace",
       scheme: "PenguLive",
       configuration: "Release",
       export_method: "app-store",
-      export_team_id: team,
+      export_team_id: ENV.fetch("TEAM_ID"),
       export_options: { provisioningProfiles: { APP_ID => profile } },
       output_directory: File.join(ENV.fetch("RUNNER_TEMP"), "out"),
       buildlog_path: File.join(ENV.fetch("RUNNER_TEMP"), "buildlog")
     )
+    upload_to_testflight(
+      api_key: app_store_connect_api_key(key_id: ENV.fetch("ASC_KID"), issuer_id: ENV.fetch("ASC_ISS"), key_filepath: ENV.fetch("ASC_KEY_PATH")),
+      skip_waiting_for_build_processing: true
+    )
+  end
 
-    upload_to_testflight(api_key: api, skip_waiting_for_build_processing: true)
+  lane :adhoc do
+    profile = sign_setup(adhoc: true)
+    build_app(
+      workspace: "ios/PenguLive.xcworkspace",
+      scheme: "PenguLive",
+      configuration: "Release",
+      export_method: "ad-hoc",
+      export_team_id: ENV.fetch("TEAM_ID"),
+      export_options: { provisioningProfiles: { APP_ID => profile } },
+      output_directory: File.join(ENV.fetch("RUNNER_TEMP"), "out"),
+      output_name: "PenguLive.ipa",
+      buildlog_path: File.join(ENV.fetch("RUNNER_TEMP"), "buildlog")
+    )
   end
 end

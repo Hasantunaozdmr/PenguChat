@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <title>PenguLive iPhone kurulumu</title>
+  <link rel="icon" href="../media/icon.png" />
+  <style>
+    :root { --bg: #0a6b67; --bg2: #063f3d; --text: #fff; --muted: #c9f3ef; --border: #23bdb5; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; font: 17px/1.55 -apple-system, system-ui, "Segoe UI", Roboto, sans-serif; color: var(--text);
+      background: radial-gradient(900px 600px at 50% -10%, #13a39d, var(--bg) 45%, var(--bg2) 100%) no-repeat, var(--bg2); }
+    .wrap { max-width: 520px; margin: 0 auto; padding: 40px 16px; text-align: center; }
+    img { width: 110px; height: 110px; border-radius: 24px; box-shadow: 0 10px 25px rgba(0,0,0,.35); }
+    h1 { margin: 14px 0 4px; font-size: 32px; }
+    p { color: var(--muted); }
+    a.btn { display: block; margin: 24px 0 8px; padding: 16px; border-radius: 14px; background: #fff; color: #063f3d; font-weight: 800; font-size: 20px; text-decoration: none; }
+    ol { text-align: left; background: rgba(0,0,0,.22); border: 1px solid var(--border); border-radius: 14px; padding: 16px 16px 16px 36px; }
+    li { margin: 6px 0; }
+    small { color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <img src="../media/icon.png" alt="PenguLive" />
+    <h1>PenguLive</h1>
+    <p>iPhone'a doğrudan kurulum (TestFlight gerekmez)</p>
+    <a class="btn" href="itms-services://?action=download-manifest&amp;url=https://hasantunaozdmr.github.io/PenguChat/ios/manifest.plist">⬇ Yükle</a>
+    <small>Bu sayfayı iPhone'da <b>Safari</b> ile açın.</small>
+    <ol>
+      <li><b>Yükle</b>'ye basın, "Yüklensin mi?" sorusuna <b>Yükle</b> deyin.</li>
+      <li>Ana ekranda PenguLive inerken bekleyin.</li>
+      <li>İlk açılışta izin isterse: <b>Ayarlar → Gizlilik ve Güvenlik → Geliştirici Modu</b>'nu açın (telefon yeniden başlar).</li>
+      <li>Güncelleme gelince bu sayfadan tekrar <b>Yükle</b>'ye basın; ayarlarınız silinmez.</li>
+    </ol>
+    <small>Sadece kayıtlı iPhone'larda çalışır.</small>
+  </div>
+</body>
+</html>
