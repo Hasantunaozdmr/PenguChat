@@ -108,6 +108,17 @@ final class PenguLiveView: ExpoView {
     let ok = bounds.width >= 8 && bounds.height >= 8
     preview.isHidden = !ok
     if ok { preview.frame = bounds }
+    // 📱 Döndürme tuşu ekranı telefon dönmeden çevirebilir: telefonun değil ekranın yönüne göre ayarla
+    if running && window != nil {
+      let p = currentPortrait()
+      if p != portrait {
+        portrait = p
+        Task {
+          await applyOrientation()
+          await applyOverlays()
+        }
+      }
+    }
   }
 
   // Ekran açılınca kamerayı başlat, kapanınca her şeyi durdur
