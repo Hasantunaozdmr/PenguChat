@@ -1008,7 +1008,25 @@
       }
       const text = parts.map((x) => x.t || (x.n ? ':' + x.n + ':' : '')).join('').trim();
       if (!text) return;
-      chatPost({ p: 'kick', id: 'kd:' + (box.getAttribute('data-index') || '') + ':' + user + ':' + text.slice(0, 40), user, color: hex.length === 6 ? '#' + hex : '', text, b, parts: parts.some((x) => x.e) ? parts : null });
+      const msg = { p: 'kick', id: 'kd:' + (box.getAttribute('data-index') || '') + ':' + user + ':' + text.slice(0, 40), user, color: hex.length === 6 ? '#' + hex : '', text, b, parts: parts.some((x) => x.e) ? parts : null };
+      // Rozetler: Kick'in kendi "kullanıcı kartı" bilgisinden (sitede ada basınca açılan) — sayfadaki çizimlerden daha güvenilir
+      userBadges(user).then((ub) => { if (ub) msg.b = ub; chatPost(msg); });
+    };
+    // Kullanıcının bu kanaldaki rozetleri (abone ay sayısı, mod, VIP, OG…); kişi başı bir kez sorulur
+    const ubCache = {};
+    const userBadges = (user) => {
+      const key = String(user).toLowerCase();
+      if (ubCache[key] !== undefined) return Promise.resolve(ubCache[key]);
+      const p = new Promise((res) => {
+        const done = (v) => { ubCache[key] = v; res(v); };
+        const t = setTimeout(() => res(null), 1500); // geç kalırsa mesajı bekletme
+        fetch('/api/v2/channels/' + encodeURIComponent(slug()) + '/users/' + encodeURIComponent(key), { credentials: 'include', headers: { Accept: 'application/json' } })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((j) => { clearTimeout(t); done(j && Array.isArray(j.badges) ? kickBadges(j.badges) : null); })
+          .catch(() => { clearTimeout(t); done(null); });
+      });
+      ubCache[key] = undefined;
+      return p;
     };
     const startDom = () => {
       if (domObs) return;
