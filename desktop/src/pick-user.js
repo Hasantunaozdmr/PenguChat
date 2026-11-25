@@ -1038,11 +1038,20 @@
       });
       domObs = new MutationObserver((ms) => {
         if (!window.__penguChatOn) return;
+        // Yeni gelen mesaj satırlarını topla. Kick eski mesajları (geçmişi) tek seferde topluca ekler:
+        // ilk saniyelerde 2+, sonra 6+ satır birden gelirse bunlar eski mesajdır, gösterilmez.
+        const rows = [];
         ms.forEach((m) => m.addedNodes.forEach((n) => {
           if (n.nodeType !== 1) return;
-          domMsg(n);
-          n.querySelectorAll && n.querySelectorAll('[data-index]').forEach(domMsg);
+          const own = n.closest && n.closest('[data-index]');
+          if (own) rows.push(own);
+          n.querySelectorAll && n.querySelectorAll('[data-index]').forEach((x) => rows.push(x));
         }));
+        const uniq = [...new Set(rows)].filter((x) => !x.__penguSeen);
+        if (!uniq.length) return;
+        const early = Date.now() - domSince < 4000;
+        if (uniq.length >= (early ? 2 : 6)) { uniq.forEach((x) => { x.__penguSeen = true; }); return; }
+        uniq.forEach(domMsg);
       });
       domObs.observe(document.body, { childList: true, subtree: true });
       domSince = Date.now();
